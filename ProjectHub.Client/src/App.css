@@ -1,0 +1,126 @@
+/* src/App.css - только ~30 строк */
+
+.App {
+    text-align: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 20px;
+}
+
+.App-header {
+    color: white;
+    padding: 20px 0;
+}
+
+    .App-header h1 {
+        font-size: 2.5rem;
+        margin: 0;
+        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+    }
+
+    .App-header p {
+        margin: 5px 0 0 0;
+        opacity: 0.9;
+    }
+
+.App-main {
+    max-width: 900px;
+    margin: 0 auto;
+    background: white;
+    border-radius: 20px;
+    padding: 30px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+/* Общие стили для кнопок (могут использоваться везде) */
+.btn {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 10px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    color: white;
+}
+
+    .btn:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+    }
+
+    .btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+.btn-create {
+    background: linear-gradient(135deg, #00b09b, #96c93d);
+}
+
+.btn-view {
+    background: linear-gradient(135deg, #4facfe, #00f2fe);
+}
+
+.btn-submit {
+    background: linear-gradient(135deg, #667eea, #764ba2);
+    width: 100%;
+    margin-top: 10px;
+}
+
+.buttons-container {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+}
+
+.message {
+    padding: 12px;
+    margin: 15px 0;
+    border-radius: 10px;
+    font-weight: 500;
+}
+
+    .message.success {
+        background: #d4edda;
+        color: #155724;
+        border: 1px solid #c3e6cb;
+    }
+
+    .message.error {
+        background: #f8d7da;
+        color: #721c24;
+        border: 1px solid #f5c6cb;
+    }
+
+.loading {
+    color: #667eea;
+    font-weight: 600;
+    margin: 15px 0;
+}
+
+.no-projects {
+    color: #999;
+    font-style: italic;
+    text-align: center;
+    padding: 30px 0;
+}
+
+/* Адаптивность для App */
+@media (max-width: 600px) {
+    .App-main {
+        padding: 15px;
+    }
+
+    .btn {
+        width: 100%;
+        padding: 12px;
+    }
+
+    .buttons-container {
+        flex-direction: column;
+    }
+}

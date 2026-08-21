@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="ProjectHub.API/ProjectHub.API.csproj" />
+  <Project Path="ProjectHub.Client/projecthub.client.esproj">
+    <Build />
+    <Deploy />
+  </Project>
+</Solution>

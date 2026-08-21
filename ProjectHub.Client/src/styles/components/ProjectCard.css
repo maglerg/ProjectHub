@@ -1,0 +1,119 @@
+/* src/styles/components/ProjectCard.css */
+
+.project-item {
+    background: #f8f9fa;
+    padding: 20px;
+    margin-bottom: 15px;
+    border-radius: 12px;
+    border-left: 4px solid #667eea;
+    transition: all 0.3s ease;
+}
+
+    .project-item:hover {
+        transform: translateX(5px);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+
+.project-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    flex-wrap: wrap;
+}
+
+    .project-header h3 {
+        margin: 0;
+        color: #333;
+    }
+
+.visibility-tag {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+    .visibility-tag.public {
+        background: #d4edda;
+        color: #155724;
+    }
+
+    .visibility-tag.private {
+        background: #f8d7da;
+        color: #721c24;
+    }
+
+.project-description {
+    margin: 10px 0;
+    color: #666;
+    line-height: 1.5;
+}
+
+.project-meta {
+    display: flex;
+    gap: 20px;
+    flex-wrap: wrap;
+    margin-top: 10px;
+    font-size: 13px;
+    color: #888;
+}
+
+.meta-item {
+    background: white;
+    padding: 4px 12px;
+    border-radius: 15px;
+}
+
+    .meta-item strong {
+        color: #555;
+    }
+
+/* Код проекта в списке */
+.code-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #f8f9fa;
+    padding: 4px 10px;
+    border-radius: 4px;
+}
+
+.project-code-display {
+    font-family: 'Courier New', monospace;
+    font-weight: bold;
+    color: #2c3e50;
+    background: #ecf0f1;
+    padding: 2px 8px;
+    border-radius: 3px;
+    font-size: 13px;
+    letter-spacing: 0.5px;
+}
+
+.copy-code-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    padding: 2px 6px;
+    border-radius: 4px;
+    transition: background 0.3s;
+}
+
+    .copy-code-btn:hover {
+        background: #e0e0e0;
+    }
+
+/* Адаптивность */
+@media (max-width: 600px) {
+    .project-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .project-meta {
+        flex-direction: column;
+        gap: 8px;
+    }
+}

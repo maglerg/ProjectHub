@@ -1,0 +1,48 @@
+/* src/styles/components/ProjectList.css */
+
+.projects-container {
+    margin-top: 20px;
+    text-align: left;
+}
+
+.projects-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.projects-stats {
+    display: flex;
+    gap: 15px;
+    align-items: center;
+    margin-bottom: 15px;
+    padding: 10px 15px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    flex-wrap: wrap;
+}
+
+    .projects-stats span {
+        font-size: 14px;
+        color: #555;
+    }
+
+.filter-badge {
+    background: #3498db;
+    color: white;
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 13px;
+}
+
+    .filter-badge:last-child {
+        background: #2ecc71;
+    }
+
+/* Адаптивность */
+@media (max-width: 768px) {
+    .projects-stats {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+}
