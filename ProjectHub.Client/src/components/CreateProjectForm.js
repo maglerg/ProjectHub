@@ -1,16 +1,33 @@
 // src/components/CreateProjectForm.js
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { CATEGORIES } from '../utils/constants';
 import '../styles/components/CreateProjectForm.css';
 
-const CreateProjectForm = ({ onSubmit, loading, onCancel }) => {
+const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
     const [newProject, setNewProject] = useState({
         name: '',
         description: '',
-        category: 0,
+        category: 1,
         visibility: 1,
         deadline: new Date().toISOString()
     });
+
+    // 🆕 Сброс формы при успешном создании
+    useEffect(() => {
+        if (resetForm) {
+            resetFormData();
+        }
+    }, [resetForm]);
+
+    const resetFormData = () => {
+        setNewProject({
+            name: '',
+            description: '',
+            category: 0,
+            visibility: 1,
+            deadline: new Date().toISOString()
+        });
+    };
 
     const handleChange = (e) => {
         const { name, value } = e.target;
@@ -20,11 +37,12 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel }) => {
     const handleSubmit = (e) => {
         e.preventDefault();
         onSubmit(newProject);
+        // ❌ Не сбрасываем здесь, сброс происходит через resetForm из App
     };
 
     return (
         <form onSubmit={handleSubmit} className="create-form">
-            <h3>Новый проект</h3>
+            <h3>📝 Новый проект</h3>
 
             <div className="form-group">
                 <label>Название *</label>
@@ -35,6 +53,7 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel }) => {
                     onChange={handleChange}
                     required
                     placeholder="Введите название проекта"
+                    disabled={loading}
                 />
             </div>
 
@@ -46,6 +65,7 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel }) => {
                     onChange={handleChange}
                     placeholder="Описание проекта"
                     rows="3"
+                    disabled={loading}
                 />
             </div>
 
@@ -55,6 +75,7 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel }) => {
                     name="category"
                     value={newProject.category}
                     onChange={handleChange}
+                    disabled={loading}
                 >
                     {Object.entries(CATEGORIES).map(([value, label]) => (
                         <option key={value} value={parseInt(value)}>{label}</option>
@@ -68,9 +89,10 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel }) => {
                     name="visibility"
                     value={newProject.visibility}
                     onChange={handleChange}
+                    disabled={loading}
                 >
-                    <option value="1">Публичный</option>
-                    <option value="0">Приватный</option>
+                    <option value="1">🌍 Публичный</option>
+                    <option value="0">🔒 Приватный</option>
                 </select>
             </div>
 
@@ -81,6 +103,7 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel }) => {
                     name="deadline"
                     value={newProject.deadline.slice(0, 16)}
                     onChange={handleChange}
+                    disabled={loading}
                 />
             </div>
 
@@ -88,7 +111,7 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel }) => {
                 <button type="submit" className="btn btn-submit" disabled={loading}>
                     {loading ? '⏳ Создание...' : '✅ Создать проект'}
                 </button>
-                <button type="button" className="btn btn-cancel" onClick={onCancel}>
+                <button type="button" className="btn btn-cancel" onClick={onCancel} disabled={loading}>
                     ✖️ Отмена
                 </button>
             </div>

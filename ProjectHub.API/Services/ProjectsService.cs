@@ -1,32 +1,36 @@
 ﻿// Services/ProjectsService.cs
 using ProjectHub.API.Models;
 using ProjectHub.API.DTOs;
+using ProjectHub.API.Data;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 
 namespace ProjectHub.API.Services
 {
     public class ProjectsService
     {
-        private readonly List<Project> _projects = new();
+        private readonly AppDbContext _dbContext;
         private readonly ILogger<ProjectsService> _logger;
         private readonly CodeGeneratorService _codeGenerator;
         private const int MaxAttempts = 100;
 
         public ProjectsService(
+            AppDbContext dbContext,
             ILogger<ProjectsService> logger,
             CodeGeneratorService codeGenerator)
         {
+            _dbContext = dbContext;
             _logger = logger;
             _codeGenerator = codeGenerator;
         }
 
-        public ProjectResponse CreateProject(CreateProjectRequest request)
+        public async Task<ProjectResponse> CreateProjectAsync(CreateProjectRequest request)
         {
             _logger.LogInformation($"CREATE: {request.Name}");
 
-            var publicCode = GenerateUniqueCode();
+            var publicCode = await GenerateUniqueCodeAsync();
 
-            var project = new Project
+            var projectEntity = new ProjectEntity
             {
                 Id = Guid.NewGuid(),
                 Name = request.Name,
@@ -34,97 +38,78 @@ namespace ProjectHub.API.Services
                 Description = request.Description,
                 Category = request.Category,
                 Visibility = request.Visibility,
-                Deadline = request.Deadline
+                Deadline = request.Deadline,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow
             };
 
-            _projects.Add(project);
+            await _dbContext.Projects.AddAsync(projectEntity);
+            await _dbContext.SaveChangesAsync();
+
             _logger.LogInformation($"✅ Создан проект с кодом: {publicCode}");
 
-            return MapToResponse(project);
+            return MapToResponse(projectEntity);
         }
 
-        // ✅ Новый метод с фильтрацией
-        public List<ProjectResponse> GetProjectsFiltered(
+        public async Task<List<ProjectResponse>> GetProjectsFilteredAsync(
             ProjectCategory? category = null,
             ProjectVisibility? visibility = null)
         {
-            var filtered = _projects.AsEnumerable();
+            var query = _dbContext.Projects.AsQueryable();
 
-            // Фильтр по категории
             if (category.HasValue)
-            {
-                filtered = filtered.Where(p => p.Category == category.Value);
-            }
+                query = query.Where(p => p.Category == category.Value);
 
-            // Фильтр по видимости
             if (visibility.HasValue)
-            {
-                filtered = filtered.Where(p => p.Visibility == visibility.Value);
-            }
+                query = query.Where(p => p.Visibility == visibility.Value);
 
-            // 🔒 Всегда показываем только публичные проекты
-            // (если нет авторизации, приватные скрыты)
-            filtered = filtered.Where(p => p.Visibility == ProjectVisibility.Public);
+            // 🔒 По умолчанию только публичные
+            query = query.Where(p => p.Visibility == ProjectVisibility.Public);
+            query = query.OrderByDescending(p => p.CreatedAt);
 
-            return filtered.Select(MapToResponse).ToList();
+            var projects = await query.ToListAsync();
+            return projects.Select(MapToResponse).ToList();
         }
 
-        // Старые методы для обратной совместимости
-        public List<ProjectResponse> GetProjects()
+        public async Task<ProjectResponse> GetProjectByCodeAsync(string code)
         {
-            // По умолчанию показываем только публичные
-            return _projects
-                .Where(p => p.Visibility == ProjectVisibility.Public)
-                .Select(MapToResponse)
-                .ToList();
+            var projectEntity = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.PublicCode == code && p.Visibility == ProjectVisibility.Public);
+
+            return projectEntity != null ? MapToResponse(projectEntity) : null;
         }
 
-        public ProjectResponse GetProjectByCode(string code)
+        public async Task<bool> IsCodeExistsAsync(string code)
         {
-            var project = _projects
-                .FirstOrDefault(p => p.PublicCode == code && p.Visibility == ProjectVisibility.Public);
-
-            return project != null ? MapToResponse(project) : null;
+            return await _dbContext.Projects.AnyAsync(p => p.PublicCode == code);
         }
 
-        // Внутренние методы
-        public bool IsCodeExists(string code)
-        {
-            return _projects.Any(p => p.PublicCode == code);
-        }
-
-        private ProjectResponse MapToResponse(Project project)
-        {
-            return new ProjectResponse
-            {
-                PublicCode = project.PublicCode,
-                Name = project.Name,
-                Description = project.Description,
-                Category = project.Category,
-                Visibility = project.Visibility,
-                Deadline = project.Deadline
-            };
-        }
-
-        private string GenerateUniqueCode()
+        private async Task<string> GenerateUniqueCodeAsync()
         {
             var attempts = 0;
-
             while (attempts < MaxAttempts)
             {
                 var formattedCode = _codeGenerator.GenerateFormattedCode();
-
-                if (!IsCodeExists(formattedCode))
+                if (!await IsCodeExistsAsync(formattedCode))
                 {
-                    _logger.LogInformation($"✅ Сгенерирован уникальный код: {formattedCode} (попытка {attempts + 1})");
                     return formattedCode;
                 }
-
                 attempts++;
-                _logger.LogWarning($"⚠️ Код {formattedCode} уже существует, генерируем новый (попытка {attempts})");
             }
-
             throw new InvalidOperationException($"Не удалось сгенерировать уникальный код после {MaxAttempts} попыток");
+        }
+
+        private ProjectResponse MapToResponse(ProjectEntity entity)
+        {
+            return new ProjectResponse
+            {
+                PublicCode = entity.PublicCode,
+                Name = entity.Name,
+                Description = entity.Description,
+                Category = entity.Category,
+                Visibility = entity.Visibility,
+                Deadline = entity.Deadline
+            };
         }
     }
 }

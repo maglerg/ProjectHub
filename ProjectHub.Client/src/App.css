@@ -1,126 +1,153 @@
-/* src/App.css - только ~30 строк */
+/* src/App.css — добавить/заменить */
 
-.App {
-    text-align: center;
-    min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    padding: 20px;
-}
-
+/* 🆕 Заголовок по центру */
 .App-header {
     color: white;
-    padding: 20px 0;
+    padding: 30px 0 40px 0;
+    text-align: center;
 }
 
     .App-header h1 {
-        font-size: 2.5rem;
+        font-size: 2.8rem;
         margin: 0;
-        text-shadow: 2px 2px 4px rgba(0,0,0,0.2);
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
     }
 
-    .App-header p {
-        margin: 5px 0 0 0;
-        opacity: 0.9;
-    }
+.header-description {
+    margin: 8px 0 0 0;
+    opacity: 0.9;
+    font-size: 1.1rem;
+    letter-spacing: 1px;
+}
+.App {
+    text-align: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
+    /* ↑ Это градиентный фон, который у тебя сейчас */
+    padding: 20px;
+}
 
 .App-main {
     max-width: 900px;
     margin: 0 auto;
-    background: white;
+    background: white; /* ← Это фон основной карточки */
     border-radius: 20px;
     padding: 30px;
     box-shadow: 0 20px 60px rgba(0,0,0,0.3);
 }
+/* 🆕 Пустое состояние — красивое приветствие */
+.empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    animation: fadeIn 0.5s ease;
+}
 
-/* Общие стили для кнопок (могут использоваться везде) */
-.btn {
-    padding: 12px 30px;
-    border: none;
-    border-radius: 10px;
+.empty-state-icon {
+    font-size: 64px;
+    margin-bottom: 20px;
+}
+
+.empty-state h3 {
+    font-size: 24px;
+    color: #2c3e50;
+    margin: 0 0 10px 0;
+}
+
+.empty-state p {
+    font-size: 16px;
+    color: #7f8c8d;
+    margin: 0;
+}
+
+/* 🆕 Кнопки-табы */
+.tabs-container {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-bottom: 25px;
+    flex-wrap: wrap;
+}
+
+.tab-btn {
+    padding: 14px 35px;
+    border: 2px solid #e0e0e0;
+    border-radius: 12px;
+    background: white;
+    color: #555;
     font-size: 16px;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
-    color: white;
+    flex: 1;
+    min-width: 150px;
+    max-width: 250px;
 }
 
-    .btn:hover:not(:disabled) {
+    .tab-btn:hover {
         transform: translateY(-2px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+        border-color: #667eea;
     }
 
-    .btn:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-        transform: none;
+    .tab-btn.active {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-color: #667eea;
+        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
     }
 
-.btn-create {
-    background: linear-gradient(135deg, #00b09b, #96c93d);
+        .tab-btn.active:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+        }
+
+/* 🆕 Контент табов */
+.tab-content {
+    min-height: 200px;
+    animation: fadeIn 0.3s ease;
 }
 
-.btn-view {
-    background: linear-gradient(135deg, #4facfe, #00f2fe);
-}
-
-.btn-submit {
-    background: linear-gradient(135deg, #667eea, #764ba2);
-    width: 100%;
-    margin-top: 10px;
-}
-
-.buttons-container {
-    display: flex;
-    gap: 15px;
-    justify-content: center;
-    flex-wrap: wrap;
-    margin-bottom: 20px;
-}
-
-.message {
-    padding: 12px;
-    margin: 15px 0;
-    border-radius: 10px;
-    font-weight: 500;
-}
-
-    .message.success {
-        background: #d4edda;
-        color: #155724;
-        border: 1px solid #c3e6cb;
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
     }
 
-    .message.error {
-        background: #f8d7da;
-        color: #721c24;
-        border: 1px solid #f5c6cb;
+    to {
+        opacity: 1;
+        transform: translateY(0);
     }
-
-.loading {
-    color: #667eea;
-    font-weight: 600;
-    margin: 15px 0;
 }
 
-.no-projects {
-    color: #999;
-    font-style: italic;
-    text-align: center;
-    padding: 30px 0;
-}
-
-/* Адаптивность для App */
-@media (max-width: 600px) {
-    .App-main {
-        padding: 15px;
+/* Адаптивность */
+@media (max-width: 768px) {
+    .App-header h1 {
+        font-size: 2rem;
     }
 
-    .btn {
-        width: 100%;
-        padding: 12px;
+    .header-description {
+        font-size: 0.95rem;
     }
 
-    .buttons-container {
+    .tabs-container {
         flex-direction: column;
+        align-items: stretch;
+    }
+
+    .tab-btn {
+        max-width: none;
+        width: 100%;
+    }
+
+    .empty-state {
+        padding: 40px 15px;
+    }
+
+    .empty-state-icon {
+        font-size: 48px;
+    }
+
+    .empty-state h3 {
+        font-size: 20px;
     }
 }

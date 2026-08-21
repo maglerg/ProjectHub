@@ -22,78 +22,72 @@ namespace ProjectHub.API.Controllers
         }
 
         [HttpPost]
-        public IActionResult CreateProject(CreateProjectRequest request)
+        public async Task<IActionResult> CreateProject(CreateProjectRequest request)
         {
             try
             {
-                var projectResponse = _projectsService.CreateProject(request);
-                return CreatedAtAction(nameof(CreateProject), projectResponse);
+                _logger.LogInformation("POST CONTROLLER CALLED");
+
+                if (string.IsNullOrWhiteSpace(request.Name))
+                {
+                    return BadRequest(new { error = "Название проекта обязательно" });
+                }
+
+                var project = await _projectsService.CreateProjectAsync(request);
+                return CreatedAtAction(nameof(CreateProject), project);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogError($"Ошибка генерации кода: {ex.Message}");
+                return StatusCode(500, new { error = "Не удалось создать проект", detail = ex.Message });
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Ошибка при создании проекта: {ex.Message}");
+                _logger.LogError($"Неожиданная ошибка: {ex.Message}");
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
 
-        [HttpGet("filter")]
-        public IActionResult GetProjectsFiltered(
-    [FromQuery] ProjectCategory? category,
-    [FromQuery] ProjectVisibility? visibility)
-        {
-            try
-            {
-                _logger.LogInformation($"=== ФИЛЬТРАЦИЯ ПРОЕКТОВ: Category={category}, Visibility={visibility} ===");
-
-                var projects = _projectsService.GetProjectsFiltered(category, visibility);
-                return Ok(projects);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError($"Ошибка при фильтрации проектов: {ex.Message}");
-                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
-            }
-        }
-
-        // Можно также обновить GET /api/projects
         [HttpGet]
-        public IActionResult GetProjects(
+        public async Task<IActionResult> GetProjects(
             [FromQuery] ProjectCategory? category,
             [FromQuery] ProjectVisibility? visibility)
         {
             try
             {
                 _logger.LogInformation("=== ЗАПРОС СПИСКА ПРОЕКТОВ ===");
-                var projects = _projectsService.GetProjectsFiltered(category, visibility);
+                var projects = await _projectsService.GetProjectsFilteredAsync(category, visibility);
                 return Ok(projects);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Ошибка при возврате всех проектов: {ex.Message}");
+                _logger.LogError($"Ошибка при возврате проектов: {ex.Message}");
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
 
         [HttpGet("code/{code}")]
-        public IActionResult GetProjectByCode(string code)
+        public async Task<IActionResult> GetProjectByCode(string code)
         {
             try
             {
-                var projectResponse = _projectsService.GetProjectByCode(code);
+                _logger.LogInformation($"🔍 Поиск проекта по коду: {code}");
 
-                if (projectResponse == null)
+                var project = await _projectsService.GetProjectByCodeAsync(code);
+
+                if (project == null)
                 {
-                    _logger.LogWarning($"Проект с кодом {code} не найден");
+                    _logger.LogWarning($"❌ Проект с кодом {code} не найден");
                     return NotFound(new { error = "Проект с таким кодом не найден" });
                 }
 
-                _logger.LogInformation($"Найден проект: {projectResponse.Name}");
-                return Ok(projectResponse);
+                _logger.LogInformation($"✅ Найден проект: {project.Name}");
+                return Ok(project);
             }
             catch (Exception ex)
             {
-                _logger.LogError($"Ошибка при поиске проекта по публичному коду: {ex.Message}");
-                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+                _logger.LogError($"Ошибка при поиске: {ex.Message}");
+                return StatusCode(500, new { error = "Ошибка при поиске проекта" });
             }
         }
     }

@@ -1,18 +1,18 @@
 // src/components/FilterSection.js
 import React from 'react';
 import { CATEGORIES } from '../utils/constants';
-import '../styles/components/FilterSection.css'; 
+import '../styles/components/FilterSection.css';
 
 const FilterSection = ({
     selectedCategory,
     selectedVisibility,
     onFilterChange,
     onReset,
-    loading
+    loading,
+    showVisibility = true  // 🆕 Можно скрыть видимость
 }) => {
     return (
         <div className="filter-section">
-            <h3>🔍 Фильтр проектов</h3>
             <div className="filter-controls">
                 <div className="filter-group">
                     <label>Категория:</label>
@@ -28,25 +28,27 @@ const FilterSection = ({
                     </select>
                 </div>
 
-                <div className="filter-group">
-                    <label>Видимость:</label>
-                    <select
-                        value={selectedVisibility}
-                        onChange={(e) => onFilterChange('visibility', e.target.value)}
-                        className="filter-select"
-                    >
-                        <option value="public">📢 Публичные</option>
-                        <option value="private">🔒 Приватные</option>
-                        <option value="all">👁️ Все</option>
-                    </select>
-                </div>
+                {showVisibility && (
+                    <div className="filter-group">
+                        <label>Видимость:</label>
+                        <select
+                            value={selectedVisibility}
+                            onChange={(e) => onFilterChange('visibility', e.target.value)}
+                            className="filter-select"
+                        >
+                            <option value="public">📢 Публичные</option>
+                            <option value="private">🔒 Приватные</option>
+                            <option value="all">👁️ Все</option>
+                        </select>
+                    </div>
+                )}
 
                 <button
                     onClick={onReset}
                     className="btn btn-reset-filters"
                     disabled={loading}
                 >
-                    🔄 Сбросить фильтры
+                    🔄 Сбросить
                 </button>
             </div>
         </div>

@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/Solution Items/">
+    <File Path="someProblems.txt" />
+  </Folder>
   <Project Path="ProjectHub.API/ProjectHub.API.csproj" />
   <Project Path="ProjectHub.Client/projecthub.client.esproj">
     <Build />
