@@ -46,7 +46,7 @@ namespace ProjectHub.API.Services
             await _dbContext.Projects.AddAsync(projectEntity);
             await _dbContext.SaveChangesAsync();
 
-            _logger.LogInformation($"✅ Создан проект с кодом: {publicCode}");
+            _logger.LogInformation($"Создан проект с кодом: {publicCode}");
 
             return MapToResponse(projectEntity);
         }
@@ -63,7 +63,7 @@ namespace ProjectHub.API.Services
             if (visibility.HasValue)
                 query = query.Where(p => p.Visibility == visibility.Value);
 
-            // 🔒 По умолчанию только публичные
+            // По умолчанию только публичные
             query = query.Where(p => p.Visibility == ProjectVisibility.Public);
             query = query.OrderByDescending(p => p.CreatedAt);
 

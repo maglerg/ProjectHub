@@ -17,9 +17,6 @@ namespace ProjectHub.API.Services.Logging
             _maxBackupFiles = maxBackupFiles;
         }
 
-        /// <summary>
-        /// Очищает и подготавливает лог-файл к работе
-        /// </summary>
         public void CleanLogFile()
         {
             try
@@ -31,7 +28,7 @@ namespace ProjectHub.API.Services.Logging
                 if (!Directory.Exists(directory))
                 {
                     Directory.CreateDirectory(directory);
-                    Log.Information($"📁 Создана папка: {directory}");
+                    Log.Information($"Создана папка: {directory}");
                 }
 
                 // 2. Создаём бэкап старого файла
@@ -43,35 +40,29 @@ namespace ProjectHub.API.Services.Logging
                         File.Delete(backupPath);
                     }
                     File.Move(_logFilePath, backupPath);
-                    Log.Information($"📦 Старые логи сохранены в: {backupPath}");
+                    Log.Information($"Старые логи сохранены в: {backupPath}");
                 }
 
                 // 3. Создаём новый файл с заголовком
                 var header = $"===== НОВЫЙ ЗАПУСК СЕРВЕРА: {DateTime.Now:yyyy-MM-dd HH:mm:ss} ====={Environment.NewLine}";
                 File.WriteAllText(_logFilePath, header);
 
-                Log.Information("🧹 Файл логов очищен");
-                Log.Information($"📁 Новый файл: {_logFilePath}");
+                Log.Information("Файл логов очищен");
+                Log.Information($"Новый файл: {_logFilePath}");
             }
             catch (Exception ex)
             {
-                Log.Error($"❌ Ошибка очистки логов: {ex.Message}");
-                Console.WriteLine($"❌ Ошибка очистки логов: {ex.Message}");
+                Log.Error($"Ошибка очистки логов: {ex.Message}");
+                Console.WriteLine($"Ошибка очистки логов: {ex.Message}");
             }
         }
 
-        /// <summary>
-        /// Генерирует путь для бэкапа с датой
-        /// </summary>
         private string GetBackupPath()
         {
             var timestamp = DateTime.Now.ToString("yyyy-MM-dd_HH-mm-ss");
             return $"{_logFilePath}.backup-{timestamp}";
         }
 
-        /// <summary>
-        /// Очищает старые бэкапы (оставляет только последние N)
-        /// </summary>
         public void CleanOldBackups()
         {
             try

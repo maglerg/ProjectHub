@@ -13,12 +13,19 @@ namespace ProjectHub.API.Extensions
                 "log.txt"
             );
 
-            // Создаём сервис для работы с логами
+            // Создаём папку ДО создания сервиса
+            var logDirectory = Path.GetDirectoryName(logFilePath);
+            if (!Directory.Exists(logDirectory))
+            {
+                Directory.CreateDirectory(logDirectory);
+            }
+
+            /*// Создаём сервис для работы с логами
             var logCleanupService = new LogCleanupService(logFilePath);
 
             // Очищаем логи при запуске
             logCleanupService.CleanLogFile();
-            logCleanupService.CleanOldBackups();
+            logCleanupService.CleanOldBackups();*/
 
             return builder;
         }

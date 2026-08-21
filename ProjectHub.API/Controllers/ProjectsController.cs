@@ -71,17 +71,17 @@ namespace ProjectHub.API.Controllers
         {
             try
             {
-                _logger.LogInformation($"🔍 Поиск проекта по коду: {code}");
+                _logger.LogInformation($"Поиск проекта по коду: {code}");
 
                 var project = await _projectsService.GetProjectByCodeAsync(code);
 
                 if (project == null)
                 {
-                    _logger.LogWarning($"❌ Проект с кодом {code} не найден");
+                    _logger.LogWarning($"Проект с кодом {code} не найден");
                     return NotFound(new { error = "Проект с таким кодом не найден" });
                 }
 
-                _logger.LogInformation($"✅ Найден проект: {project.Name}");
+                _logger.LogInformation($"Найден проект: {project.Name}");
                 return Ok(project);
             }
             catch (Exception ex)

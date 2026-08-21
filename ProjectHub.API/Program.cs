@@ -9,7 +9,15 @@ using Serilog.Events;
 
 // 1. Настройка логгера
 var logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "log.txt");
+var logDirectory = Path.GetDirectoryName(logFilePath);
 
+if (!Directory.Exists(logDirectory))
+{
+    Directory.CreateDirectory(logDirectory);
+    Console.WriteLine($"Создана папка: {logDirectory}");
+}
+
+// 2. Настраиваем Serilog
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
@@ -22,14 +30,9 @@ Log.Logger = new LoggerConfiguration()
         rollOnFileSizeLimit: true)
     .CreateLogger();
 
-Log.Information("🚀 === СЕРВЕР ЗАПУСКАЕТСЯ ===");
+Log.Information("=== СЕРВЕР ЗАПУСКАЕТСЯ ===");
 
-// 2. ✅ Используем сервис для очистки логов
-var logCleanupService = new LogCleanupService(logFilePath);
-logCleanupService.CleanLogFile();
-logCleanupService.CleanOldBackups();
-
-Log.Information("✅ Лог-файл готов к работе");
+Log.Information("Лог-файл готов к работе");
 
 // 3. Сборка приложения
 var builder = WebApplication.CreateBuilder(args);
@@ -87,5 +90,5 @@ app.UseCors("AllowReactApp");
 app.UseAuthorization();
 app.MapControllers();
 
-Log.Information("🚀 Сервер запущен на https://localhost:7000");
+Log.Information("Сервер запущен на https://localhost:7000");
 app.Run();
