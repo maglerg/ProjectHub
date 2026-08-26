@@ -30,7 +30,7 @@ namespace ProjectHub.API.Services
 
             var publicCode = await GenerateUniqueCodeAsync();
 
-            var projectEntity = new ProjectEntity
+            var projectEntity = new Project
             {
                 Id = Guid.NewGuid(),
                 Name = request.Name,
@@ -99,7 +99,7 @@ namespace ProjectHub.API.Services
             throw new InvalidOperationException($"Не удалось сгенерировать уникальный код после {MaxAttempts} попыток");
         }
 
-        private ProjectResponse MapToResponse(ProjectEntity entity)
+        private ProjectResponse MapToResponse(Project entity)
         {
             return new ProjectResponse
             {

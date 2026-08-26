@@ -1,6 +1,7 @@
 ﻿// Data/AppDbContext.cs
 using Microsoft.EntityFrameworkCore;
 using ProjectHub.API.Models;
+using ProjectHub.Models;
 
 namespace ProjectHub.API.Data
 {
@@ -11,13 +12,45 @@ namespace ProjectHub.API.Data
         {
         }
 
-        public DbSet<ProjectEntity> Projects { get; set; }
+        public DbSet<User> Users { get; set; }
+        public DbSet<Project> Projects { get; set; }
+        public DbSet<ProjectMember> ProjectMembers { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+            // Уникальный email
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Email)
+                .IsUnique();
 
-            modelBuilder.Entity<ProjectEntity>(entity =>
+            // Связь Project -> User (Owner)
+            modelBuilder.Entity<Project>()
+                .HasOne(p => p.Owner)
+                .WithMany(u => u.OwnedProjects)
+                .HasForeignKey(p => p.OwnerId)
+                .OnDelete(DeleteBehavior.Restrict);
+
+            // Связь ProjectMember -> User
+            modelBuilder.Entity<ProjectMember>()
+                .HasOne(pm => pm.User)
+                .WithMany(u => u.ProjectMemberships)
+                .HasForeignKey(pm => pm.UserId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Связь ProjectMember -> Project
+            modelBuilder.Entity<ProjectMember>()
+                .HasOne(pm => pm.Project)
+                .WithMany(p => p.Members)
+                .HasForeignKey(pm => pm.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Уникальная пара (ProjectId, UserId)
+            modelBuilder.Entity<ProjectMember>()
+                .HasIndex(pm => new { pm.ProjectId, pm.UserId })
+                .IsUnique();
+        
+        modelBuilder.Entity<Project>(entity =>
             {
                 // Первичный ключ
                 entity.HasKey(e => e.Id);

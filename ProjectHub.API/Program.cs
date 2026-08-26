@@ -1,23 +1,23 @@
 // Program.cs
-using ProjectHub.API.Services;
-using ProjectHub.API.Services.Logging;
-using ProjectHub.API.Data;
-using ProjectHub.API.Extensions;
+
+using System.Text;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.IdentityModel.Tokens;
+using ProjectHub.API.Data;
+using ProjectHub.API.Services;
 using Serilog;
 using Serilog.Events;
+using Microsoft.OpenApi.Models;
 
-// 1. Настройка логгера
 var logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "log.txt");
 var logDirectory = Path.GetDirectoryName(logFilePath);
 
 if (!Directory.Exists(logDirectory))
 {
     Directory.CreateDirectory(logDirectory);
-    Console.WriteLine($"Создана папка: {logDirectory}");
 }
 
-// 2. Настраиваем Serilog
 Log.Logger = new LoggerConfiguration()
     .MinimumLevel.Debug()
     .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
@@ -32,9 +32,6 @@ Log.Logger = new LoggerConfiguration()
 
 Log.Information("=== СЕРВЕР ЗАПУСКАЕТСЯ ===");
 
-Log.Information("Лог-файл готов к работе");
-
-// 3. Сборка приложения
 var builder = WebApplication.CreateBuilder(args);
 
 // CORS
@@ -42,9 +39,10 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp",
         builder => builder
-            .WithOrigins("http://localhost:3000")
+            .WithOrigins("http://localhost:3000", "http://localhost:5173")
             .AllowAnyHeader()
-            .AllowAnyMethod());
+            .AllowAnyMethod()
+            .AllowCredentials());
 });
 
 // Entity Framework
@@ -57,11 +55,67 @@ builder.Logging.AddConsole();
 builder.Logging.AddDebug();
 
 builder.Services.AddControllers();
-builder.Services.AddOpenApi();
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    {
+        Name = "Authorization",
+        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Scheme = "Bearer",
+        BearerFormat = "JWT",
+        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        Description = "Введите JWT токен: Bearer {токен}"
+    });
+
+    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    {
+        {
+            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+            {
+                Reference = new Microsoft.OpenApi.Models.OpenApiReference
+                {
+                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 // Регистрируем сервисы
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
+builder.Services.AddScoped<ITokenService, TokenService>();
 builder.Services.AddScoped<CodeGeneratorService>();
 builder.Services.AddScoped<ProjectsService>();
+
+// JWT Authentication
+var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "your-super-secret-key-min-32-characters-long!";
+var key = Encoding.ASCII.GetBytes(jwtSecret);
+
+builder.Services.AddAuthentication(x =>
+{
+    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+})
+.AddJwtBearer(x =>
+{
+    x.RequireHttpsMetadata = false;
+    x.SaveToken = true;
+    x.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuerSigningKey = true,
+        IssuerSigningKey = new SymmetricSecurityKey(key),
+        ValidateIssuer = false,
+        ValidateAudience = false,
+        ValidateLifetime = true,
+        ClockSkew = TimeSpan.Zero
+    };
+});
+
+builder.Services.AddAuthorization();
 
 var app = builder.Build();
 
@@ -72,23 +126,26 @@ using (var scope = app.Services.CreateScope())
     try
     {
         dbContext.Database.EnsureCreated();
-        Log.Information("База данных подключена и готова к работе");
+        Log.Information("✅ База данных подключена");
     }
     catch (Exception ex)
     {
-        Log.Error($"Ошибка подключения к БД: {ex.Message}");
+        Log.Error($"❌ Ошибка подключения к БД: {ex.Message}");
     }
 }
 
 if (app.Environment.IsDevelopment())
 {
-    app.MapOpenApi();
+    app.UseSwagger();
+    app.UseSwaggerUI();
 }
 
 app.UseHttpsRedirection();
 app.UseCors("AllowReactApp");
+app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-Log.Information("Сервер запущен на https://localhost:7000");
+Log.Information("🚀 Сервер запущен на https://localhost:7000");
+Log.Information("📚 Swagger: https://localhost:7000/swagger");
 app.Run();
