@@ -1,9 +1,10 @@
 ﻿// Services/ProjectsService.cs
-using ProjectHub.API.Models;
-using ProjectHub.API.DTOs;
-using ProjectHub.API.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
+using ProjectHub.API.Data;
+using ProjectHub.API.DTOs;
+using ProjectHub.API.Models;
+using ProjectHub.API.Models.Enums;
 
 namespace ProjectHub.API.Services
 {
@@ -37,6 +38,7 @@ namespace ProjectHub.API.Services
                 PublicCode = publicCode,
                 Description = request.Description,
                 Category = request.Category,
+                Status = ProjectStatus.Uncompleted,
                 Visibility = request.Visibility,
                 Deadline = request.Deadline,
                 CreatedAt = DateTime.UtcNow,
@@ -108,7 +110,9 @@ namespace ProjectHub.API.Services
                 Description = entity.Description,
                 Category = entity.Category,
                 Visibility = entity.Visibility,
-                Deadline = entity.Deadline
+                Status = entity.Status,           
+                Deadline = entity.Deadline,
+                CreatedAt = entity.CreatedAt      
             };
         }
     }

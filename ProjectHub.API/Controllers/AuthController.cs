@@ -3,11 +3,14 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using ProjectHub.API.Data;
+using ProjectHub.API.Services;
 using ProjectHub.DTOs;
 using ProjectHub.Models;
 using ProjectHub.Models.Enums;
-using ProjectHub.Services;
+using System.Net.NetworkInformation;
 using System.Security.Claims;
+using ProjectHub.API.Models.Enums;
 
 namespace ProjectHub.Controllers;
 
@@ -15,10 +18,10 @@ namespace ProjectHub.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
-    private readonly ApplicationDbContext _context;
+    private readonly AppDbContext _context;
     private readonly IAuthService _authService;
 
-    public AuthController(ApplicationDbContext context, IAuthService authService)
+    public AuthController(AppDbContext context, IAuthService authService)
     {
         _context = context;
         _authService = authService;
@@ -103,7 +106,7 @@ public class AuthController : ControllerBase
             .CountAsync(pm => pm.UserId == user.Id);
 
         var completedProjectsCount = await _context.ProjectMembers
-            .Where(pm => pm.UserId == user.Id && pm.Project.Status == "Completed")
+            .Where(pm => pm.UserId == user.Id && pm.Project.Status == ProjectStatus.Completed)
             .CountAsync();
 
         // Возвращаем ответ
@@ -154,7 +157,7 @@ public class AuthController : ControllerBase
             .CountAsync(pm => pm.UserId == user.Id);
 
         var completedProjectsCount = await _context.ProjectMembers
-            .Where(pm => pm.UserId == user.Id && pm.Project.Status == "Completed")
+            .Where(pm => pm.UserId == user.Id && pm.Project.Status == ProjectStatus.Completed)
             .CountAsync();
 
         return Ok(new UserResponseDto

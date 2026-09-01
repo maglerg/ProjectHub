@@ -30,11 +30,11 @@ namespace ProjectHub.API.Controllers
 
                 if (string.IsNullOrWhiteSpace(request.Name))
                 {
-                    return BadRequest(new { error = "Название проекта обязательно" });
+                    return BadRequest(new { error = "Название проекта обязательно" }); // 400
                 }
 
                 var project = await _projectsService.CreateProjectAsync(request);
-                return CreatedAtAction(nameof(CreateProject), project);
+                return CreatedAtAction(nameof(CreateProject), project); // 201
             }
             catch (InvalidOperationException ex)
             {
@@ -57,7 +57,7 @@ namespace ProjectHub.API.Controllers
             {
                 _logger.LogInformation("=== ЗАПРОС СПИСКА ПРОЕКТОВ ===");
                 var projects = await _projectsService.GetProjectsFilteredAsync(category, visibility);
-                return Ok(projects);
+                return Ok(projects); // 200
             }
             catch (Exception ex)
             {

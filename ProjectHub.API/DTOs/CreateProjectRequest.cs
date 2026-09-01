@@ -1,4 +1,5 @@
 ﻿using ProjectHub.API.Models;
+using ProjectHub.API.Models.Enums;
 
 namespace ProjectHub.API.DTOs
 {

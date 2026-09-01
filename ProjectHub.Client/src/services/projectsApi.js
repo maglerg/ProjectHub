@@ -1,63 +1,211 @@
-// src/services/projectsApi.js
+// projecthub.client/src/services/projectsApi.js
 
-const API_URL = 'https://localhost:7000/api/projects';
+const API_BASE_URL = 'https://localhost:7000/api';
 
-// Получить все проекты
+// 📌 Получить все проекты
 export const fetchAllProjects = async () => {
-    const response = await fetch(API_URL);
-    if (!response.ok) {
-        throw new Error(`Ошибка: ${response.status} - ${response.statusText}`);
+    try {
+        const token = localStorage.getItem('token');
+        console.log('🔑 Токен:', token ? 'Есть' : 'Нет');
+
+        const response = await fetch(`${API_BASE_URL}/projects`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        console.log('📡 Статус ответа:', response.status);
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            console.error('❌ Ошибка ответа:', error);
+            throw new Error(error.message || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('📦 Получены данные:', data);
+
+        if (!Array.isArray(data)) {
+            console.error('❌ Ожидался массив, получено:', data);
+            return [];
+        }
+
+        return data;
+    } catch (error) {
+        console.error('❌ Ошибка в fetchAllProjects:', error);
+        throw error;
     }
-    return response.json();
 };
 
-// Создать проект
-export const createProject = async (projectData) => {
-    const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(projectData)
-    });
+// 📌 Получить проекты с фильтрами
+export const fetchProjectsWithFilters = async (category, visibility, status) => {
+    try {
+        const token = localStorage.getItem('token');
+        let url = `${API_BASE_URL}/projects/filter?`;
 
-    if (!response.ok) {
-        const errorData = await response.json();
-        throw errorData;
+        if (category) url += `category=${category}&`;
+        if (visibility) url += `visibility=${visibility}&`;
+        if (status) url += `status=${status}&`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        if (!Array.isArray(data)) {
+            console.error('❌ Ожидался массив, получено:', data);
+            return [];
+        }
+
+        return data;
+    } catch (error) {
+        console.error('❌ Ошибка в fetchProjectsWithFilters:', error);
+        throw error;
     }
-    return response.json();
 };
 
-// Найти проект по коду
+// 📌 Поиск проекта по коду
 export const searchProjectByCode = async (code) => {
-    const cleanCode = code.trim().toUpperCase();
-    const response = await fetch(`${API_URL}/code/${cleanCode}`);
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/projects/search/${code}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
 
-    if (response.status === 404) return null;
-    if (!response.ok) {
-        throw new Error('Ошибка поиска проекта');
+        if (response.status === 404) {
+            return null;
+        }
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('❌ Ошибка в searchProjectByCode:', error);
+        throw error;
     }
-    return response.json();
 };
 
-// Получить проекты с фильтрами
-export const fetchProjectsWithFilters = async (category, visibility) => {
-    const params = new URLSearchParams();
+// 📌 Создать новый проект
+export const createProject = async (projectData) => {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/projects`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({
+                name: projectData.name,
+                description: projectData.description || '',
+                category: projectData.category,
+                visibility: projectData.visibility,
+                deadline: projectData.deadline,
+                status: projectData.status || 'Uncompleted'
+            })
+        });
 
-    if (category && category !== '') {
-        params.append('category', category);
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || 'Ошибка создания проекта');
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('❌ Ошибка в createProject:', error);
+        throw error;
     }
+};
 
-    if (visibility && visibility !== '' && visibility !== 'all') {
-        const visibilityValue = visibility === 'public' ? 1 : 0;
-        params.append('visibility', visibilityValue);
+// 📌 Получить проект по ID
+export const fetchProjectById = async (id) => {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('❌ Ошибка в fetchProjectById:', error);
+        throw error;
     }
+};
 
-    const url = params.toString() ? `${API_URL}?${params.toString()}` : API_URL;
+// 📌 Обновить проект
+export const updateProject = async (id, projectData) => {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify(projectData)
+        });
 
-    const response = await fetch(url);
-    if (!response.ok) {
-        throw new Error(`Ошибка: ${response.status} - ${response.statusText}`);
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('❌ Ошибка в updateProject:', error);
+        throw error;
     }
-    return response.json();
+};
+
+// 📌 Удалить проект
+export const deleteProject = async (id) => {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        return true;
+    } catch (error) {
+        console.error('❌ Ошибка в deleteProject:', error);
+        throw error;
+    }
 };

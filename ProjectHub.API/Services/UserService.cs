@@ -16,7 +16,7 @@ public class UserService : IUserService
         _context = context;
     }
 
-    public async Task<User?> GetUserByIdAsync(int id)
+    public async Task<User?> GetUserByIdAsync(Guid id)
     {
         return await _context.Users
             .Include(u => u.OwnedProjects)

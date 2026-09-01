@@ -1,14 +1,14 @@
 // Program.cs
 
-using System.Text;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi;
 using ProjectHub.API.Data;
 using ProjectHub.API.Services;
 using Serilog;
 using Serilog.Events;
-using Microsoft.OpenApi.Models;
+using System.Text;
 
 var logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "log.txt");
 var logDirectory = Path.GetDirectoryName(logFilePath);
@@ -58,29 +58,19 @@ builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
-    c.AddSecurityDefinition("Bearer", new Microsoft.OpenApi.Models.OpenApiSecurityScheme
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
-        Type = Microsoft.OpenApi.Models.SecuritySchemeType.Http,
+        Type = SecuritySchemeType.Http,
         Scheme = "Bearer",
         BearerFormat = "JWT",
-        In = Microsoft.OpenApi.Models.ParameterLocation.Header,
+        In = ParameterLocation.Header,
         Description = "Введите JWT токен: Bearer {токен}"
     });
 
-    c.AddSecurityRequirement(new Microsoft.OpenApi.Models.OpenApiSecurityRequirement
+    c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
     {
-        {
-            new Microsoft.OpenApi.Models.OpenApiSecurityScheme
-            {
-                Reference = new Microsoft.OpenApi.Models.OpenApiReference
-                {
-                    Type = Microsoft.OpenApi.Models.ReferenceType.SecurityScheme,
-                    Id = "Bearer"
-                }
-            },
-            Array.Empty<string>()
-        }
+        [new OpenApiSecuritySchemeReference("Bearer", document)] = []
     });
 });
 
@@ -125,7 +115,7 @@ using (var scope = app.Services.CreateScope())
     var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
     try
     {
-        dbContext.Database.EnsureCreated();
+        dbContext.Database.Migrate();
         Log.Information("✅ База данных подключена");
     }
     catch (Exception ex)
@@ -146,6 +136,6 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
-Log.Information("🚀 Сервер запущен на https://localhost:7000");
-Log.Information("📚 Swagger: https://localhost:7000/swagger");
+Log.Information("Сервер запущен на https://localhost:7000");
+Log.Information("Swagger: https://localhost:7000/swagger");
 app.Run();

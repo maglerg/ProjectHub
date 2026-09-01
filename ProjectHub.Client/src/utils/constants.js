@@ -1,42 +1,45 @@
-// src/utils/constants.js
+// projecthub.client/src/utils/constants.js
 
-export const CATEGORIES = {
-    0: 'Образование',
-    1: 'Курсовая работа',
-    2: 'Дипломный проект',
-    3: 'Веб-разработка',
-    4: 'Мобильная разработка',
-    5: 'Десктопное ПО',
-    6: 'Разработка игр',
-    7: 'DevOps',
-    8: 'Data Science / AI',
-    9: 'Кибербезопасность',
-    10: 'Стартап',
-    11: 'Фриланс',
-    12: 'Коммерческий проект',
-    13: 'Дизайн',
-    14: 'Создание контента',
-    15: 'Исследовательский проект',
-    16: 'Личный проект',
-    17: 'Другое'
-};
+// Категории проектов (соответствуют бэкенду)
+export const PROJECT_CATEGORIES = [
+    { value: 'Web', label: '🌐 Веб-разработка' },
+    { value: 'Mobile', label: '📱 Мобильная разработка' },
+    { value: 'Design', label: '🎨 Дизайн' },
+    { value: 'Backend', label: '⚙️ Бэкенд' },
+    { value: 'DevOps', label: '🚀 DevOps' },
+    { value: 'QA', label: '🧪 Тестирование' },
+    { value: 'DataScience', label: '📊 Data Science' },
+    { value: 'GameDev', label: '🎮 GameDev' },
+    { value: 'Embedded', label: '🔌 Встроенные системы' },
+    { value: 'Other', label: '🔹 Другое' }
+];
 
-export const VISIBILITY = {
-    0: 'Приватный',
-    1: 'Публичный'
-};
+// Статусы проектов
+export const PROJECT_STATUSES = [
+    { value: 'Completed', label: '✅ Завершен' },
+    { value: 'Uncompleted', label: '⏳ В процессе' }
+];
 
-// Вспомогательные функции
+// Видимость проектов
+export const PROJECT_VISIBILITY = [
+    { value: 'Public', label: '🌐 Публичный' },
+    { value: 'Private', label: '🔒 Приватный' }
+];
+
+// Получить название категории по значению
 export const getCategoryName = (value) => {
-    return CATEGORIES[value] || 'Неизвестно';
+    const category = PROJECT_CATEGORIES.find(c => c.value === value);
+    return category ? category.label : value;
 };
 
+// Получить название статуса по значению (ТОЛЬКО ОДНА ФУНКЦИЯ!)
+export const getStatusName = (value) => {
+    const status = PROJECT_STATUSES.find(s => s.value === value);
+    return status ? status.label : value;
+};
+
+// Получить название видимости по значению
 export const getVisibilityName = (value) => {
-    return VISIBILITY[value] || 'Неизвестно';
+    const visibility = PROJECT_VISIBILITY.find(v => v.value === value);
+    return visibility ? visibility.label : value;
 };
-
-// Массив для отображения в select
-export const CATEGORY_OPTIONS = Object.entries(CATEGORIES).map(([value, label]) => ({
-    value: parseInt(value),
-    label
-}));

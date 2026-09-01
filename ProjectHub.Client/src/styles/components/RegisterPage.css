@@ -1,0 +1,137 @@
+/* projecthub.client/src/styles/RegisterPage.css */
+
+.register-page {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: 20px;
+}
+
+.register-container {
+    width: 100%;
+    max-width: 480px;
+}
+
+.register-box {
+    background: white;
+    border-radius: 16px;
+    padding: 40px 32px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.register-header {
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+    .register-header h1 {
+        font-size: 28px;
+        color: #333;
+        margin: 0 0 8px 0;
+    }
+
+    .register-header p {
+        color: #666;
+        margin: 0;
+    }
+
+.register-form .form-group {
+    margin-bottom: 16px;
+}
+
+.register-form label {
+    display: block;
+    font-size: 14px;
+    font-weight: 600;
+    color: #333;
+    margin-bottom: 4px;
+}
+
+.register-form input,
+.register-form select,
+.register-form textarea {
+    width: 100%;
+    padding: 10px 14px;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-size: 15px;
+    transition: border-color 0.3s;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+
+    .register-form input:focus,
+    .register-form select:focus,
+    .register-form textarea:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+
+    .register-form input:disabled,
+    .register-form select:disabled,
+    .register-form textarea:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+.register-form textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.error-message {
+    background: #fee;
+    color: #c0392b;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+    margin-bottom: 16px;
+}
+
+.btn-register {
+    width: 100%;
+    padding: 14px;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+    .btn-register:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+    }
+
+    .btn-register:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+.register-footer {
+    text-align: center;
+    margin-top: 20px;
+    color: #666;
+}
+
+    .register-footer .link-btn {
+        background: none;
+        border: none;
+        color: #667eea;
+        font-weight: 600;
+        cursor: pointer;
+        font-size: 14px;
+        padding: 0;
+    }
+
+        .register-footer .link-btn:hover {
+            text-decoration: underline;
+        }
