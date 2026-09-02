@@ -2,16 +2,21 @@
 
 // Категории проектов (соответствуют бэкенду)
 export const PROJECT_CATEGORIES = [
-    { value: 'Web', label: '🌐 Веб-разработка' },
-    { value: 'Mobile', label: '📱 Мобильная разработка' },
-    { value: 'Design', label: '🎨 Дизайн' },
-    { value: 'Backend', label: '⚙️ Бэкенд' },
+    { value: 'Education', label: '📚 Учебный проект' },
+    { value: 'Coursework', label: '📝 Курсовая работа' },
+    { value: 'Diploma', label: '🎓 Дипломный проект' },
+    { value: 'WebDevelopment', label: '🌐 Веб-разработка' },
+    { value: 'MobileDevelopment', label: '📱 Мобильная разработка' },
+    { value: 'DesktopDevelopment', label: '💻 Десктопное ПО' },
+    { value: 'GameDevelopment', label: '🎮 Разработка игр' },
     { value: 'DevOps', label: '🚀 DevOps' },
-    { value: 'QA', label: '🧪 Тестирование' },
-    { value: 'DataScience', label: '📊 Data Science' },
-    { value: 'GameDev', label: '🎮 GameDev' },
-    { value: 'Embedded', label: '🔌 Встроенные системы' },
-    { value: 'Other', label: '🔹 Другое' }
+    { value: 'DataScience', label: '📊 Data Science / AI' },
+    { value: 'Cybersecurity', label: '🔐 Кибербезопасность' },
+    { value: 'Design', label: '🎨 Дизайн' },       
+    { value: 'Backend', label: '⚙️ Бэкенд' },      
+    { value: 'Frontend', label: '🖥️ Фронтенд' },    
+    { value: 'QA', label: '🧪 Тестирование' },      
+    { value: 'Other', label: '🔹 Другое' }         
 ];
 
 // Статусы проектов
@@ -32,7 +37,7 @@ export const getCategoryName = (value) => {
     return category ? category.label : value;
 };
 
-// Получить название статуса по значению (ТОЛЬКО ОДНА ФУНКЦИЯ!)
+// Получить название статуса по значению
 export const getStatusName = (value) => {
     const status = PROJECT_STATUSES.find(s => s.value === value);
     return status ? status.label : value;

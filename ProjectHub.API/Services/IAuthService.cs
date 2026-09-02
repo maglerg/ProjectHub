@@ -7,7 +7,7 @@ namespace ProjectHub.API.Services;
 
 public interface IAuthService
 {
-    string GenerateJwtToken(User user);
-    string HashPassword(string password);
-    bool VerifyPassword(string password, string hash);
+    string GenerateJwtToken(User user); // Генерация JWT
+    string HashPassword(string password); // Хеширование пароля
+    bool VerifyPassword(string password, string hash); // Проверка пароля
 }

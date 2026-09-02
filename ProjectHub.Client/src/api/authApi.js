@@ -2,7 +2,7 @@
 
 const API_BASE_URL = 'https://localhost:7000/api';
 
-// 📌 РЕГИСТРАЦИЯ
+// РЕГИСТРАЦИЯ
 export const register = async (userData) => {
     try {
         const response = await fetch(`${API_BASE_URL}/auth/register`, {
@@ -26,7 +26,7 @@ export const register = async (userData) => {
     }
 };
 
-// 📌 ВХОД
+// ВХОД
 export const login = async (email, password) => {
     try {
         const response = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -54,7 +54,7 @@ export const login = async (email, password) => {
     }
 };
 
-// 📌 ВЫХОД
+// ВЫХОД
 export const logout = async () => {
     try {
         const token = localStorage.getItem('token');
@@ -76,7 +76,7 @@ export const logout = async () => {
     }
 };
 
-// 📌 ПОЛУЧИТЬ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
+// ПОЛУЧИТЬ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
 export const getCurrentUser = async () => {
     try {
         const token = localStorage.getItem('token');
@@ -108,13 +108,13 @@ export const getCurrentUser = async () => {
     }
 };
 
-// 📌 ПРОВЕРКА АВТОРИЗОВАН ЛИ ПОЛЬЗОВАТЕЛЬ
+// ПРОВЕРКА АВТОРИЗОВАН ЛИ ПОЛЬЗОВАТЕЛЬ
 export const isAuthenticated = () => {
     const token = localStorage.getItem('token');
     return !!token;
 };
 
-// 📌 ПОЛУЧИТЬ ПОЛЬЗОВАТЕЛЯ ИЗ LOCALSTORAGE
+// ПОЛУЧИТЬ ПОЛЬЗОВАТЕЛЯ ИЗ LOCALSTORAGE
 export const getUserFromStorage = () => {
     const user = localStorage.getItem('user');
     return user ? JSON.parse(user) : null;

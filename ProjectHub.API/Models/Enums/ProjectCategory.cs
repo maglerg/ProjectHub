@@ -12,6 +12,11 @@ namespace ProjectHub.API.Models
         GameDevelopment = 7,    // Разработка игр
         DevOps = 8,             // DevOps проекты
         DataScience = 9,        // Data Science / AI
-        Cybersecurity = 10      // Кибербезопасность
+        Cybersecurity = 10,      // Кибербезопасность
+        Design = 11,           
+        Backend = 12,          
+        Frontend = 13,         
+        QA = 14,              
+        Other = 99
     }
 }

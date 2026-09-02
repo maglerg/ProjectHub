@@ -1,6 +1,6 @@
 ﻿// ProjectHub.API/Services/IUserService.cs
 
-using ProjectHub.API.Models;
+using ProjectHub.DTOs;
 using ProjectHub.Models;
 
 namespace ProjectHub.API.Services;
@@ -12,4 +12,9 @@ public interface IUserService
     Task<User> CreateUserAsync(User user);
     Task UpdateUserAsync(User user);
     Task<bool> UserExistsAsync(string email);
+
+    Task<UserResponseDto> RegisterUserAsync(RegisterDto dto);
+    Task<UserResponseDto> LoginUserAsync(LoginDto dto);
+    Task<UserResponseDto> GetCurrentUserAsync(Guid userId);
+    Task LogoutUserAsync(Guid userId);
 }

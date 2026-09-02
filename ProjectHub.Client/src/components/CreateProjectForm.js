@@ -8,7 +8,7 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
     const [formData, setFormData] = useState({
         name: '',
         description: '',
-        category: 'Web',
+        category: 'Education',
         visibility: 'Public',
         deadline: ''
     });

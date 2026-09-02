@@ -17,7 +17,7 @@ public class TokenService : ITokenService
         _configuration = configuration;
     }
 
-    public string GenerateToken(int userId, string email, string name, string role)
+    public string GenerateToken(Guid userId, string email, string name, string role)
     {
         var secret = _configuration["Jwt:Secret"] ?? "your-super-secret-key-min-32-characters-long!";
         var key = Encoding.ASCII.GetBytes(secret);

@@ -120,8 +120,7 @@ export const createProject = async (projectData) => {
                 description: projectData.description || '',
                 category: projectData.category,
                 visibility: projectData.visibility,
-                deadline: projectData.deadline,
-                status: projectData.status || 'Uncompleted'
+                deadline: projectData.deadline
             })
         });
 

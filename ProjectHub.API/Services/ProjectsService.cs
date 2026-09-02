@@ -25,7 +25,7 @@ namespace ProjectHub.API.Services
             _codeGenerator = codeGenerator;
         }
 
-        public async Task<ProjectResponse> CreateProjectAsync(CreateProjectRequest request)
+        public async Task<ProjectResponse> CreateProjectAsync(CreateProjectRequest request, Guid userId)
         {
             _logger.LogInformation($"CREATE: {request.Name}");
 
@@ -42,7 +42,8 @@ namespace ProjectHub.API.Services
                 Visibility = request.Visibility,
                 Deadline = request.Deadline,
                 CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                UpdatedAt = DateTime.UtcNow,
+                OwnerId = userId
             };
 
             await _dbContext.Projects.AddAsync(projectEntity);

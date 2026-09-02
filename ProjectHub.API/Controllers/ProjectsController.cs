@@ -5,6 +5,8 @@ using Microsoft.Extensions.Logging;
 using ProjectHub.API.DTOs;
 using ProjectHub.API.Models;
 using ProjectHub.API.Services;
+using Microsoft.AspNetCore.Authorization;
+using System.Security.Claims;
 
 namespace ProjectHub.API.Controllers
 {
@@ -22,18 +24,24 @@ namespace ProjectHub.API.Controllers
         }
 
         [HttpPost]
+        [Authorize]
         public async Task<IActionResult> CreateProject(CreateProjectRequest request)
         {
             try
             {
                 _logger.LogInformation("POST CONTROLLER CALLED");
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
 
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                {
+                    return Unauthorized(new { error = "Пользователь не авторизован" });
+                }
                 if (string.IsNullOrWhiteSpace(request.Name))
                 {
                     return BadRequest(new { error = "Название проекта обязательно" }); // 400
                 }
 
-                var project = await _projectsService.CreateProjectAsync(request);
+                var project = await _projectsService.CreateProjectAsync(request, userId);
                 return CreatedAtAction(nameof(CreateProject), project); // 201
             }
             catch (InvalidOperationException ex)
@@ -66,7 +74,7 @@ namespace ProjectHub.API.Controllers
             }
         }
 
-        [HttpGet("code/{code}")]
+        [HttpGet("search/{code}")]
         public async Task<IActionResult> GetProjectByCode(string code)
         {
             try
