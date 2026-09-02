@@ -1,5 +1,18 @@
 /* src/styles/components/ProjectCard.css */
 
+.project-item-clickable {
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+
+    .project-item-clickable:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
+    }
+
+    .project-item-clickable:active {
+        transform: scale(0.98);
+    }
 .project-item {
     background: #f8f9fa;
     padding: 20px;

@@ -1,0 +1,164 @@
+/* projecthub.client/src/styles/components/MemberCard.css */
+
+.member-card {
+    background: white;
+    border-radius: 12px;
+    padding: 16px 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    border: 1px solid #f0f0f0;
+    transition: all 0.3s ease;
+}
+
+    .member-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+        border-color: #e0e0e0;
+    }
+
+.member-card-content {
+    display: flex;
+    align-items: flex-start;
+    gap: 16px;
+}
+
+.member-avatar-wrapper {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.member-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: 600;
+    color: white;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: transform 0.2s;
+}
+
+.member-card:hover .member-avatar {
+    transform: scale(1.05);
+}
+
+.member-owner-crown {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 18px;
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.2));
+    animation: crown-pulse 2s ease-in-out infinite;
+}
+
+@keyframes crown-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+
+    50% {
+        transform: scale(1.1);
+    }
+}
+
+.member-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.member-name-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.member-name {
+    font-size: 17px;
+    font-weight: 600;
+    color: #333;
+}
+
+.member-role-badge {
+    padding: 3px 14px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    color: white;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.member-details {
+    display: flex;
+    gap: 16px;
+    flex-wrap: wrap;
+    margin-bottom: 6px;
+}
+
+.member-email {
+    font-size: 13px;
+    color: #888;
+}
+
+.member-specialization {
+    padding: 2px 12px;
+    background: #e8eefd;
+    color: #4a6fa5;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.member-joined {
+    font-size: 12px;
+    color: #bbb;
+    margin-top: 2px;
+}
+
+/* Адаптивность */
+@media (max-width: 600px) {
+    .member-card-content {
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .member-name-wrapper {
+        justify-content: center;
+    }
+
+    .member-details {
+        justify-content: center;
+    }
+
+    .member-owner-crown {
+        right: -4px;
+    }
+}
+
+@media (max-width: 400px) {
+    .member-card {
+        padding: 12px 16px;
+    }
+
+    .member-avatar {
+        width: 44px;
+        height: 44px;
+        font-size: 16px;
+    }
+
+    .member-name {
+        font-size: 15px;
+    }
+
+    .member-details {
+        flex-direction: column;
+        gap: 4px;
+        align-items: center;
+    }
+}

@@ -1,6 +1,7 @@
 ﻿// DTOs/ProjectResponse.cs
 using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
+using System.Reflection;
 
 namespace ProjectHub.API.DTOs
 {
@@ -13,6 +14,7 @@ namespace ProjectHub.API.DTOs
         public ProjectVisibility Visibility { get; set; }
         public ProjectStatus Status { get; set; }  
         public DateTime Deadline { get; set; }
-        public DateTime CreatedAt { get; set; }    
+        public DateTime CreatedAt { get; set; }
+        public List<MemberInfo> Members { get; set; } = new();
     }
 }

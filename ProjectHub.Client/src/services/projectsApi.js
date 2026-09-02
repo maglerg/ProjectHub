@@ -105,6 +105,29 @@ export const searchProjectByCode = async (code) => {
     }
 };
 
+// 📌 Получить участников проекта
+export const fetchProjectMembers = async (projectId) => {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/projects/${projectId}/members`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('❌ Ошибка в fetchProjectMembers:', error);
+        throw error;
+    }
+};
 // 📌 Создать новый проект
 export const createProject = async (projectData) => {
     try {
@@ -137,29 +160,6 @@ export const createProject = async (projectData) => {
     }
 };
 
-// 📌 Получить проект по ID
-export const fetchProjectById = async (id) => {
-    try {
-        const token = localStorage.getItem('token');
-        const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            }
-        });
-
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        return data;
-    } catch (error) {
-        console.error('❌ Ошибка в fetchProjectById:', error);
-        throw error;
-    }
-};
 
 // 📌 Обновить проект
 export const updateProject = async (id, projectData) => {

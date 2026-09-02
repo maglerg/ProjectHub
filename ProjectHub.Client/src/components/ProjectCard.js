@@ -1,10 +1,12 @@
 // projecthub.client/src/components/ProjectCard.js
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { getCategoryName, getStatusName, getVisibilityName } from '../utils/constants';
 import '../styles/components/ProjectCard.css';
 
 const ProjectCard = ({ project, onCopyCode }) => {
+    const navigate = useNavigate();
     // 📌 ЗАЩИТА: если project нет — ничего не рендерим
     if (!project || typeof project !== 'object') {
         console.warn('⚠️ ProjectCard: project is invalid', project);
@@ -55,7 +57,20 @@ const ProjectCard = ({ project, onCopyCode }) => {
             default: return status || 'Неизвестно';
         }
     };
+    // 📌 ОБРАБОТЧИК КЛИКА ПО КАРТОЧКЕ
+    const handleCardClick = () => {
+        if (project.publicCode) {
+            navigate(`/projects/${project.publicCode}`);
+        }
+    };
 
+    // ОБРАБОТЧИК КОПИРОВАНИЯ (останавливает всплытие)
+    const handleCopyClick = (e) => {
+        e.stopPropagation(); // Не даем сработать клику по карточке
+        if (onCopyCode && project.publicCode) {
+            onCopyCode(project.publicCode);
+        }
+    };
 
     // 📌 Безопасное получение значений (с дефолтными значениями)
     const name = project.name || 'Без названия';
@@ -68,7 +83,7 @@ const ProjectCard = ({ project, onCopyCode }) => {
     const createdAt = project.createdAt || null;
 
     return (
-        <li className="project-item">
+        <li className="project-item" onClick={handleCardClick}>
             <div className="project-header">
                 <h3>{name}</h3>
                 <div className="project-badges">
@@ -102,7 +117,7 @@ const ProjectCard = ({ project, onCopyCode }) => {
                     <span className="project-code-display">{publicCode}</span>
                     <button
                         className="copy-code-btn"
-                        onClick={() => onCopyCode && onCopyCode(publicCode)}
+                        onClick={handleCopyClick}
                         title="Скопировать код"
                     >
                         📋

@@ -5,6 +5,8 @@ using ProjectHub.API.Data;
 using ProjectHub.API.DTOs;
 using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
+using System.Reflection;
+
 
 namespace ProjectHub.API.Services
 {
@@ -30,7 +32,6 @@ namespace ProjectHub.API.Services
             _logger.LogInformation($"CREATE: {request.Name}");
 
             var publicCode = await GenerateUniqueCodeAsync();
-
             var projectEntity = new Project
             {
                 Id = Guid.NewGuid(),
@@ -48,17 +49,34 @@ namespace ProjectHub.API.Services
 
             await _dbContext.Projects.AddAsync(projectEntity);
             await _dbContext.SaveChangesAsync();
-
+            var ownerMember = new ProjectMember
+            {
+                Id = Guid.NewGuid(),
+                ProjectId = projectEntity.Id,
+                UserId = userId,
+                Role = ProjectMemberRole.Owner,
+                JoinedAt = DateTime.UtcNow
+            };
+            await _dbContext.ProjectMembers.AddAsync(ownerMember);
+            await _dbContext.SaveChangesAsync();
             _logger.LogInformation($"Создан проект с кодом: {publicCode}");
 
-            return MapToResponse(projectEntity);
+            var projectWithMembers = await _dbContext.Projects
+    .Include(p => p.Members)
+        .ThenInclude(m => m.User)
+    .FirstAsync(p => p.Id == projectEntity.Id);
+
+            return MapToResponse(projectWithMembers);
         }
 
         public async Task<List<ProjectResponse>> GetProjectsFilteredAsync(
             ProjectCategory? category = null,
             ProjectVisibility? visibility = null)
         {
-            var query = _dbContext.Projects.AsQueryable();
+            var query = _dbContext.Projects
+    .Include(p => p.Members)
+        .ThenInclude(m => m.User)
+    .AsQueryable();
 
             if (category.HasValue)
                 query = query.Where(p => p.Category == category.Value);
@@ -77,9 +95,14 @@ namespace ProjectHub.API.Services
         public async Task<ProjectResponse> GetProjectByCodeAsync(string code)
         {
             var projectEntity = await _dbContext.Projects
-                .FirstOrDefaultAsync(p => p.PublicCode == code && p.Visibility == ProjectVisibility.Public);
+       .Include(p => p.Members)
+           .ThenInclude(m => m.User)
+       .FirstOrDefaultAsync(p => p.PublicCode == code && p.Visibility == ProjectVisibility.Public);
 
-            return projectEntity != null ? MapToResponse(projectEntity) : null;
+            if (projectEntity == null)
+                return null;
+
+            return MapToResponse(projectEntity);
         }
 
         public async Task<bool> IsCodeExistsAsync(string code)
@@ -111,9 +134,18 @@ namespace ProjectHub.API.Services
                 Description = entity.Description,
                 Category = entity.Category,
                 Visibility = entity.Visibility,
-                Status = entity.Status,           
+                Status = entity.Status,
                 Deadline = entity.Deadline,
-                CreatedAt = entity.CreatedAt      
+                CreatedAt = entity.CreatedAt,
+                
+                Members = entity.Members.Select(m => new ProjectHub.API.DTOs.MemberInfo
+                {
+                    Name = m.User.Name,
+                    Email = m.User.Email,
+                    Specialization = m.User.Specialization.ToString(),
+                    Role = m.Role.ToString(),
+                    JoinedAt = m.JoinedAt
+                }).ToList()
             };
         }
     }

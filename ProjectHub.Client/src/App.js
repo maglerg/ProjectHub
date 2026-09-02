@@ -7,6 +7,7 @@ import ProtectedRoute from './components/ProtectedRoute';
 import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import ProjectsPage from './components/ProjectsPage';
+import ProjectDetailsPage from './components/ProjectDetailsPage';
 import './index.css';
 
 function App() {
@@ -28,6 +29,12 @@ function App() {
                     <Route path="/projects" element={
                         <ProtectedRoute>
                             <ProjectsPage />
+                        </ProtectedRoute>
+                    } />
+
+                    <Route path="/projects/:code" element={
+                        <ProtectedRoute>
+                            <ProjectDetailsPage />
                         </ProtectedRoute>
                     } />
 
