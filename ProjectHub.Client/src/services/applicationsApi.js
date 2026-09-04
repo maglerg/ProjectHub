@@ -81,3 +81,30 @@ export const processApplication = async (applicationId, approve, message) => {
         throw error;
     }
 };
+// 📌 Получить заявки проекта по публичному коду
+export const getApplicationsByCode = async (code, status) => {
+    try {
+        const token = localStorage.getItem('token');
+        const url = status
+            ? `${API_BASE_URL}/applications/project/code/${code}?status=${status}`
+            : `${API_BASE_URL}/applications/project/code/${code}`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || 'Ошибка получения заявок');
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('❌ Ошибка в getApplicationsByCode:', error);
+        throw error;
+    }
+};

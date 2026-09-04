@@ -12,11 +12,13 @@ public class ApplicationService
 {
     private readonly AppDbContext _dbContext;
     private readonly ILogger<ApplicationService> _logger;
+    private readonly NotificationService _notificationService;
 
-    public ApplicationService(AppDbContext dbContext, ILogger<ApplicationService> logger)
+    public ApplicationService(AppDbContext dbContext, ILogger<ApplicationService> logger, NotificationService notificationService)
     {
         _dbContext = dbContext;
         _logger = logger;
+        _notificationService = notificationService;
     }
     public async Task<Project?> GetProjectByCodeAsync(string code)
     {
@@ -30,7 +32,8 @@ public class ApplicationService
 
         var project = await _dbContext.Projects
             .FirstOrDefaultAsync(p => p.Id == projectId);
-
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == userId);
         if (project == null)
         {
             throw new KeyNotFoundException("Проект не найден");
@@ -72,6 +75,17 @@ public class ApplicationService
 
         _logger.LogInformation($"Заявка {application.Id} создана");
 
+        // 📌 ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ ВЛАДЕЛЬЦУ
+        await _notificationService.CreateNotificationAsync(
+            project.OwnerId,
+            $"📨 Новая заявка на вступление",
+            $"Пользователь {user.Name} хочет присоединиться к проекту '{project.Name}'",
+            NotificationType.ApplicationReceived,
+            $"/projects/{project.PublicCode}/applications",
+            application.Id
+        );
+
+        _logger.LogInformation($"Заявка {application.Id} создана, уведомление отправлено владельцу");
         return MapToResponse(application);
     }
 
@@ -107,7 +121,35 @@ public class ApplicationService
 
         return applications.Select(MapToResponse).ToList();
     }
+    // 📌 Получить заявки проекта по публичному коду
+    public async Task<List<ApplicationResponseDto>> GetApplicationsByCodeAsync(string code, ApplicationStatus? status = null)
+    {
+        // Сначала находим проект по коду
+        var project = await _dbContext.Projects
+            .FirstOrDefaultAsync(p => p.PublicCode == code);
 
+        if (project == null)
+        {
+            throw new KeyNotFoundException("Проект с таким кодом не найден");
+        }
+
+        // Затем получаем заявки для этого проекта
+        var query = _dbContext.Applications
+            .Include(a => a.User)
+            .Include(a => a.Project)
+            .Where(a => a.ProjectId == project.Id);
+
+        if (status.HasValue)
+        {
+            query = query.Where(a => a.Status == status.Value);
+        }
+
+        var applications = await query
+            .OrderByDescending(a => a.CreatedAt)
+            .ToListAsync();
+
+        return applications.Select(MapToResponse).ToList();
+    }
     // 📌 Принять или отклонить заявку
     public async Task<ApplicationResponseDto> ProcessApplicationAsync(Guid applicationId, Guid processedBy, bool approve, string? message = null)
     {
@@ -161,6 +203,30 @@ public class ApplicationService
         else
         {
             _logger.LogInformation($"Заявка {applicationId} отклонена");
+        }
+
+        // 📌 УВЕДОМЛЕНИЕ ПОЛЬЗОВАТЕЛЮ О РЕЗУЛЬТАТЕ
+        if (approve)
+        {
+            await _notificationService.CreateNotificationAsync(
+                application.UserId,
+                "✅ Ваша заявка одобрена!",
+                $"Вы стали участником проекта '{application.Project.Name}'",
+                NotificationType.ApplicationApproved,
+                $"/projects/{application.Project.PublicCode}",
+                application.ProjectId
+            );
+        }
+        else
+        {
+            await _notificationService.CreateNotificationAsync(
+                application.UserId,
+                "❌ Ваша заявка отклонена",
+                $"К сожалению, ваша заявка на вступление в проект '{application.Project.Name}' была отклонена",
+                NotificationType.ApplicationRejected,
+                $"/projects/{application.Project.PublicCode}",
+                application.ProjectId
+            );
         }
 
         await _dbContext.SaveChangesAsync();

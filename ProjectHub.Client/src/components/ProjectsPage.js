@@ -10,6 +10,7 @@ import CreateProjectForm from './CreateProjectForm';
 import SearchSection from './SearchSection';
 import ProjectList from './ProjectList';
 import FilterSection from './FilterSection';
+import NotificationsDropdown from './NotificationsDropdown';
 
 // Импорты API
 import {
@@ -158,6 +159,7 @@ const ProjectsPage = () => {
                             {user?.isOnline ? '🟢 Онлайн' : '⚫ Оффлайн'}
                         </span>
                     </div>
+                    <NotificationsDropdown />
                     {/* 📌 НОВАЯ КНОПКА ПРОФИЛЯ */}
                     <button
                         className="btn-profile"

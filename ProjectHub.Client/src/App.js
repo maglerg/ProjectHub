@@ -11,6 +11,7 @@ import ProjectDetailsPage from './components/ProjectDetailsPage';
 import ProfilePage from './components/ProfilePage'; 
 import './index.css';
 import UserProfilePage from './components/UserProfilePage';
+import ApplicationsPage from './components/ApplicationsPage';
 
 function App() {
     return (
@@ -33,7 +34,11 @@ function App() {
                             <ProjectsPage />
                         </ProtectedRoute>
                     } />
-
+                    <Route path="/projects/:code/applications" element={
+                        <ProtectedRoute>
+                            <ApplicationsPage />
+                        </ProtectedRoute>
+                    } />
                     <Route path="/projects/:code" element={
                         <ProtectedRoute>
                             <ProjectDetailsPage />

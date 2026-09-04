@@ -59,6 +59,48 @@ public class ApplicationsController : ControllerBase
             return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
         }
     }
+    // 📌 GET /api/applications/project/code/{code} - получить заявки по публичному коду
+    [HttpGet("project/code/{code}")]
+    public async Task<IActionResult> GetApplicationsByCode(string code, [FromQuery] string? status)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+            }
+
+            // 📌 Проверяем права (владелец или админ)
+            // Сначала находим проект по коду
+            var project = await _applicationService.GetProjectByCodeAsync(code);
+            if (project == null)
+            {
+                return NotFound(new { error = "Проект с таким кодом не найден" });
+            }
+
+            var isOwner = await _applicationService.IsUserProjectOwner(project.Id, userId);
+            var isAdmin = await _applicationService.IsUserProjectAdmin(project.Id, userId);
+
+            if (!isOwner && !isAdmin)
+            {
+                return Forbid("У вас нет прав для просмотра заявок");
+            }
+
+            Enum.TryParse<ApplicationStatus>(status, true, out var statusEnum);
+            var result = await _applicationService.GetApplicationsByCodeAsync(code, statusEnum);
+            return Ok(result);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Ошибка при получении заявок: {ex.Message}");
+            return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+        }
+    }
 
     // 📌 GET /api/applications/project/{projectId} - получить заявки проекта
     [HttpGet("project/{projectId}")]
