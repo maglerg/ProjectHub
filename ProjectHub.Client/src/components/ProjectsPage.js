@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/components/ProjectsPage.css';
+import { useNavigate } from 'react-router-dom';
 
 // Импорты компонентов
 import CreateProjectForm from './CreateProjectForm';
@@ -19,6 +20,7 @@ import {
 
 const ProjectsPage = () => {
     const { user, logout } = useAuth();
+    const navigate = useNavigate();
 
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -156,6 +158,14 @@ const ProjectsPage = () => {
                             {user?.isOnline ? '🟢 Онлайн' : '⚫ Оффлайн'}
                         </span>
                     </div>
+                    {/* 📌 НОВАЯ КНОПКА ПРОФИЛЯ */}
+                    <button
+                        className="btn-profile"
+                        onClick={() => navigate('/profile')}
+                        title="Профиль"
+                    >
+                        👤 Профиль
+                    </button>
                     <button className="btn-logout" onClick={logout}>
                         🚪 Выйти
                     </button>

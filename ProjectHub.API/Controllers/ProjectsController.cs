@@ -23,6 +23,43 @@ namespace ProjectHub.API.Controllers
             _logger = logger;
         }
 
+        [HttpPost("join/{code}")]
+        [Authorize]
+        public async Task<IActionResult> JoinProject(string code)
+        {
+            try
+            {
+                _logger.LogInformation($"POST join/{code} CALLED");
+
+                // Получаем ID пользователя из токена
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                {
+                    return Unauthorized(new { error = "Пользователь не авторизован" });
+                }
+
+                var result = await _projectsService.JoinProjectAsync(code, userId);
+
+                if (!result)
+                {
+                    return NotFound(new { error = "Проект с таким кодом не найден" });
+                }
+
+                // Возвращаем обновленный проект с участниками
+                var updatedProject = await _projectsService.GetProjectByCodeAsync(code);
+                return Ok(updatedProject);
+            }
+            catch (InvalidOperationException ex)
+            {
+                _logger.LogWarning($"Ошибка присоединения: {ex.Message}");
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Неожиданная ошибка: {ex.Message}");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> CreateProject(CreateProjectRequest request)
@@ -81,7 +118,15 @@ namespace ProjectHub.API.Controllers
             {
                 _logger.LogInformation($"Поиск проекта по коду: {code}");
 
-                var project = await _projectsService.GetProjectByCodeAsync(code);
+                // 📌 Получаем ID текущего пользователя из токена (если есть)
+                Guid? currentUserId = null;
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var userId))
+                {
+                    currentUserId = userId;
+                }
+
+                var project = await _projectsService.GetProjectByCodeAsync(code, currentUserId);
 
                 if (project == null)
                 {

@@ -2,6 +2,7 @@
 
 using Microsoft.EntityFrameworkCore;
 using ProjectHub.API.Data;
+using ProjectHub.API.DTOs;
 using ProjectHub.API.Models.Enums;
 using ProjectHub.DTOs;
 using ProjectHub.Models;
@@ -97,7 +98,76 @@ public class UserService : IUserService
             CompletedProjectsCount = 0
         };
     }
+    // 📌 НОВЫЙ МЕТОД — обновление пользователя
+    public async Task<UserResponseDto> UpdateUserAsync(Guid userId, UpdateUserDto dto)
+    {
+        var user = await GetUserByIdAsync(userId);
 
+        if (user == null)
+        {
+            throw new KeyNotFoundException("Пользователь не найден");
+        }
+
+        // Обновляем поля
+        user.Name = dto.Name;
+        user.Description = dto.Description;
+
+        // Парсим специализацию
+        if (!string.IsNullOrEmpty(dto.Specialization))
+        {
+            if (Enum.TryParse<Specialization>(dto.Specialization, true, out var specialization))
+            {
+                user.Specialization = specialization;
+            }
+        }
+
+        await UpdateUserAsync(user);
+
+        // Получаем статистику проектов
+        var projectsCount = await _context.ProjectMembers
+            .CountAsync(pm => pm.UserId == user.Id);
+
+        var completedProjectsCount = await _context.ProjectMembers
+            .Where(pm => pm.UserId == user.Id && pm.Project.Status == ProjectStatus.Completed)
+            .CountAsync();
+
+        return new UserResponseDto
+        {
+            Name = user.Name,
+            Email = user.Email,
+            Specialization = user.Specialization.ToString(),
+            Description = user.Description,
+            IsOnline = user.IsOnline,
+            CreatedAt = user.CreatedAt,
+            ProjectsCount = projectsCount,
+            CompletedProjectsCount = completedProjectsCount
+        };
+    }
+
+    public async Task<UserResponseDto?> GetUserProfileByEmailAsync(string email)
+    {
+        var user = await _context.Users
+            .Include(u => u.OwnedProjects)
+            .Include(u => u.ProjectMemberships)
+                .ThenInclude(pm => pm.Project)
+            .FirstOrDefaultAsync(u => u.Email == email);
+
+        if (user == null)
+            return null;
+
+        return new UserResponseDto
+        {
+            Name = user.Name,
+            Email = user.Email,
+            Specialization = user.Specialization.ToString(),
+            Description = user.Description,
+            IsOnline = user.IsOnline,
+            CreatedAt = user.CreatedAt,
+            ProjectsCount = user.OwnedProjects.Count + user.ProjectMemberships.Count,
+            CompletedProjectsCount = user.ProjectMemberships
+                .Count(pm => pm.Project.Status == ProjectStatus.Completed)
+        };
+    }
     // 📌 ВХОД
     public async Task<UserResponseDto> LoginUserAsync(LoginDto dto)
     {

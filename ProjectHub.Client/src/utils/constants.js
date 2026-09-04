@@ -16,9 +16,20 @@ export const PROJECT_CATEGORIES = [
     { value: 'Backend', label: '⚙️ Бэкенд' },      
     { value: 'Frontend', label: '🖥️ Фронтенд' },    
     { value: 'QA', label: '🧪 Тестирование' },      
-    { value: 'Other', label: '🔹 Другое' }         
+    { value: 'Other', label: '🔹 Другое' }
 ];
-
+export const SPECIALIZATIONS = [
+    { value: 'Frontend', label: '🖥️ Фронтенд-разработчик' },
+    { value: 'Backend', label: '⚙️ Бэкенд-разработчик' },
+    { value: 'Designer', label: '🎨 Дизайнер' },
+    { value: 'DevOps', label: '🚀 DevOps-инженер' },
+    { value: 'QA', label: '🧪 Тестировщик' },
+    { value: 'ProjectManager', label: '📋 Project-менеджер' },
+    { value: 'Analyst', label: '📊 Аналитик' },
+    { value: 'FullStack', label: '🔷 Full-stack разработчик' },
+    { value: 'Mobile', label: '📱 Мобильный разработчик' },
+    { value: 'Other', label: '🔹 Другое' }
+];
 // Статусы проектов
 export const PROJECT_STATUSES = [
     { value: 'Completed', label: '✅ Завершен' },

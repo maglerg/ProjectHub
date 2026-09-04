@@ -1,5 +1,6 @@
 ﻿// ProjectHub.API/Services/IUserService.cs
 
+using ProjectHub.API.DTOs;
 using ProjectHub.DTOs;
 using ProjectHub.Models;
 
@@ -17,4 +18,7 @@ public interface IUserService
     Task<UserResponseDto> LoginUserAsync(LoginDto dto);
     Task<UserResponseDto> GetCurrentUserAsync(Guid userId);
     Task LogoutUserAsync(Guid userId);
+
+    Task<UserResponseDto> UpdateUserAsync(Guid userId, UpdateUserDto dto);
+    Task<UserResponseDto?> GetUserProfileByEmailAsync(string email);
 }

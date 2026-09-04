@@ -8,7 +8,9 @@ import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import ProjectsPage from './components/ProjectsPage';
 import ProjectDetailsPage from './components/ProjectDetailsPage';
+import ProfilePage from './components/ProfilePage'; 
 import './index.css';
+import UserProfilePage from './components/UserProfilePage';
 
 function App() {
     return (
@@ -19,7 +21,7 @@ function App() {
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
 
-                    {/* Защищенные маршруты - главная страница проектов */}
+                    {/* Защищенные маршруты */}
                     <Route path="/" element={
                         <ProtectedRoute>
                             <ProjectsPage />
@@ -35,6 +37,17 @@ function App() {
                     <Route path="/projects/:code" element={
                         <ProtectedRoute>
                             <ProjectDetailsPage />
+                        </ProtectedRoute>
+                    } />
+
+                    <Route path="/profile" element={
+                        <ProtectedRoute>
+                            <ProfilePage />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/users/:email" element={
+                        <ProtectedRoute>
+                            <UserProfilePage />
                         </ProtectedRoute>
                     } />
 

@@ -160,6 +160,30 @@ export const createProject = async (projectData) => {
     }
 };
 
+// 📌 Присоединиться к проекту по коду
+export const joinProject = async (code) => {
+    try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(`${API_BASE_URL}/projects/join/${code}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || 'Ошибка присоединения к проекту');
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('❌ Ошибка в joinProject:', error);
+        throw error;
+    }
+};
 
 // 📌 Обновить проект
 export const updateProject = async (id, projectData) => {

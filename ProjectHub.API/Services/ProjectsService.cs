@@ -68,7 +68,63 @@ namespace ProjectHub.API.Services
 
             return MapToResponse(projectWithMembers);
         }
+        public async Task<bool> JoinProjectAsync(string publicCode, Guid userId)
+        {
+            _logger.LogInformation($"Попытка присоединения к проекту {publicCode} пользователем {userId}");
 
+            // Находим проект по коду
+            var project = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.PublicCode == publicCode && p.Visibility == ProjectVisibility.Public);
+
+            if (project == null)
+            {
+                _logger.LogWarning($"Проект с кодом {publicCode} не найден");
+                return false;
+            }
+            _logger.LogInformation($"Проверяем пользователя: {userId}");
+            _logger.LogInformation($"Проект: {project.Id}");
+            var allMembers = await _dbContext.ProjectMembers
+    .Where(pm => pm.ProjectId == project.Id)
+    .ToListAsync();
+
+            foreach (var memberr in allMembers)
+            {
+                _logger.LogInformation(
+                    $"MEMBER: Id={memberr.Id}, UserId={memberr.UserId}, Role={memberr.Role}");
+            }
+            // Проверяем, не является ли пользователь уже участником
+            var existingMember = await _dbContext.ProjectMembers
+                .FirstOrDefaultAsync(pm => pm.ProjectId == project.Id && pm.UserId == userId);
+
+            if (existingMember != null)
+            {
+                _logger.LogWarning($"Пользователь {userId} уже является участником проекта {publicCode}");
+                throw new InvalidOperationException("Вы уже являетесь участником этого проекта");
+            }
+
+            // Проверяем, не является ли пользователь владельцем
+            if (project.OwnerId == userId)
+            {
+                _logger.LogWarning($"Пользователь {userId} является владельцем проекта {publicCode}");
+                throw new InvalidOperationException("Вы являетесь владельцем этого проекта");
+            }
+
+            // Создаем запись об участнике
+            var member = new ProjectMember
+            {
+                Id = Guid.NewGuid(),
+                ProjectId = project.Id,
+                UserId = userId,
+                Role = ProjectMemberRole.Member,
+                JoinedAt = DateTime.UtcNow
+            };
+
+            await _dbContext.ProjectMembers.AddAsync(member);
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation($"Пользователь {userId} успешно присоединился к проекту {publicCode}");
+            return true;
+        }
         public async Task<List<ProjectResponse>> GetProjectsFilteredAsync(
             ProjectCategory? category = null,
             ProjectVisibility? visibility = null)
@@ -92,17 +148,60 @@ namespace ProjectHub.API.Services
             return projects.Select(MapToResponse).ToList();
         }
 
-        public async Task<ProjectResponse> GetProjectByCodeAsync(string code)
+        public async Task<ProjectResponse> GetProjectByCodeAsync(string code, Guid? currentUserId = null)
         {
             var projectEntity = await _dbContext.Projects
-       .Include(p => p.Members)
-           .ThenInclude(m => m.User)
-       .FirstOrDefaultAsync(p => p.PublicCode == code && p.Visibility == ProjectVisibility.Public);
+                .Include(p => p.Members)
+                    .ThenInclude(m => m.User)
+                .FirstOrDefaultAsync(p => p.PublicCode == code && p.Visibility == ProjectVisibility.Public);
 
             if (projectEntity == null)
                 return null;
 
-            return MapToResponse(projectEntity);
+            var response = MapToResponse(projectEntity);
+
+            // 📌 Вычисляем статус пользователя, если передан ID
+            if (currentUserId.HasValue)
+            {
+                response.UserStatus = await GetUserProjectStatusAsync(projectEntity.Id, currentUserId.Value);
+            }
+
+            return response;
+        }
+
+        // 📌 НОВЫЙ МЕТОД — определяет статус пользователя в проекте
+        private async Task<UserProjectStatus> GetUserProjectStatusAsync(Guid projectId, Guid userId)
+        {
+            // Проверяем, является ли пользователь владельцем
+            var project = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.Id == projectId);
+
+            if (project != null && project.OwnerId == userId)
+            {
+                return UserProjectStatus.Owner;
+            }
+
+            // Проверяем, является ли пользователь участником
+            var member = await _dbContext.ProjectMembers
+                .FirstOrDefaultAsync(pm => pm.ProjectId == projectId && pm.UserId == userId);
+
+            if (member != null)
+            {
+                return member.Role == ProjectMemberRole.Admin ? UserProjectStatus.Admin : UserProjectStatus.Member;
+            }
+
+            // Проверяем, есть ли ожидающая заявка
+            var pendingApplication = await _dbContext.Applications
+                .FirstOrDefaultAsync(a => a.ProjectId == projectId &&
+                                          a.UserId == userId &&
+                                          a.Status == ApplicationStatus.Pending);
+
+            if (pendingApplication != null)
+            {
+                return UserProjectStatus.Pending;
+            }
+
+            return UserProjectStatus.NotJoined;
         }
 
         public async Task<bool> IsCodeExistsAsync(string code)
@@ -125,6 +224,7 @@ namespace ProjectHub.API.Services
             throw new InvalidOperationException($"Не удалось сгенерировать уникальный код после {MaxAttempts} попыток");
         }
 
+
         private ProjectResponse MapToResponse(Project entity)
         {
             return new ProjectResponse
@@ -137,9 +237,10 @@ namespace ProjectHub.API.Services
                 Status = entity.Status,
                 Deadline = entity.Deadline,
                 CreatedAt = entity.CreatedAt,
-                
+                OwnerId = entity.OwnerId,  
                 Members = entity.Members.Select(m => new ProjectHub.API.DTOs.MemberInfo
                 {
+                    UserId = m.UserId,
                     Name = m.User.Name,
                     Email = m.User.Email,
                     Specialization = m.User.Specialization.ToString(),

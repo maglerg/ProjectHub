@@ -15,6 +15,7 @@ namespace ProjectHub.API.Data
         public DbSet<User> Users { get; set; }
         public DbSet<Project> Projects { get; set; }
         public DbSet<ProjectMember> ProjectMembers { get; set; }
+        public DbSet<Application> Applications { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -49,8 +50,12 @@ namespace ProjectHub.API.Data
             modelBuilder.Entity<ProjectMember>()
                 .HasIndex(pm => new { pm.ProjectId, pm.UserId })
                 .IsUnique();
-        
-        modelBuilder.Entity<Project>(entity =>
+            // Уникальная пара (ProjectId, UserId) для заявок
+            modelBuilder.Entity<Application>()
+                .HasIndex(a => new { a.ProjectId, a.UserId })
+                .IsUnique();
+
+            modelBuilder.Entity<Project>(entity =>
             {
                 // Первичный ключ
                 entity.HasKey(e => e.Id);

@@ -1,10 +1,12 @@
 // projecthub.client/src/components/MemberCard.js
 
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import '../styles/components/MemberCard.css';
 
 const MemberCard = ({ member }) => {
-    // Определяем цвет роли
+    const navigate = useNavigate();
+
     const getRoleColor = (role) => {
         switch (role?.toLowerCase()) {
             case 'owner': return '#e67e22';
@@ -14,7 +16,6 @@ const MemberCard = ({ member }) => {
         }
     };
 
-    // Определяем иконку роли
     const getRoleIcon = (role) => {
         switch (role?.toLowerCase()) {
             case 'owner': return '👑';
@@ -24,7 +25,6 @@ const MemberCard = ({ member }) => {
         }
     };
 
-    // Получаем инициалы
     const getInitials = (name) => {
         if (!name) return '👤';
         const parts = name.split(' ');
@@ -34,7 +34,6 @@ const MemberCard = ({ member }) => {
         return name.slice(0, 2).toUpperCase();
     };
 
-    // Определяем цвет аватара на основе имени
     const getAvatarColor = (name) => {
         const colors = [
             '#667eea', '#764ba2', '#f093fb', '#4facfe',
@@ -49,8 +48,17 @@ const MemberCard = ({ member }) => {
         return colors[Math.abs(hash) % colors.length];
     };
 
+    // 📌 Обработчик клика по карточке
+    const handleCardClick = () => {
+        if (member.email) {
+            // Кодируем email для URL
+            const encodedEmail = encodeURIComponent(member.email);
+            navigate(`/users/${encodedEmail}`);
+        }
+    };
+
     return (
-        <div className="member-card">
+        <div className="member-card clickable" onClick={handleCardClick}>
             <div className="member-card-content">
                 <div className="member-avatar-wrapper">
                     <div
