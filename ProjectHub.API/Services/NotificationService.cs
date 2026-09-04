@@ -83,7 +83,6 @@ public class NotificationService
     {
         if (notificationId.HasValue)
         {
-            // Отметить конкретное уведомление
             var notification = await _dbContext.Notifications
                 .FirstOrDefaultAsync(n => n.Id == notificationId.Value && n.UserId == userId);
 
@@ -95,7 +94,6 @@ public class NotificationService
         }
         else
         {
-            // Отметить все как прочитанные
             var notifications = await _dbContext.Notifications
                 .Where(n => n.UserId == userId && !n.IsRead)
                 .ToListAsync();
@@ -109,6 +107,44 @@ public class NotificationService
         }
     }
 
+    // 📌 УДАЛИТЬ уведомления по RelatedId (новая функция!)
+    public async Task DeleteNotificationsByRelatedIdAsync(Guid relatedId)
+    {
+        var notifications = await _dbContext.Notifications
+            .Where(n => n.RelatedId == relatedId)
+            .ToListAsync();
+
+        if (notifications.Any())
+        {
+            _dbContext.Notifications.RemoveRange(notifications);
+            await _dbContext.SaveChangesAsync();
+            _logger.LogInformation($"🗑️ Удалено {notifications.Count} уведомлений с RelatedId={relatedId}");
+        }
+    }
+    // 📌 Очистить уведомления по проекту (для обработанных заявок)
+    public async Task CleanupNotificationsForProjectAsync(Guid projectId)
+    {
+        // Находим все заявки проекта, которые уже обработаны (не Pending)
+        var processedApplicationIds = await _dbContext.Applications
+            .Where(a => a.ProjectId == projectId && a.Status != ApplicationStatus.Pending)
+            .Select(a => a.Id)
+            .ToListAsync();
+
+        if (!processedApplicationIds.Any())
+            return;
+
+        // Находим уведомления, связанные с этими заявками
+        var notificationsToDelete = await _dbContext.Notifications
+            .Where(n => processedApplicationIds.Contains(n.RelatedId ?? Guid.Empty))
+            .ToListAsync();
+
+        if (notificationsToDelete.Any())
+        {
+            _dbContext.Notifications.RemoveRange(notificationsToDelete);
+            await _dbContext.SaveChangesAsync();
+            _logger.LogInformation($"🗑️ Удалено {notificationsToDelete.Count} уведомлений для обработанных заявок в проекте {projectId}");
+        }
+    }
     private NotificationDto MapToDto(Notification notification)
     {
         return new NotificationDto

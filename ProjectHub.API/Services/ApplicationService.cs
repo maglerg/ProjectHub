@@ -28,65 +28,99 @@ public class ApplicationService
     // 📌 Подать заявку на вступление
     public async Task<ApplicationResponseDto> CreateApplicationAsync(Guid projectId, Guid userId, CreateApplicationDto dto)
     {
-        _logger.LogInformation($"Пользователь {userId} подает заявку на проект {projectId}");
+        _logger.LogInformation($"🔵 Пользователь {userId} подает заявку на проект {projectId}");
 
-        var project = await _dbContext.Projects
-            .FirstOrDefaultAsync(p => p.Id == projectId);
-        var user = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Id == userId);
-        if (project == null)
+        try
         {
-            throw new KeyNotFoundException("Проект не найден");
+            var project = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.Id == projectId);
+
+            if (project == null)
+            {
+                _logger.LogWarning($"❌ Проект {projectId} не найден");
+                throw new KeyNotFoundException("Проект не найден");
+            }
+
+            _logger.LogInformation($"📦 Проект найден: {project.Name}");
+
+            // 📌 ПОЛУЧАЕМ ИМЯ ПОЛЬЗОВАТЕЛЯ
+            var user = await _dbContext.Users
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+            {
+                _logger.LogWarning($"❌ Пользователь {userId} не найден");
+                throw new KeyNotFoundException("Пользователь не найден");
+            }
+
+            _logger.LogInformation($"👤 Пользователь: {user.Name}");
+
+            if (project.OwnerId == userId)
+            {
+                _logger.LogWarning($"⚠️ Пользователь {userId} является владельцем проекта");
+                throw new InvalidOperationException("Вы являетесь владельцем проекта");
+            }
+
+            var existingMember = await _dbContext.ProjectMembers
+                .FirstOrDefaultAsync(pm => pm.ProjectId == projectId && pm.UserId == userId);
+
+            if (existingMember != null)
+            {
+                _logger.LogWarning($"⚠️ Пользователь {userId} уже является участником проекта");
+                throw new InvalidOperationException("Вы уже являетесь участником проекта");
+            }
+
+            var existingApplication = await _dbContext.Applications
+                .FirstOrDefaultAsync(a => a.ProjectId == projectId && a.UserId == userId && a.Status == ApplicationStatus.Pending);
+
+            if (existingApplication != null)
+            {
+                _logger.LogWarning($"⚠️ Пользователь {userId} уже подал заявку на этот проект");
+                throw new InvalidOperationException("Вы уже подали заявку на этот проект");
+            }
+
+            var application = new Application
+            {
+                Id = Guid.NewGuid(),
+                ProjectId = projectId,
+                UserId = userId,
+                Status = ApplicationStatus.Pending,
+                Message = dto?.Message,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            await _dbContext.Applications.AddAsync(application);
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation($"✅ Заявка {application.Id} создана");
+
+            // 📌 ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ ВЛАДЕЛЬЦУ
+            try
+            {
+                await _notificationService.CreateNotificationAsync(
+                    project.OwnerId,
+                    $"📨 Новая заявка на вступление",
+                    $"Пользователь {user.Name} хочет присоединиться к проекту '{project.Name}'",
+                    NotificationType.ApplicationReceived,
+                    $"/projects/{project.PublicCode}/applications",
+                    application.Id
+                );
+                _logger.LogInformation($"📨 Уведомление отправлено владельцу {project.OwnerId}");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"❌ Ошибка при отправке уведомления: {ex.Message}");
+                // Не прерываем выполнение, если уведомление не отправилось
+            }
+
+            return MapToResponse(application);
         }
-
-        if (project.OwnerId == userId)
+        catch (Exception ex)
         {
-            throw new InvalidOperationException("Вы являетесь владельцем проекта");
+            _logger.LogError($"❌ Ошибка в CreateApplicationAsync: {ex.Message}");
+            _logger.LogError($"📚 StackTrace: {ex.StackTrace}");
+            throw;
         }
-
-        var existingMember = await _dbContext.ProjectMembers
-            .FirstOrDefaultAsync(pm => pm.ProjectId == projectId && pm.UserId == userId);
-
-        if (existingMember != null)
-        {
-            throw new InvalidOperationException("Вы уже являетесь участником проекта");
-        }
-
-        var existingApplication = await _dbContext.Applications
-            .FirstOrDefaultAsync(a => a.ProjectId == projectId && a.UserId == userId && a.Status == ApplicationStatus.Pending);
-
-        if (existingApplication != null)
-        {
-            throw new InvalidOperationException("Вы уже подали заявку на этот проект");
-        }
-
-        var application = new Application
-        {
-            Id = Guid.NewGuid(),
-            ProjectId = projectId,
-            UserId = userId,
-            Status = ApplicationStatus.Pending,
-            Message = dto?.Message,
-            CreatedAt = DateTime.UtcNow
-        };
-
-        await _dbContext.Applications.AddAsync(application);
-        await _dbContext.SaveChangesAsync();
-
-        _logger.LogInformation($"Заявка {application.Id} создана");
-
-        // 📌 ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ ВЛАДЕЛЬЦУ
-        await _notificationService.CreateNotificationAsync(
-            project.OwnerId,
-            $"📨 Новая заявка на вступление",
-            $"Пользователь {user.Name} хочет присоединиться к проекту '{project.Name}'",
-            NotificationType.ApplicationReceived,
-            $"/projects/{project.PublicCode}/applications",
-            application.Id
-        );
-
-        _logger.LogInformation($"Заявка {application.Id} создана, уведомление отправлено владельцу");
-        return MapToResponse(application);
     }
 
     // 📌 Получить все заявки для проекта
@@ -150,6 +184,19 @@ public class ApplicationService
 
         return applications.Select(MapToResponse).ToList();
     }
+    
+    // 📌 Очистить уведомления по коду проекта
+    public async Task CleanupNotificationsByCodeAsync(string code)
+    {
+        var project = await _dbContext.Projects
+            .FirstOrDefaultAsync(p => p.PublicCode == code);
+
+        if (project == null)
+            return;
+
+        await _notificationService.CleanupNotificationsForProjectAsync(project.Id);
+    }
+
     // 📌 Принять или отклонить заявку
     public async Task<ApplicationResponseDto> ProcessApplicationAsync(Guid applicationId, Guid processedBy, bool approve, string? message = null)
     {
@@ -181,13 +228,15 @@ public class ApplicationService
             throw new UnauthorizedAccessException("У вас нет прав для обработки заявок в этом проекте");
         }
 
-        application.Status = approve ? ApplicationStatus.Approved : ApplicationStatus.Rejected;
-        application.ProcessedAt = DateTime.UtcNow;
-        application.ProcessedBy = processedBy;
-        application.UpdatedAt = DateTime.UtcNow;
-
         if (approve)
         {
+            // ✅ ОДОБРЯЕМ
+            application.Status = ApplicationStatus.Approved;
+            application.ProcessedAt = DateTime.UtcNow;
+            application.ProcessedBy = processedBy;
+            application.UpdatedAt = DateTime.UtcNow;
+
+            // Добавляем пользователя в участники
             var member = new ProjectMember
             {
                 Id = Guid.NewGuid(),
@@ -198,16 +247,9 @@ public class ApplicationService
             };
 
             await _dbContext.ProjectMembers.AddAsync(member);
-            _logger.LogInformation($"Пользователь {application.UserId} добавлен в участники проекта {application.ProjectId}");
-        }
-        else
-        {
-            _logger.LogInformation($"Заявка {applicationId} отклонена");
-        }
+            _logger.LogInformation($"✅ Пользователь {application.UserId} добавлен в участники проекта {application.ProjectId}");
 
-        // 📌 УВЕДОМЛЕНИЕ ПОЛЬЗОВАТЕЛЮ О РЕЗУЛЬТАТЕ
-        if (approve)
-        {
+            // 📨 Уведомление об одобрении
             await _notificationService.CreateNotificationAsync(
                 application.UserId,
                 "✅ Ваша заявка одобрена!",
@@ -216,20 +258,34 @@ public class ApplicationService
                 $"/projects/{application.Project.PublicCode}",
                 application.ProjectId
             );
+
+            await _dbContext.SaveChangesAsync();
         }
         else
         {
+            // ❌ ОТКЛОНЯЕМ — УДАЛЯЕМ ЗАЯВКУ ИЗ БД
+            var projectName = application.Project?.Name ?? "проект";
+            var userName = application.User?.Name ?? "Пользователь";
+
+            // 📨 Уведомление об отклонении (до удаления, чтобы сохранить данные)
             await _notificationService.CreateNotificationAsync(
                 application.UserId,
                 "❌ Ваша заявка отклонена",
-                $"К сожалению, ваша заявка на вступление в проект '{application.Project.Name}' была отклонена",
+                $"К сожалению, ваша заявка на вступление в проект '{projectName}' была отклонена",
                 NotificationType.ApplicationRejected,
-                $"/projects/{application.Project.PublicCode}",
+                $"/projects/{application.Project?.PublicCode}",
                 application.ProjectId
             );
-        }
 
-        await _dbContext.SaveChangesAsync();
+            // 🗑️ Удаляем уведомления, связанные с этой заявкой
+            await _notificationService.DeleteNotificationsByRelatedIdAsync(applicationId);
+
+            // 🗑️ Удаляем саму заявку
+            _dbContext.Applications.Remove(application);
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation($"🗑️ Заявка {applicationId} отклонена и удалена из БД");
+        }
 
         return MapToResponse(application);
     }

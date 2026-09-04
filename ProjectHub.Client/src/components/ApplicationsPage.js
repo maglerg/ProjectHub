@@ -6,6 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import { searchProjectByCode } from '../services/projectsApi';
 import { getApplicationsByCode, processApplication } from '../services/applicationsApi';
 import '../styles/components/ApplicationsPage.css';
+import { getUnreadCount } from '../services/notificationsApi';
+
 
 const ApplicationsPage = () => {
     console.log('🔴 === APPLICATIONS PAGE MOUNTED ===');
@@ -73,6 +75,14 @@ const ApplicationsPage = () => {
             console.error('❌ Ошибка загрузки:', err);
             setError(err.message || 'Ошибка загрузки данных');
             setLoading(false);
+        }
+        try {
+            const count = await getUnreadCount();
+            // Если используешь глобальное состояние для счетчика
+            // setUnreadCount(count);
+            console.log('📬 Обновлен счетчик уведомлений:', count);
+        } catch (err) {
+            console.warn('Не удалось обновить счетчик:', err);
         }
     };
 
