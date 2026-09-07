@@ -60,6 +60,31 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+
+        // 📌 GET /api/projects/my — получить проекты текущего пользователя
+        [HttpGet("my")]
+        [Authorize]
+        public async Task<IActionResult> GetMyProjects()
+        {
+            try
+            {
+                _logger.LogInformation("=== ЗАПРОС МОИХ ПРОЕКТОВ ===");
+
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                {
+                    return Unauthorized(new { error = "Пользователь не авторизован" });
+                }
+
+                var projects = await _projectsService.GetUserProjectsAsync(userId);
+                return Ok(projects);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Ошибка при получении проектов пользователя: {ex.Message}");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> CreateProject(CreateProjectRequest request)
@@ -93,16 +118,31 @@ namespace ProjectHub.API.Controllers
             }
         }
 
+        // 📌 GET /api/projects — обновляем с поддержкой избранных
         [HttpGet]
         public async Task<IActionResult> GetProjects(
             [FromQuery] ProjectCategory? category,
-            [FromQuery] ProjectVisibility? visibility)
+            [FromQuery] ProjectVisibility? visibility,
+            [FromQuery] bool favoritesOnly = false)
         {
             try
             {
                 _logger.LogInformation("=== ЗАПРОС СПИСКА ПРОЕКТОВ ===");
-                var projects = await _projectsService.GetProjectsFilteredAsync(category, visibility);
-                return Ok(projects); // 200
+
+                Guid? userId = null;
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var parsedUserId))
+                {
+                    userId = parsedUserId;
+                }
+
+                var projects = await _projectsService.GetProjectsFilteredAsync(
+                    category,
+                    visibility,
+                    favoritesOnly,
+                    userId);
+
+                return Ok(projects);
             }
             catch (Exception ex)
             {
@@ -110,7 +150,55 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+        // 📌 POST /api/projects/{code}/favorite — добавить/удалить из избранного по коду
+        [HttpPost("{code}/favorite")]
+        [Authorize]
+        public async Task<IActionResult> ToggleFavoriteByCode(string code)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                {
+                    return Unauthorized(new { error = "Пользователь не авторизован" });
+                }
 
+                var result = await _projectsService.ToggleFavoriteByCodeAsync(code, userId);
+                return Ok(new { isFavorite = result });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Ошибка при изменении избранного: {ex.Message}");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // 📌 GET /api/projects/favorites — получить избранные проекты
+        [HttpGet("favorites")]
+        [Authorize]
+        public async Task<IActionResult> GetFavorites()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                {
+                    return Unauthorized(new { error = "Пользователь не авторизован" });
+                }
+
+                var projects = await _projectsService.GetUserFavoritesAsync(userId);
+                return Ok(projects);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Ошибка при получении избранных проектов: {ex.Message}");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
         [HttpGet("search/{code}")]
         public async Task<IActionResult> GetProjectByCode(string code)
         {

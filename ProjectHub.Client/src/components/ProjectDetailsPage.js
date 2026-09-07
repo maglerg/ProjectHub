@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { searchProjectByCode } from '../services/projectsApi';
+import { searchProjectByCode, toggleFavoriteByCode } from '../services/projectsApi';
 import { createApplicationByCode, getProjectApplications, processApplication } from '../services/applicationsApi';
 import { getCategoryName, getStatusName, getVisibilityName } from '../utils/constants';
 import MemberCard from './MemberCard';
@@ -25,6 +25,11 @@ const ProjectDetailsPage = () => {
     const [notification, setNotification] = useState(null);
     const [userStatus, setUserStatus] = useState('NotJoined');
     const [justSubmitted, setJustSubmitted] = useState(false);
+
+    // 📌 Состояния для избранного
+    const [isFavorite, setIsFavorite] = useState(false);
+    const [favoritesCount, setFavoritesCount] = useState(0);
+    const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
 
     const formatDate = (dateString) => {
         if (!dateString) return 'Не указана';
@@ -58,20 +63,13 @@ const ProjectDetailsPage = () => {
         try {
             const projectData = await searchProjectByCode(code);
             console.log('🔍 ВЕСЬ ОТВЕТ СЕРВЕРА:', JSON.stringify(projectData, null, 2));
-            console.log('📊 userStatus:', projectData?.userStatus);
-            console.log('👥 members:', projectData?.members);
 
             if (projectData) {
                 setProject(projectData);
                 setMembers(projectData.members || []);
-
-                const status = projectData.userStatus || 'NotJoined';
-                setUserStatus(status);
-
-                console.log('📊 Статус пользователя в проекте:', status);
-                console.log('👥 Участники:', projectData.members);
-
-                // ✅ Сбрасываем флаг отправки при загрузке
+                setUserStatus(projectData.userStatus || 'NotJoined');
+                setIsFavorite(projectData.isFavorite || false);
+                setFavoritesCount(projectData.favoritesCount || 0);
                 setJustSubmitted(false);
             } else {
                 setError('Проект не найден');
@@ -88,6 +86,22 @@ const ProjectDetailsPage = () => {
         loadProjectDetails();
     }, [loadProjectDetails]);
 
+    // 📌 Обработчик клика по звездочке
+    const handleFavoriteClick = async () => {
+        if (isTogglingFavorite || !project?.publicCode) return;
+
+        setIsTogglingFavorite(true);
+        try {
+            const result = await toggleFavoriteByCode(project.publicCode);
+            setIsFavorite(result);
+            setFavoritesCount(prev => result ? prev + 1 : prev - 1);
+        } catch (error) {
+            console.error('❌ Ошибка при изменении избранного:', error);
+            setNotification({ type: 'error', text: 'Не удалось изменить избранное' });
+        } finally {
+            setIsTogglingFavorite(false);
+        }
+    };
     // 📌 Загрузить заявки (только для владельца/админа)
     const loadApplications = async () => {
         if (!project?.id) return;
@@ -177,13 +191,6 @@ const ProjectDetailsPage = () => {
         );
     }
 
-    // ✅ Проверяем, можно ли отправить заявку
-    // Заявку НЕЛЬЗЯ отправить если:
-    // 1. Пользователь уже участник (Member)
-    // 2. Пользователь владелец (Owner)
-    // 3. Пользователь администратор (Admin)
-    // 4. Заявка уже отправлена (justSubmitted)
-    // 5. Идет отправка (isSubmitting)
     const canSubmitApplication =
         userStatus === 'NotJoined' &&
         !justSubmitted &&
@@ -268,6 +275,18 @@ const ProjectDetailsPage = () => {
                     <span className={`visibility-badge ${project.visibility === 'Private' ? 'private' : 'public'}`}>
                         {getVisibilityName(project.visibility)}
                     </span>
+                    {/* 📌 ЗВЕЗДОЧКА В ШАПКЕ */}
+                    <button
+                        className={`favorite-btn ${isFavorite ? 'active' : ''}`}
+                        onClick={handleFavoriteClick}
+                        disabled={isTogglingFavorite}
+                        title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}
+                    >
+                        {isFavorite ? '⭐' : '☆'}
+                        {favoritesCount > 0 && (
+                            <span className="favorites-count">{favoritesCount}</span>
+                        )}
+                    </button>
                 </div>
             </header>
 

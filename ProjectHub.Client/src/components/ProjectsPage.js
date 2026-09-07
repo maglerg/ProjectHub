@@ -16,7 +16,8 @@ import NotificationsDropdown from './NotificationsDropdown';
 import {
     fetchAllProjects,
     createProject,
-    fetchProjectsWithFilters
+    fetchProjectsWithFilters,
+    fetchMyProjects,
 } from '../services/projectsApi';
 
 const ProjectsPage = () => {
@@ -31,21 +32,40 @@ const ProjectsPage = () => {
     const [selectedVisibility, setSelectedVisibility] = useState('Public');
     const [selectedStatus, setSelectedStatus] = useState('');
     const [shouldResetForm, setShouldResetForm] = useState(false);
+    const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+    const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(false);
 
-    // Загрузка всех проектов
-    const loadAllProjects = async () => {
+    // 📌 Загрузка проектов
+    const loadProjects = async (favoritesOnly = false, myProjectsOnly = false) => {
         setLoading(true);
         setMessage('');
         try {
-            console.log('🔍 Загрузка проектов...');
-            const data = await fetchAllProjects();
+            let label = '(все)';
+            if (favoritesOnly) label = '(только избранные)';
+            else if (myProjectsOnly) label = '(только мои)';
+
+            console.log('🔍 Загрузка проектов...', label);
+
+            // 📌 Если запрошены "Мои проекты" — используем отдельный эндпоинт
+            let data;
+            if (myProjectsOnly) {
+                data = await fetchMyProjects();
+            } else {
+                data = await fetchAllProjects(favoritesOnly);
+            }
 
             console.log('📦 Данные с сервера:', data);
 
             if (Array.isArray(data)) {
                 setProjects(data);
                 if (data.length === 0) {
-                    setMessage('📭 Нет созданных проектов');
+                    if (favoritesOnly) {
+                        setMessage('⭐ Нет избранных проектов');
+                    } else if (myProjectsOnly) {
+                        setMessage('📭 Вы не участвуете ни в одном проекте');
+                    } else {
+                        setMessage('📭 Нет созданных проектов');
+                    }
                 } else {
                     setMessage(`✅ Найдено проектов: ${data.length}`);
                 }
@@ -88,7 +108,9 @@ const ProjectsPage = () => {
         try {
             const newProject = await createProject(projectData);
             setMessage(`✅ Проект "${newProject.name}" успешно создан! Код: ${newProject.publicCode}`);
-            await loadAllProjects();
+            setShowFavoritesOnly(false);
+            setShowMyProjectsOnly(false);
+            await loadProjects(false, false);
             setShouldResetForm(true);
             setTimeout(() => setShouldResetForm(false), 100);
         } catch (error) {
@@ -98,7 +120,7 @@ const ProjectsPage = () => {
         }
     };
 
-    // 📌 Обработка изменения фильтров (ОДНА ФУНКЦИЯ)
+    // 📌 Обработка изменения фильтров
     const handleFilterChange = (type, value) => {
         if (type === 'category') {
             setSelectedCategory(value);
@@ -117,21 +139,47 @@ const ProjectsPage = () => {
         setSelectedCategory('');
         setSelectedVisibility('Public');
         setSelectedStatus('');
-        loadAllProjects();
+        setShowFavoritesOnly(false);
+        setShowMyProjectsOnly(false);
+        loadProjects(false, false);
     };
 
     // Обработчик клика по табу
     const handleTabClick = (tab) => {
         if (activeTab === tab) {
+            // Если уже активен — закрываем
             setActiveTab(null);
             setMessage('');
             setProjects([]);
-        } else {
-            setActiveTab(tab);
-            setMessage('');
-            if (tab === 'list') {
-                loadAllProjects();
-            }
+            setShowFavoritesOnly(false);
+            setShowMyProjectsOnly(false);
+            return;
+        }
+
+        setActiveTab(tab);
+        setMessage('');
+
+        if (tab === 'create') {
+            // Ничего не загружаем, просто показываем форму
+            return;
+        }
+
+        if (tab === 'list') {
+            setShowFavoritesOnly(false);
+            setShowMyProjectsOnly(false);
+            loadProjects(false, false);
+        } else if (tab === 'favorites') {
+            setShowFavoritesOnly(true);
+            setShowMyProjectsOnly(false);
+            loadProjects(true, false);
+        } else if (tab === 'my') {
+            setShowFavoritesOnly(false);
+            setShowMyProjectsOnly(true);
+            loadProjects(false, true);
+        } else if (tab === 'search') {
+            setShowFavoritesOnly(false);
+            setShowMyProjectsOnly(false);
+            loadProjects(false, false);
         }
     };
 
@@ -142,9 +190,13 @@ const ProjectsPage = () => {
         setTimeout(() => setMessage(''), 3000);
     };
 
+    // Загрузка при первом рендере
+    useEffect(() => {
+        loadProjects(false, false);
+    }, []);
+
     return (
         <div className="projects-page">
-            {/* Шапка с пользователем */}
             <header className="page-header">
                 <div className="header-left">
                     <h1>📁 ProjectHub</h1>
@@ -160,7 +212,6 @@ const ProjectsPage = () => {
                         </span>
                     </div>
                     <NotificationsDropdown />
-                    {/* 📌 НОВАЯ КНОПКА ПРОФИЛЯ */}
                     <button
                         className="btn-profile"
                         onClick={() => navigate('/profile')}
@@ -175,7 +226,6 @@ const ProjectsPage = () => {
             </header>
 
             <main className="page-main">
-                {/* Кнопки-табы */}
                 <div className="tabs-container">
                     <button
                         className={`tab-btn ${activeTab === 'create' ? 'active' : ''}`}
@@ -195,16 +245,26 @@ const ProjectsPage = () => {
                     >
                         📋 Все проекты
                     </button>
+                    <button
+                        className={`tab-btn ${activeTab === 'my' ? 'active' : ''}`}
+                        onClick={() => handleTabClick('my')}
+                    >
+                        👤 Мои проекты
+                    </button>
+                    <button
+                        className={`tab-btn ${activeTab === 'favorites' ? 'active' : ''}`}
+                        onClick={() => handleTabClick('favorites')}
+                    >
+                        ⭐ Избранное
+                    </button>
                 </div>
 
-                {/* Сообщения */}
                 {message && (
                     <div className={`message ${message.includes('❌') || message.includes('Ошибка') ? 'error' : 'success'}`}>
                         {message}
                     </div>
                 )}
 
-                {/* Контент активной вкладки */}
                 <div className="tab-content">
                     {activeTab === 'create' && (
                         <CreateProjectForm
@@ -257,6 +317,54 @@ const ProjectsPage = () => {
                                 loading={loading}
                                 onCopyCode={handleCopyCode}
                             />
+                        </div>
+                    )}
+
+                    {activeTab === 'my' && (
+                        <div className="list-tab-content">
+                            {projects.length === 0 ? (
+                                <div className="empty-state-my">
+                                    <div className="empty-state-icon">👤</div>
+                                    <h3>Нет проектов</h3>
+                                    <p>Вы пока не участвуете ни в одном проекте</p>
+                                    <button
+                                        className="btn-primary"
+                                        onClick={() => handleTabClick('list')}
+                                    >
+                                        📋 Посмотреть все проекты
+                                    </button>
+                                </div>
+                            ) : (
+                                <ProjectList
+                                    projects={projects}
+                                    loading={loading}
+                                    onCopyCode={handleCopyCode}
+                                />
+                            )}
+                        </div>
+                    )}
+
+                    {activeTab === 'favorites' && (
+                        <div className="list-tab-content">
+                            {projects.length === 0 ? (
+                                <div className="empty-state-favorites">
+                                    <div className="empty-state-icon">⭐</div>
+                                    <h3>Нет избранных проектов</h3>
+                                    <p>Добавляйте проекты в избранное, чтобы быстро находить их здесь</p>
+                                    <button
+                                        className="btn-primary"
+                                        onClick={() => handleTabClick('list')}
+                                    >
+                                        📋 Перейти к проектам
+                                    </button>
+                                </div>
+                            ) : (
+                                <ProjectList
+                                    projects={projects}
+                                    loading={loading}
+                                    onCopyCode={handleCopyCode}
+                                />
+                            )}
                         </div>
                     )}
 

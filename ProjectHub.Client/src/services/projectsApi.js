@@ -2,14 +2,89 @@
 import { getToken } from '../utils/storage';
 
 const API_BASE_URL = 'https://localhost:7000/api';
-
-// 📌 Получить все проекты
-export const fetchAllProjects = async () => {
+// 📌 Добавить/удалить из избранного по публичному коду
+export const toggleFavoriteByCode = async (code) => {
     try {
         const token = getToken();
-        console.log('🔑 Токен:', token ? 'Есть' : 'Нет');
+        const response = await fetch(`${API_BASE_URL}/projects/${code}/favorite`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
 
-        const response = await fetch(`${API_BASE_URL}/projects`, {
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || 'Ошибка изменения избранного');
+        }
+
+        const data = await response.json();
+        return data.isFavorite;
+    } catch (error) {
+        console.error('❌ Ошибка в toggleFavoriteByCode:', error);
+        throw error;
+    }
+};
+// 📌 Получить мои проекты (где пользователь владелец или участник)
+export const fetchMyProjects = async () => {
+    try {
+        const token = getToken();
+        const response = await fetch(`${API_BASE_URL}/projects/my`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || 'Ошибка получения моих проектов');
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('❌ Ошибка в fetchMyProjects:', error);
+        throw error;
+    }
+};
+// 📌 Получить избранные проекты
+export const fetchFavorites = async () => {
+    try {
+        const token = getToken();
+        const response = await fetch(`${API_BASE_URL}/projects/favorites`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || 'Ошибка получения избранных проектов');
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('❌ Ошибка в fetchFavorites:', error);
+        throw error;
+    }
+};
+
+export const fetchAllProjects = async (favoritesOnly = false) => {
+    try {
+        const token = getToken();
+        let url = `${API_BASE_URL}/projects`;
+
+        if (favoritesOnly) {
+            url += `?favoritesOnly=true`;
+        }
+
+        const response = await fetch(url, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -38,7 +113,9 @@ export const fetchAllProjects = async () => {
         console.error('❌ Ошибка в fetchAllProjects:', error);
         throw error;
     }
+    
 };
+
 
 // 📌 Получить проекты с фильтрами
 export const fetchProjectsWithFilters = async (category, visibility, status) => {

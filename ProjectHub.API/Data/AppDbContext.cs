@@ -17,6 +17,7 @@ namespace ProjectHub.API.Data
         public DbSet<ProjectMember> ProjectMembers { get; set; }
         public DbSet<Application> Applications { get; set; }
         public DbSet<Notification> Notifications { get; set; }
+        public DbSet<Favorite> Favorites { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -55,6 +56,9 @@ namespace ProjectHub.API.Data
             modelBuilder.Entity<Application>()
                 .HasIndex(a => new { a.ProjectId, a.UserId })
                 .IsUnique();
+            modelBuilder.Entity<Favorite>()
+            .HasIndex(f => new { f.UserId, f.ProjectId })
+            .IsUnique();
 
             modelBuilder.Entity<Project>(entity =>
             {

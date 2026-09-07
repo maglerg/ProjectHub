@@ -5,6 +5,7 @@ using ProjectHub.API.Data;
 using ProjectHub.API.DTOs;
 using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
+using ProjectHub.Models;
 using System.Reflection;
 
 
@@ -125,9 +126,127 @@ namespace ProjectHub.API.Services
             _logger.LogInformation($"Пользователь {userId} успешно присоединился к проекту {publicCode}");
             return true;
         }
+        // 📌 Проверить, добавлен ли проект в избранное
+        public async Task<bool> IsProjectFavoriteAsync(Guid projectId, Guid userId)
+        {
+            return await _dbContext.Favorites
+                .AnyAsync(f => f.ProjectId == projectId && f.UserId == userId);
+        }
+
+        // 📌 Добавить/удалить из избранного по ID (используется внутри)
+        public async Task<bool> ToggleFavoriteAsync(Guid projectId, Guid userId)
+        {
+            var project = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.Id == projectId);
+
+            if (project == null)
+                throw new KeyNotFoundException("Проект не найден");
+
+            var favorite = await _dbContext.Favorites
+                .FirstOrDefaultAsync(f => f.ProjectId == projectId && f.UserId == userId);
+
+            if (favorite != null)
+            {
+                // Удаляем из избранного
+                _dbContext.Favorites.Remove(favorite);
+                project.FavoritesCount = Math.Max(0, project.FavoritesCount - 1);
+                await _dbContext.SaveChangesAsync();
+                return false;
+            }
+            else
+            {
+                // Добавляем в избранное
+                var newFavorite = new Favorite
+                {
+                    Id = Guid.NewGuid(),
+                    ProjectId = projectId,
+                    UserId = userId,
+                    CreatedAt = DateTime.UtcNow
+                };
+                await _dbContext.Favorites.AddAsync(newFavorite);
+                project.FavoritesCount += 1;
+                await _dbContext.SaveChangesAsync();
+                return true;
+            }
+        }
+
+        // 📌 Получить избранные проекты пользователя
+        public async Task<List<ProjectResponse>> GetUserFavoritesAsync(Guid userId)
+        {
+            var favoriteProjects = await _dbContext.Favorites
+                .Where(f => f.UserId == userId)
+                .Select(f => f.Project)
+                .Include(p => p.Members)
+                    .ThenInclude(m => m.User)
+                .Include(p => p.Favorites)
+                .OrderByDescending(p => p.FavoritesCount)
+                .ToListAsync();
+
+            var responses = favoriteProjects.Select(MapToResponse).ToList();
+
+            // 📌 Устанавливаем IsFavorite = true для всех
+            foreach (var response in responses)
+            {
+                response.IsFavorite = true;
+            }
+
+            return responses;
+        }
+        // 📌 Получить проекты, где пользователь является владельцем или участником
+        public async Task<List<ProjectResponse>> GetUserProjectsAsync(Guid userId)
+        {
+            // 📌 Проекты, где пользователь является ВЛАДЕЛЬЦЕМ
+            var ownedProjects = await _dbContext.Projects
+                .Include(p => p.Members)
+                    .ThenInclude(m => m.User)
+                .Include(p => p.Favorites)
+                .Where(p => p.OwnerId == userId)
+                .ToListAsync();
+
+            // 📌 Проекты, где пользователь является УЧАСТНИКОМ (через ProjectMembers)
+            var memberProjects = await _dbContext.Projects
+                .Include(p => p.Members)
+                    .ThenInclude(m => m.User)
+                .Include(p => p.Favorites)
+                .Where(p => p.Members.Any(m => m.UserId == userId))
+                .ToListAsync();
+
+            // 📌 Объединяем, убираем дубликаты, сортируем по дате создания
+            var allProjects = ownedProjects
+                .Union(memberProjects)
+                .DistinctBy(p => p.Id)
+                .OrderByDescending(p => p.CreatedAt)
+                .ToList();
+
+            // 📌 Если проектов нет — возвращаем пустой список
+            if (!allProjects.Any())
+            {
+                _logger.LogInformation($"Пользователь {userId} не участвует ни в одном проекте");
+                return new List<ProjectResponse>();
+            }
+
+            var responses = new List<ProjectResponse>();
+
+            foreach (var project in allProjects)
+            {
+                var response = MapToResponse(project);
+
+                // 📌 Проверяем статус избранного для каждого проекта
+                response.IsFavorite = await IsProjectFavoriteAsync(project.Id, userId);
+
+                // 📌 Проверяем статус пользователя в проекте
+                response.UserStatus = await GetUserProjectStatusAsync(project.Id, userId);
+
+                responses.Add(response);
+            }
+
+            return responses;
+        }
         public async Task<List<ProjectResponse>> GetProjectsFilteredAsync(
             ProjectCategory? category = null,
-            ProjectVisibility? visibility = null)
+            ProjectVisibility? visibility = null,
+            bool favoritesOnly = false,
+             Guid? userId = null)
         {
             var query = _dbContext.Projects
     .Include(p => p.Members)
@@ -142,6 +261,16 @@ namespace ProjectHub.API.Services
 
             // По умолчанию только публичные
             query = query.Where(p => p.Visibility == ProjectVisibility.Public);
+            // 📌 Если запрошены только избранные
+            if (favoritesOnly && userId.HasValue)
+            {
+                var favoriteIds = await _dbContext.Favorites
+                    .Where(f => f.UserId == userId.Value)
+                    .Select(f => f.ProjectId)
+                    .ToListAsync();
+
+                query = query.Where(p => favoriteIds.Contains(p.Id));
+            }
             query = query.OrderByDescending(p => p.CreatedAt);
 
             var projects = await query.ToListAsync();
@@ -153,12 +282,23 @@ namespace ProjectHub.API.Services
             var projectEntity = await _dbContext.Projects
                 .Include(p => p.Members)
                     .ThenInclude(m => m.User)
+                     .Include(p => p.Favorites)
                 .FirstOrDefaultAsync(p => p.PublicCode == code && p.Visibility == ProjectVisibility.Public);
 
             if (projectEntity == null)
                 return null;
 
             var response = MapToResponse(projectEntity);
+
+            // 📌 Проверяем, добавил ли пользователь проект в избранное
+            if (currentUserId.HasValue)
+            {
+                var isFavorite = await IsProjectFavoriteAsync(projectEntity.Id, currentUserId.Value);
+                response.IsFavorite = isFavorite;
+
+                var status = await GetUserProjectStatusAsync(projectEntity.Id, currentUserId.Value);
+                response.UserStatus = status;
+            }
 
             // 📌 Вычисляем статус пользователя, если передан ID
             if (currentUserId.HasValue)
@@ -168,7 +308,18 @@ namespace ProjectHub.API.Services
 
             return response;
         }
+        // 📌 Добавить/удалить из избранного по публичному коду
+        public async Task<bool> ToggleFavoriteByCodeAsync(string code, Guid userId)
+        {
+            // Находим проект по коду
+            var project = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.PublicCode == code);
 
+            if (project == null)
+                throw new KeyNotFoundException("Проект с таким кодом не найден");
+
+            return await ToggleFavoriteAsync(project.Id, userId);
+        }
         // 📌 НОВЫЙ МЕТОД — определяет статус пользователя в проекте
         private async Task<UserProjectStatus> GetUserProjectStatusAsync(Guid projectId, Guid userId)
         {
@@ -237,7 +388,8 @@ namespace ProjectHub.API.Services
                 Status = entity.Status,
                 Deadline = entity.Deadline,
                 CreatedAt = entity.CreatedAt,
-                OwnerId = entity.OwnerId,  
+                OwnerId = entity.OwnerId,
+                FavoritesCount = entity.FavoritesCount,
                 Members = entity.Members.Select(m => new ProjectHub.API.DTOs.MemberInfo
                 {
                     UserId = m.UserId,

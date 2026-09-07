@@ -62,6 +62,31 @@ namespace ProjectHub.API.Migrations
                     b.ToTable("Applications");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.Favorite", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("UserId", "ProjectId")
+                        .IsUnique();
+
+                    b.ToTable("Favorites");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -121,6 +146,9 @@ namespace ProjectHub.API.Migrations
                     b.Property<string>("Description")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("FavoritesCount")
+                        .HasColumnType("integer");
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -251,6 +279,25 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.Favorite", b =>
+                {
+                    b.HasOne("ProjectHub.API.Models.Project", "Project")
+                        .WithMany("Favorites")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.Notification", b =>
                 {
                     b.HasOne("ProjectHub.Models.User", "User")
@@ -294,6 +341,8 @@ namespace ProjectHub.API.Migrations
 
             modelBuilder.Entity("ProjectHub.API.Models.Project", b =>
                 {
+                    b.Navigation("Favorites");
+
                     b.Navigation("Members");
                 });
 

@@ -45,5 +45,11 @@ namespace ProjectHub.API.Models
 
         // Навигационное свойство: Список участников проекта (связь многие-ко-многим через ProjectMember)
         public virtual ICollection<ProjectMember> Members { get; set; } = new List<ProjectMember>();
+
+        [Required]
+        public int FavoritesCount { get; set; } = 0;  
+
+        // Навигационное свойство для избранных
+        public virtual ICollection<Favorite> Favorites { get; set; } = new List<Favorite>();
     }
 }

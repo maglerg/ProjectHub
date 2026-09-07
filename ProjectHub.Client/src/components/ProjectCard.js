@@ -1,26 +1,31 @@
 // projecthub.client/src/components/ProjectCard.js
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCategoryName, getStatusName, getVisibilityName } from '../utils/constants';
+import { toggleFavoriteByCode } from '../services/projectsApi';
 import '../styles/components/ProjectCard.css';
 
-const ProjectCard = ({ project, onCopyCode }) => {
+const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
     const navigate = useNavigate();
-    // 📌 ЗАЩИТА: если project нет — ничего не рендерим
+    const [isFavorite, setIsFavorite] = useState(project.isFavorite || false);
+    const [favoritesCount, setFavoritesCount] = useState(project.favoritesCount || 0);
+    const [isToggling, setIsToggling] = useState(false);
+
+    // 📌 ЗАЩИТА: если project нет
     if (!project || typeof project !== 'object') {
         console.warn('⚠️ ProjectCard: project is invalid', project);
         return null;
     }
 
-    // 📌 ЗАЩИТА: если нет name — показываем заглушку
+    // 📌 ЗАЩИТА: если нет name
     if (!project.name) {
         console.warn('⚠️ ProjectCard: project has no name', project);
         return (
             <li className="project-item project-item-error">
                 <div className="project-header">
                     <h3 style={{ color: '#e67e22' }}>⚠️ Проект без названия</h3>
-                    <span className="error-badge">ID: {project.id || 'неизвестен'}</span>
+                    <span className="error-badge">Код: {project.publicCode || 'неизвестен'}</span>
                 </div>
             </li>
         );
@@ -44,19 +49,39 @@ const ProjectCard = ({ project, onCopyCode }) => {
     // Определяем цвет статуса
     const getStatusColor = (status) => {
         switch (status) {
-            case 'Completed': return '#27ae60';    // Зеленый
-            case 'Uncompleted': return '#e67e22';  // Оранжевый
+            case 'Completed': return '#27ae60';
+            case 'Uncompleted': return '#e67e22';
             default: return '#666';
         }
     };
 
-    const getStatusName = (status) => {
-        switch (status) {
-            case 'Completed': return '✅ Завершен';
-            case 'Uncompleted': return '⏳ В процессе';
-            default: return status || 'Неизвестно';
+    // 📌 Обработчик клика по звездочке (используем publicCode)
+    const handleFavoriteClick = async (e) => {
+        e.stopPropagation();
+
+        if (isToggling) return;
+        if (!project.publicCode) {
+            console.error('❌ Нет публичного кода проекта');
+            return;
+        }
+
+        setIsToggling(true);
+        try {
+            // ✅ Используем publicCode вместо ID
+            const result = await toggleFavoriteByCode(project.publicCode);
+            setIsFavorite(result);
+            setFavoritesCount(prev => result ? prev + 1 : prev - 1);
+
+            if (onFavoriteToggle) {
+                onFavoriteToggle(project.publicCode, result);
+            }
+        } catch (error) {
+            console.error('❌ Ошибка при изменении избранного:', error);
+        } finally {
+            setIsToggling(false);
         }
     };
+
     // 📌 ОБРАБОТЧИК КЛИКА ПО КАРТОЧКЕ
     const handleCardClick = () => {
         if (project.publicCode) {
@@ -64,15 +89,15 @@ const ProjectCard = ({ project, onCopyCode }) => {
         }
     };
 
-    // ОБРАБОТЧИК КОПИРОВАНИЯ (останавливает всплытие)
+    // ОБРАБОТЧИК КОПИРОВАНИЯ
     const handleCopyClick = (e) => {
-        e.stopPropagation(); // Не даем сработать клику по карточке
+        e.stopPropagation();
         if (onCopyCode && project.publicCode) {
             onCopyCode(project.publicCode);
         }
     };
 
-    // 📌 Безопасное получение значений (с дефолтными значениями)
+    // 📌 Безопасное получение значений
     const name = project.name || 'Без названия';
     const description = project.description || '';
     const category = project.category || 'Other';
@@ -86,16 +111,30 @@ const ProjectCard = ({ project, onCopyCode }) => {
         <li className="project-item" onClick={handleCardClick}>
             <div className="project-header">
                 <h3>{name}</h3>
-                <div className="project-badges">
-                    <span
-                        className="status-tag"
-                        style={{ backgroundColor: getStatusColor(status) }}
+                <div className="project-header-right">
+                    <div className="project-badges">
+                        <span
+                            className="status-tag"
+                            style={{ backgroundColor: getStatusColor(status) }}
+                        >
+                            {getStatusName(status)}
+                        </span>
+                        <span className={`visibility-tag ${visibility === 'Private' ? 'private' : 'public'}`}>
+                            {getVisibilityName(visibility)}
+                        </span>
+                    </div>
+                    {/* 📌 ЗВЕЗДОЧКА */}
+                    <button
+                        className={`favorite-btn ${isFavorite ? 'active' : ''}`}
+                        onClick={handleFavoriteClick}
+                        disabled={isToggling}
+                        title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}
                     >
-                        {getStatusName(status)}
-                    </span>
-                    <span className={`visibility-tag ${visibility === 'Private' ? 'private' : 'public'}`}>
-                        {getVisibilityName(visibility)}
-                    </span>
+                        {isFavorite ? '⭐' : '☆'}
+                        {favoritesCount > 0 && (
+                            <span className="favorites-count">{favoritesCount}</span>
+                        )}
+                    </button>
                 </div>
             </div>
 

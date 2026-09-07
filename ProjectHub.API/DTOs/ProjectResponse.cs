@@ -19,5 +19,8 @@ namespace ProjectHub.API.DTOs
         public List<MemberInfo> Members { get; set; } = new();
 
         public UserProjectStatus UserStatus { get; set; } = UserProjectStatus.NotJoined;
+
+        public int FavoritesCount { get; set; }  
+        public bool IsFavorite { get; set; }     
     }
 }
