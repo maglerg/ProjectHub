@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getCurrentUser, updateUser } from '../services/userApi';
 import { SPECIALIZATIONS } from '../utils/constants';
+import { getUser, setUser as setUserInStorage } from '../utils/storage';
 import '../styles/components/ProfilePage.css';
 
 const ProfilePage = () => {
@@ -41,6 +42,7 @@ const ProfilePage = () => {
                 specialization: data.specialization || '',
                 description: data.description || ''
             });
+            setUserInStorage(data);
         } catch (err) {
             setError(err.message || 'Не удалось загрузить профиль');
         } finally {

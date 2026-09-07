@@ -1,7 +1,6 @@
 // projecthub.client/src/utils/storage.js
 
-// 📌 Генерируем уникальный ID для вкладки
-// Сохраняем его в sessionStorage, чтобы он жил только в этой вкладке
+// 📌 Генерируем уникальный ID для вкладки (сохраняется в sessionStorage)
 const getTabId = () => {
     let tabId = sessionStorage.getItem('tabId');
     if (!tabId) {
@@ -13,39 +12,47 @@ const getTabId = () => {
 
 const TAB_ID = getTabId();
 
-// 📌 Хранилище с поддержкой tabId
-export const setItem = (key, value) => {
-    const data = {
-        value: value,
-        tabId: TAB_ID,
-        timestamp: Date.now()
-    };
-    localStorage.setItem(key, JSON.stringify(data));
+// 📌 Уникальный ключ для этой вкладки
+const getStorageKey = (baseKey) => {
+    return `${baseKey}_${TAB_ID}`;
 };
 
-export const getItem = (key) => {
-    const raw = localStorage.getItem(key);
-    if (!raw) return null;
+// 📌 Сохраняем значение с уникальным ключом
+export const setItem = (key, value) => {
+    const storageKey = getStorageKey(key);
+    localStorage.setItem(storageKey, JSON.stringify(value));
+};
 
+// 📌 Получаем значение по уникальному ключу
+export const getItem = (key) => {
+    const storageKey = getStorageKey(key);
+    const raw = localStorage.getItem(storageKey);
+    if (!raw) return null;
     try {
-        const data = JSON.parse(raw);
-        // ✅ Если данные принадлежат этой вкладке — возвращаем
-        if (data.tabId && data.tabId === TAB_ID) {
-            return data.value;
-        }
-        // ❌ Если данные от другой вкладки — игнорируем
-        return null;
+        return JSON.parse(raw);
     } catch {
         return null;
     }
 };
 
+// 📌 Удаляем значение
 export const removeItem = (key) => {
-    localStorage.removeItem(key);
+    const storageKey = getStorageKey(key);
+    localStorage.removeItem(storageKey);
 };
 
+// 📌 Очищаем все данные этой вкладки
 export const clear = () => {
-    localStorage.clear();
+    // Удаляем все ключи, которые начинаются с нашего tabId
+    const prefix = `${TAB_ID}`;
+    const keysToRemove = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key && key.endsWith(prefix)) {
+            keysToRemove.push(key);
+        }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
 };
 
 // 📌 Специальные методы для токена и пользователя
@@ -57,4 +64,9 @@ export const setUser = (user) => setItem('user', user);
 export const getUser = () => getItem('user');
 export const removeUser = () => removeItem('user');
 
-export const isAuthenticated = () => !!getToken();
+export const isAuthenticated = () => {
+    return !!getToken();
+};
+
+// 📌 Получить tabId (для отладки)
+export const getTabIdValue = () => TAB_ID;

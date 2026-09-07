@@ -57,11 +57,21 @@ const ProjectDetailsPage = () => {
 
         try {
             const projectData = await searchProjectByCode(code);
+            console.log('🔍 ВЕСЬ ОТВЕТ СЕРВЕРА:', JSON.stringify(projectData, null, 2));
+            console.log('📊 userStatus:', projectData?.userStatus);
+            console.log('👥 members:', projectData?.members);
 
             if (projectData) {
                 setProject(projectData);
                 setMembers(projectData.members || []);
-                setUserStatus(projectData.userStatus || 'NotJoined');
+
+                const status = projectData.userStatus || 'NotJoined';
+                setUserStatus(status);
+
+                console.log('📊 Статус пользователя в проекте:', status);
+                console.log('👥 Участники:', projectData.members);
+
+                // ✅ Сбрасываем флаг отправки при загрузке
                 setJustSubmitted(false);
             } else {
                 setError('Проект не найден');
@@ -167,8 +177,17 @@ const ProjectDetailsPage = () => {
         );
     }
 
-    // 📌 Проверяем, можно ли отправить заявку
-    const canSubmitApplication = userStatus === 'NotJoined' && !justSubmitted && !isSubmitting;
+    // ✅ Проверяем, можно ли отправить заявку
+    // Заявку НЕЛЬЗЯ отправить если:
+    // 1. Пользователь уже участник (Member)
+    // 2. Пользователь владелец (Owner)
+    // 3. Пользователь администратор (Admin)
+    // 4. Заявка уже отправлена (justSubmitted)
+    // 5. Идет отправка (isSubmitting)
+    const canSubmitApplication =
+        userStatus === 'NotJoined' &&
+        !justSubmitted &&
+        !isSubmitting;
 
     // 📌 Определяем, что показывать в секции присоединения
     const renderJoinSection = () => {

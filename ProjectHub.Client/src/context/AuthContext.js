@@ -7,7 +7,7 @@ import {
     logout as apiLogout,
     getCurrentUser,
     isAuthenticated,
-    getUserFromStorage
+    getUserFromStorage,
 } from '../api/authApi';
 
 const AuthContext = createContext();
@@ -25,6 +25,7 @@ export const AuthProvider = ({ children }) => {
     const loadUser = async () => {
         setLoading(true);
         try {
+            // ✅ Проверяем, есть ли токен в localStorage (с tabId)
             if (isAuthenticated()) {
                 const userData = await getCurrentUser();
                 if (userData) {
@@ -35,7 +36,13 @@ export const AuthProvider = ({ children }) => {
             } else {
                 const storedUser = getUserFromStorage();
                 if (storedUser) {
-                    setUser(storedUser);
+                    // 📌 Проверяем, не истек ли токен (на бэкенде)
+                    try {
+                        const refreshedUser = await getCurrentUser();
+                        setUser(refreshedUser || storedUser);
+                    } catch {
+                        setUser(storedUser);
+                    }
                 }
             }
         } catch (err) {
@@ -45,7 +52,6 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
         }
     };
-
     // 📌 Вход
     const handleLogin = async (email, password) => {
         setError(null);

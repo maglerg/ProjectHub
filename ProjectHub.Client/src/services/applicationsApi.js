@@ -1,11 +1,11 @@
 // projecthub.client/src/services/applicationsApi.js
-
+import { getToken } from '../utils/storage';
 const API_BASE_URL = 'https://localhost:7000/api';
 
 // 📌 Подать заявку по коду проекта
 export const createApplicationByCode = async (code, message) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         const response = await fetch(`${API_BASE_URL}/applications/project/code/${code}`, {
             method: 'POST',
             headers: {
@@ -31,7 +31,7 @@ export const createApplicationByCode = async (code, message) => {
 // 📌 Получить заявки проекта
 export const getProjectApplications = async (projectId, status) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         const url = status
             ? `${API_BASE_URL}/applications/project/${projectId}?status=${status}`
             : `${API_BASE_URL}/applications/project/${projectId}`;
@@ -59,7 +59,7 @@ export const getProjectApplications = async (projectId, status) => {
 // 📌 Обработать заявку (принять/отклонить)
 export const processApplication = async (applicationId, approve, message) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         const response = await fetch(`${API_BASE_URL}/applications/${applicationId}/process`, {
             method: 'PUT',
             headers: {
@@ -84,7 +84,7 @@ export const processApplication = async (applicationId, approve, message) => {
 // 📌 Получить заявки проекта по публичному коду
 export const getApplicationsByCode = async (code, status) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         const url = status
             ? `${API_BASE_URL}/applications/project/code/${code}?status=${status}`
             : `${API_BASE_URL}/applications/project/code/${code}`;

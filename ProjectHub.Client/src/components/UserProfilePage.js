@@ -21,7 +21,10 @@ const UserProfilePage = () => {
         setLoading(true);
         setError(null);
         try {
-            const data = await getUserProfileByEmail(email);
+            const decodedEmail = decodeURIComponent(email);
+            console.log('Загрузка профиля для email:', decodedEmail);
+            const data = await getUserProfileByEmail(decodedEmail);
+            console.log('Данные пользователя:', data);
             setUser(data);
         } catch (err) {
             setError(err.message || 'Не удалось загрузить профиль пользователя');

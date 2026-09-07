@@ -1,8 +1,10 @@
 // projecthub.client/src/api/authApi.js
 
+import { setToken, getToken, removeToken, setUser, getUser, removeUser } from '../utils/storage';
+
 const API_BASE_URL = 'https://localhost:7000/api';
 
-// РЕГИСТРАЦИЯ
+// 📌 РЕГИСТРАЦИЯ
 export const register = async (userData) => {
     try {
         const response = await fetch(`${API_BASE_URL}/auth/register`, {
@@ -19,6 +21,10 @@ export const register = async (userData) => {
             throw new Error(data.message || 'Ошибка регистрации');
         }
 
+        // ✅ Сохраняем в localStorage с tabId
+        setToken(data.token);
+        setUser(data);
+
         return data;
     } catch (error) {
         console.error('Registration error:', error);
@@ -26,7 +32,7 @@ export const register = async (userData) => {
     }
 };
 
-// ВХОД
+// 📌 ВХОД
 export const login = async (email, password) => {
     try {
         const response = await fetch(`${API_BASE_URL}/auth/login`, {
@@ -43,9 +49,9 @@ export const login = async (email, password) => {
             throw new Error(data.message || 'Ошибка входа');
         }
 
-        // Сохраняем токен и данные пользователя
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('user', JSON.stringify(data));
+        // ✅ Сохраняем в localStorage с tabId
+        setToken(data.token);
+        setUser(data);
 
         return data;
     } catch (error) {
@@ -54,10 +60,10 @@ export const login = async (email, password) => {
     }
 };
 
-// ВЫХОД
+// 📌 ВЫХОД
 export const logout = async () => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
 
         if (token) {
             await fetch(`${API_BASE_URL}/auth/logout`, {
@@ -71,15 +77,15 @@ export const logout = async () => {
     } catch (error) {
         console.error('Logout error:', error);
     } finally {
-        localStorage.removeItem('token');
-        localStorage.removeItem('user');
+        removeToken();
+        removeUser();
     }
 };
 
-// ПОЛУЧИТЬ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
+// 📌 ПОЛУЧИТЬ ТЕКУЩЕГО ПОЛЬЗОВАТЕЛЯ
 export const getCurrentUser = async () => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
 
         if (!token) {
             return null;
@@ -94,13 +100,13 @@ export const getCurrentUser = async () => {
         });
 
         if (!response.ok) {
-            localStorage.removeItem('token');
-            localStorage.removeItem('user');
+            removeToken();
+            removeUser();
             return null;
         }
 
         const data = await response.json();
-        localStorage.setItem('user', JSON.stringify(data));
+        setUser(data);
         return data;
     } catch (error) {
         console.error('Error fetching current user:', error);
@@ -108,14 +114,12 @@ export const getCurrentUser = async () => {
     }
 };
 
-// ПРОВЕРКА АВТОРИЗОВАН ЛИ ПОЛЬЗОВАТЕЛЬ
+// 📌 ПРОВЕРКА АВТОРИЗОВАН ЛИ ПОЛЬЗОВАТЕЛЬ
 export const isAuthenticated = () => {
-    const token = localStorage.getItem('token');
-    return !!token;
+    return !!getToken();
 };
 
-// ПОЛУЧИТЬ ПОЛЬЗОВАТЕЛЯ ИЗ LOCALSTORAGE
+// 📌 ПОЛУЧИТЬ ПОЛЬЗОВАТЕЛЯ ИЗ ХРАНИЛИЩА
 export const getUserFromStorage = () => {
-    const user = localStorage.getItem('user');
-    return user ? JSON.parse(user) : null;
+    return getUser();
 };

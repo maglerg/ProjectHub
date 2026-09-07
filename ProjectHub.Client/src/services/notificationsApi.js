@@ -1,11 +1,11 @@
 // projecthub.client/src/services/notificationsApi.js
-
+import { getToken } from '../utils/storage';
 const API_BASE_URL = 'https://localhost:7000/api';
 
 // 📌 Получить все уведомления
 export const getNotifications = async (unreadOnly = false) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         const url = unreadOnly
             ? `${API_BASE_URL}/notifications?unreadOnly=true`
             : `${API_BASE_URL}/notifications`;
@@ -33,7 +33,7 @@ export const getNotifications = async (unreadOnly = false) => {
 // 📌 Получить количество непрочитанных
 export const getUnreadCount = async () => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         const response = await fetch(`${API_BASE_URL}/notifications/unread/count`, {
             method: 'GET',
             headers: {
@@ -57,7 +57,7 @@ export const getUnreadCount = async () => {
 // 📌 Отметить как прочитанное
 export const markAsRead = async (notificationId = null) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         const response = await fetch(`${API_BASE_URL}/notifications/mark-read`, {
             method: 'PUT',
             headers: {

@@ -1,11 +1,12 @@
 // projecthub.client/src/services/projectsApi.js
+import { getToken } from '../utils/storage';
 
 const API_BASE_URL = 'https://localhost:7000/api';
 
 // 📌 Получить все проекты
 export const fetchAllProjects = async () => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         console.log('🔑 Токен:', token ? 'Есть' : 'Нет');
 
         const response = await fetch(`${API_BASE_URL}/projects`, {
@@ -42,7 +43,7 @@ export const fetchAllProjects = async () => {
 // 📌 Получить проекты с фильтрами
 export const fetchProjectsWithFilters = async (category, visibility, status) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         let url = `${API_BASE_URL}/projects/filter?`;
 
         if (category) url += `category=${category}&`;
@@ -79,7 +80,7 @@ export const fetchProjectsWithFilters = async (category, visibility, status) => 
 // 📌 Поиск проекта по коду
 export const searchProjectByCode = async (code) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         const response = await fetch(`${API_BASE_URL}/projects/search/${code}`, {
             method: 'GET',
             headers: {
@@ -108,7 +109,7 @@ export const searchProjectByCode = async (code) => {
 // 📌 Получить участников проекта
 export const fetchProjectMembers = async (projectId) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         const response = await fetch(`${API_BASE_URL}/projects/${projectId}/members`, {
             method: 'GET',
             headers: {
@@ -131,7 +132,7 @@ export const fetchProjectMembers = async (projectId) => {
 // 📌 Создать новый проект
 export const createProject = async (projectData) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         const response = await fetch(`${API_BASE_URL}/projects`, {
             method: 'POST',
             headers: {
@@ -163,7 +164,7 @@ export const createProject = async (projectData) => {
 // 📌 Присоединиться к проекту по коду
 export const joinProject = async (code) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         const response = await fetch(`${API_BASE_URL}/projects/join/${code}`, {
             method: 'POST',
             headers: {
@@ -188,7 +189,7 @@ export const joinProject = async (code) => {
 // 📌 Обновить проект
 export const updateProject = async (id, projectData) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
             method: 'PUT',
             headers: {
@@ -213,7 +214,7 @@ export const updateProject = async (id, projectData) => {
 // 📌 Удалить проект
 export const deleteProject = async (id) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
         const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
             method: 'DELETE',
             headers: {

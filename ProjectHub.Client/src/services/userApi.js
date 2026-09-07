@@ -1,11 +1,11 @@
 // projecthub.client/src/services/userApi.js
-
+import { getToken, getUser, setUser } from '../utils/storage';
 const API_BASE_URL = 'https://localhost:7000/api';
 
 // 📌 Получить данные текущего пользователя
 export const getCurrentUser = async () => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken(); 
         const response = await fetch(`${API_BASE_URL}/auth/me`, {
             method: 'GET',
             headers: {
@@ -29,8 +29,14 @@ export const getCurrentUser = async () => {
 // 📌 Получить профиль пользователя по email
 export const getUserProfileByEmail = async (email) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken();
+        if (!token) {
+            throw new Error('Не авторизован');
+        }
+
         const encodedEmail = encodeURIComponent(email);
+        console.log('📤 Запрос профиля для email:', encodedEmail);
+
         const response = await fetch(`${API_BASE_URL}/users/email/${encodedEmail}`, {
             method: 'GET',
             headers: {
@@ -45,6 +51,7 @@ export const getUserProfileByEmail = async (email) => {
         }
 
         const data = await response.json();
+        console.log('📦 Получен профиль:', data);
         return data;
     } catch (error) {
         console.error('❌ Ошибка в getUserProfileByEmail:', error);
@@ -54,7 +61,7 @@ export const getUserProfileByEmail = async (email) => {
 // 📌 Обновить данные пользователя
 export const updateUser = async (userData) => {
     try {
-        const token = localStorage.getItem('token');
+        const token = getToken(); 
         const response = await fetch(`${API_BASE_URL}/users`, {
             method: 'PUT',
             headers: {
