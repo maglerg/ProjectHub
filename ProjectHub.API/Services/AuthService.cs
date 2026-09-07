@@ -25,6 +25,8 @@ public class AuthService : IAuthService
         var secret = _configuration["Jwt:Secret"] ?? "your-super-secret-key-min-32-characters-long!";
         var key = Encoding.ASCII.GetBytes(secret);
 
+        var expiryDays = double.Parse(_configuration["Jwt:ExpiryDays"] ?? "3");
+
         var claims = new List<Claim>
         {
             new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
@@ -36,11 +38,11 @@ public class AuthService : IAuthService
         var tokenDescriptor = new SecurityTokenDescriptor
         {
             Subject = new ClaimsIdentity(claims),
-            Expires = DateTime.UtcNow.AddDays(7),
+            Expires = DateTime.UtcNow.AddDays(expiryDays),  
             SigningCredentials = new SigningCredentials(
-                new SymmetricSecurityKey(key),
-                SecurityAlgorithms.HmacSha256Signature
-            )
+             new SymmetricSecurityKey(key),
+             SecurityAlgorithms.HmacSha256Signature
+         )
         };
 
         var token = tokenHandler.CreateToken(tokenDescriptor);
