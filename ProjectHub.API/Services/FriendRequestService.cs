@@ -193,7 +193,6 @@ public class FriendRequestService
         var receiverName = request.Receiver?.Name ?? "Пользователь";
         var senderEmail = request.Sender?.Email ?? "";
         var receiverEmail = request.Receiver?.Email ?? "";
-        var requestMessage = request.Message;
         var createdAt = request.CreatedAt;
 
         if (approve)
@@ -243,8 +242,6 @@ public class FriendRequestService
             _logger.LogInformation($"❌ Заявка {requestId} отклонена, уведомление отправлено отправителю");
         }
 
-        // 📌 Удаляем уведомления, связанные с этой заявкой (у получателя)
-        await _notificationService.DeleteNotificationsByRelatedIdAsync(requestId);
 
         // 📌 Удаляем саму заявку
         _dbContext.FriendRequests.Remove(request);

@@ -42,7 +42,6 @@ const NotificationsDropdown = () => {
         setLoading(true);
         try {
             const data = await getNotifications();
-            // 📌 ЗАЩИТА: проверяем, что data — массив
             if (Array.isArray(data)) {
                 setNotifications(data);
             } else {
@@ -85,18 +84,26 @@ const NotificationsDropdown = () => {
         }
     };
 
+    // 📌 ОБРАБОТЧИК КЛИКА ПО УВЕДОМЛЕНИЮ
     const handleNotificationClick = (notification) => {
-        // 📌 ЗАЩИТА: проверяем, что notification существует
         if (!notification) return;
 
         if (!notification.isRead) {
             handleMarkAsRead(notification.id);
         }
+
+        // 📌 Проверяем тип уведомления и переходим по ссылке
         if (notification.link) {
             navigate(notification.link);
             setIsOpen(false);
+            return;
         }
-        if (notification.type === 'FriendRequest' || notification.type === 'FriendRequestReceived') {
+
+        // 📌 Заявки в друзья
+        if (notification.type === 'FriendRequest' ||
+            notification.type === 'FriendRequestReceived' ||
+            notification.type === 'FriendRequestAccepted' ||
+            notification.type === 'FriendRequestRejected') {
             navigate('/friends/requests');
             setIsOpen(false);
             return;
@@ -120,6 +127,31 @@ const NotificationsDropdown = () => {
             });
         } catch {
             return '';
+        }
+    };
+
+    // 📌 Получить иконку для типа уведомления
+    const getNotificationIcon = (type) => {
+        switch (type) {
+            case 'FriendRequest':
+            case 'FriendRequestReceived':
+                return '👋';
+            case 'FriendRequestAccepted':
+                return '✅';
+            case 'FriendRequestRejected':
+                return '❌';
+            case 'ApplicationReceived':
+                return '📨';
+            case 'ApplicationApproved':
+                return '✅';
+            case 'ApplicationRejected':
+                return '❌';
+            case 'NewFriend':
+                return '👥';
+            case 'FriendRemoved':
+                return '💔';
+            default:
+                return '📌';
         }
     };
 
@@ -160,8 +192,9 @@ const NotificationsDropdown = () => {
                             </div>
                         ) : (
                             notifications.map((notif) => {
-                                // 📌 ЗАЩИТА: проверяем, что notif существует
                                 if (!notif) return null;
+
+                                const icon = getNotificationIcon(notif.type);
 
                                 return (
                                     <div
@@ -169,6 +202,9 @@ const NotificationsDropdown = () => {
                                         className={`notification-item ${!notif.isRead ? 'unread' : ''}`}
                                         onClick={() => handleNotificationClick(notif)}
                                     >
+                                        <div className="notification-icon">
+                                            {icon}
+                                        </div>
                                         <div className="notification-content">
                                             <div className="notification-title">{notif.title || 'Уведомление'}</div>
                                             {notif.message && (
