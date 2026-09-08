@@ -85,6 +85,80 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+        // 📌 PUT /api/projects/code/{code}/members/{email}/role — изменить роль участника по публичному коду и email
+        [HttpPut("code/{code}/members/{email}/role")]
+        [Authorize]
+        public async Task<IActionResult> ChangeMemberRole(string code, string email, [FromBody] ChangeRoleRequest request)
+        {
+            try
+            {
+                _logger.LogInformation($"Изменение роли участника с email {email} в проекте {code}");
+
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                {
+                    return Unauthorized(new { error = "Пользователь не авторизован" });
+                }
+
+                var result = await _projectsService.ChangeMemberRoleByCodeAndEmailAsync(code, userId, email, request.NewRole);
+
+                if (!result)
+                {
+                    return BadRequest(new { error = "Не удалось изменить роль" });
+                }
+
+                return Ok(new { message = "Роль успешно изменена" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Ошибка при изменении роли: {ex.Message}");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+        // 📌 PUT /api/projects/code/{code} — обновить проект по публичному коду
+        [HttpPut("code/{code}")]
+        [Authorize]
+        public async Task<IActionResult> UpdateProjectByCode(string code, [FromBody] UpdateProjectRequest request)
+        {
+            try
+            {
+                _logger.LogInformation($"Обновление проекта с кодом {code}");
+
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                {
+                    return Unauthorized(new { error = "Пользователь не авторизован" });
+                }
+
+                var updatedProject = await _projectsService.UpdateProjectByCodeAsync(code, userId, request);
+                return Ok(updatedProject);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Ошибка при обновлении проекта: {ex.Message}");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> CreateProject(CreateProjectRequest request)

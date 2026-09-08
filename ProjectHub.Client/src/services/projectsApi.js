@@ -26,6 +26,32 @@ export const toggleFavoriteByCode = async (code) => {
         throw error;
     }
 };
+// 📌 Изменить роль участника по публичному коду и email
+export const changeMemberRoleByCodeAndEmail = async (projectCode, memberEmail, newRole) => {
+    try {
+        const token = getToken();
+        const encodedEmail = encodeURIComponent(memberEmail);
+        const response = await fetch(`${API_BASE_URL}/projects/code/${projectCode}/members/${encodedEmail}/role`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            },
+            body: JSON.stringify({ newRole })
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || 'Ошибка изменения роли');
+        }
+
+        return true;
+    } catch (error) {
+        console.error('❌ Ошибка в changeMemberRoleByCodeAndEmail:', error);
+        throw error;
+    }
+};
+
 // 📌 Получить мои проекты (где пользователь владелец или участник)
 export const fetchMyProjects = async () => {
     try {
@@ -263,11 +289,11 @@ export const joinProject = async (code) => {
     }
 };
 
-// 📌 Обновить проект
-export const updateProject = async (id, projectData) => {
+// 📌 Обновить проект по публичному коду
+export const updateProject = async (code, projectData) => {
     try {
         const token = getToken();
-        const response = await fetch(`${API_BASE_URL}/projects/${id}`, {
+        const response = await fetch(`${API_BASE_URL}/projects/code/${code}`, {
             method: 'PUT',
             headers: {
                 'Content-Type': 'application/json',
@@ -277,7 +303,8 @@ export const updateProject = async (id, projectData) => {
         });
 
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || `HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();

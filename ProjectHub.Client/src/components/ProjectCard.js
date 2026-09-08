@@ -55,7 +55,7 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
         }
     };
 
-    // 📌 Обработчик клика по звездочке (используем publicCode)
+    // 📌 Обработчик клика по звездочке
     const handleFavoriteClick = async (e) => {
         e.stopPropagation();
 
@@ -67,7 +67,6 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
 
         setIsToggling(true);
         try {
-            // ✅ Используем publicCode вместо ID
             const result = await toggleFavoriteByCode(project.publicCode);
             setIsFavorite(result);
             setFavoritesCount(prev => result ? prev + 1 : prev - 1);
@@ -84,7 +83,17 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
 
     // 📌 ОБРАБОТЧИК КЛИКА ПО КАРТОЧКЕ
     const handleCardClick = () => {
-        if (project.publicCode) {
+        if (!project.publicCode) return;
+
+        // 📌 Проверяем, является ли пользователь участником
+        const userStatus = project.userStatus || 'NotJoined';
+        const isMember = userStatus === 'Owner' || userStatus === 'Admin' || userStatus === 'Member';
+
+        if (isMember) {
+            // ✅ Участник → открываем дашборд (приватная версия)
+            navigate(`/projects/${project.publicCode}/dashboard`);
+        } else {
+            // ❌ Не участник → открываем публичную страницу
             navigate(`/projects/${project.publicCode}`);
         }
     };

@@ -13,6 +13,7 @@ import './index.css';
 import UserProfilePage from './components/UserProfilePage';
 import ApplicationsPage from './components/ApplicationsPage';
 import FriendRequestsPage from './components/FriendRequestsPage';
+import ProjectDashboardPage from './components/ProjectDashboardPage';
 
 function App() {
     return (
@@ -49,6 +50,11 @@ function App() {
                     <Route path="/profile" element={
                         <ProtectedRoute>
                             <ProfilePage />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/projects/:code/dashboard" element={
+                        <ProtectedRoute>
+                            <ProjectDashboardPage />
                         </ProtectedRoute>
                     } />
                     <Route path="/users/:email" element={

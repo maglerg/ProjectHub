@@ -17,15 +17,18 @@ namespace ProjectHub.API.Services
         private readonly ILogger<ProjectsService> _logger;
         private readonly CodeGeneratorService _codeGenerator;
         private const int MaxAttempts = 100;
+        private readonly NotificationService _notificationService;
 
         public ProjectsService(
             AppDbContext dbContext,
             ILogger<ProjectsService> logger,
-            CodeGeneratorService codeGenerator)
+            CodeGeneratorService codeGenerator,
+            NotificationService notificationService)
         {
             _dbContext = dbContext;
             _logger = logger;
             _codeGenerator = codeGenerator;
+            _notificationService = notificationService;
         }
 
         public async Task<ProjectResponse> CreateProjectAsync(CreateProjectRequest request, Guid userId)
@@ -242,6 +245,77 @@ namespace ProjectHub.API.Services
 
             return responses;
         }
+        // 📌 Изменить роль участника по публичному коду и email (только для владельца)
+        public async Task<bool> ChangeMemberRoleByCodeAndEmailAsync(string projectCode, Guid ownerId, string memberEmail, string newRole)
+        {
+            // Находим проект по публичному коду
+            var project = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.PublicCode == projectCode);
+
+            if (project == null)
+            {
+                throw new KeyNotFoundException("Проект с таким кодом не найден");
+            }
+
+            // Проверяем, что пользователь является владельцем
+            if (project.OwnerId != ownerId)
+            {
+                throw new UnauthorizedAccessException("Только владелец может изменять роли");
+            }
+
+            // Находим пользователя по email
+            var memberUser = await _dbContext.Users
+                .FirstOrDefaultAsync(u => u.Email == memberEmail);
+
+            if (memberUser == null)
+            {
+                throw new KeyNotFoundException("Пользователь с таким email не найден");
+            }
+
+            // Нельзя изменить роль владельца
+            if (memberUser.Id == ownerId)
+            {
+                throw new InvalidOperationException("Нельзя изменить роль владельца");
+            }
+
+            // Находим участника
+            var member = await _dbContext.ProjectMembers
+                .FirstOrDefaultAsync(pm => pm.ProjectId == project.Id && pm.UserId == memberUser.Id);
+
+            if (member == null)
+            {
+                throw new KeyNotFoundException("Участник не найден");
+            }
+
+            // Парсим новую роль
+            if (!Enum.TryParse<ProjectMemberRole>(newRole, true, out var role))
+            {
+                throw new InvalidOperationException("Некорректная роль");
+            }
+
+            member.Role = role;
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation($"Роль участника {memberEmail} изменена на {role} в проекте {projectCode}");
+
+            // 📨 Уведомление пользователю
+            var roleNames = new Dictionary<ProjectMemberRole, string>
+    {
+        { ProjectMemberRole.Admin, "администратора" },
+        { ProjectMemberRole.Member, "участника" }
+    };
+
+            await _notificationService.CreateNotificationAsync(
+                memberUser.Id,
+                $"🔄 Ваша роль в проекте изменена",
+                $"Вас назначили {roleNames.GetValueOrDefault(role, role.ToString())} в проекте '{project.Name}'",
+                NotificationType.RoleChanged,
+                $"/projects/{project.PublicCode}/dashboard",
+                project.Id
+            );
+
+            return true;
+        }
         public async Task<List<ProjectResponse>> GetProjectsFilteredAsync(
             ProjectCategory? category = null,
             ProjectVisibility? visibility = null,
@@ -375,6 +449,62 @@ namespace ProjectHub.API.Services
             throw new InvalidOperationException($"Не удалось сгенерировать уникальный код после {MaxAttempts} попыток");
         }
 
+        // 📌 Обновить проект по публичному коду
+        public async Task<ProjectResponse> UpdateProjectByCodeAsync(string code, Guid userId, UpdateProjectRequest request)
+        {
+            var project = await _dbContext.Projects
+                .Include(p => p.Members)
+                    .ThenInclude(m => m.User)
+                .FirstOrDefaultAsync(p => p.PublicCode == code);
+
+            if (project == null)
+            {
+                throw new KeyNotFoundException("Проект с таким кодом не найден");
+            }
+
+            // Проверяем права
+            var isOwner = project.OwnerId == userId;
+            var isAdmin = await _dbContext.ProjectMembers
+                .AnyAsync(pm => pm.ProjectId == project.Id && pm.UserId == userId && pm.Role == ProjectMemberRole.Admin);
+
+            if (!isOwner && !isAdmin)
+            {
+                throw new UnauthorizedAccessException("У вас нет прав для редактирования проекта");
+            }
+
+            // 📌 Обновляем поля в зависимости от прав
+            if (!string.IsNullOrWhiteSpace(request.Name) && isOwner)
+            {
+                project.Name = request.Name;
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.Description) && (isOwner || isAdmin))
+            {
+                project.Description = request.Description;
+            }
+
+            if (request.Category.HasValue && isOwner)
+            {
+                project.Category = request.Category.Value;
+            }
+
+            if (request.Visibility.HasValue && isOwner)
+            {
+                project.Visibility = request.Visibility.Value;
+            }
+
+            if (request.Deadline.HasValue && isOwner)
+            {
+                project.Deadline = request.Deadline.Value;
+            }
+
+            project.UpdatedAt = DateTime.UtcNow;
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation($"Проект {code} обновлен пользователем {userId}");
+
+            return MapToResponse(project);
+        }
 
         private ProjectResponse MapToResponse(Project entity)
         {

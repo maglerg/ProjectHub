@@ -13,7 +13,8 @@
         FriendRequest,          
         FriendRequestAccepted,   
         FriendRequestRejected,
-        FriendRemoved
+        FriendRemoved,
+        RoleChanged
     }
 
 }

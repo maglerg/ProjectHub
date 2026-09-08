@@ -1,0 +1,220 @@
+/* projecthub.client/src/styles/components/EditProjectModal.css */
+
+.edit-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+}
+
+.edit-modal-content {
+    background: white;
+    border-radius: 16px;
+    max-width: 600px;
+    width: 90%;
+    max-height: 90vh;
+    display: flex;
+    flex-direction: column;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(20px);
+        opacity: 0;
+    }
+
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.edit-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+    .edit-modal-header h2 {
+        font-size: 20px;
+        color: #333;
+        margin: 0;
+    }
+
+.edit-modal-close {
+    background: none;
+    border: none;
+    font-size: 24px;
+    color: #999;
+    cursor: pointer;
+    padding: 0 8px;
+    transition: color 0.2s;
+}
+
+    .edit-modal-close:hover {
+        color: #333;
+    }
+
+.edit-modal-error {
+    margin: 12px 24px 0;
+    padding: 10px 16px;
+    background: #fee;
+    color: #c0392b;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.edit-modal-success {
+    margin: 12px 24px 0;
+    padding: 10px 16px;
+    background: #e8f8ee;
+    color: #27ae60;
+    border-radius: 8px;
+    font-size: 14px;
+}
+
+.edit-modal-form {
+    padding: 20px 24px;
+    overflow-y: auto;
+}
+
+    .edit-modal-form .form-group {
+        margin-bottom: 16px;
+    }
+
+        .edit-modal-form .form-group label {
+            display: block;
+            font-size: 14px;
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 4px;
+        }
+
+        .edit-modal-form .form-group input,
+        .edit-modal-form .form-group select,
+        .edit-modal-form .form-group textarea {
+            width: 100%;
+            padding: 10px 14px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-family: inherit;
+            transition: border-color 0.2s;
+            box-sizing: border-box;
+        }
+
+            .edit-modal-form .form-group input:focus,
+            .edit-modal-form .form-group select:focus,
+            .edit-modal-form .form-group textarea:focus {
+                outline: none;
+                border-color: #667eea;
+            }
+
+            .edit-modal-form .form-group input.field-disabled,
+            .edit-modal-form .form-group select.field-disabled,
+            .edit-modal-form .form-group textarea.field-disabled {
+                background: #f8f9fa;
+                color: #888;
+                cursor: not-allowed;
+                opacity: 0.7;
+            }
+
+.field-hint {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    margin-top: 4px;
+}
+
+.form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+}
+
+.edit-modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid #f0f0f0;
+}
+
+    .edit-modal-footer .btn-cancel {
+        padding: 10px 24px;
+        background: #f0f0f0;
+        color: #555;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: background 0.2s;
+    }
+
+        .edit-modal-footer .btn-cancel:hover {
+            background: #e0e0e0;
+        }
+
+    .edit-modal-footer .btn-save {
+        padding: 10px 32px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+        .edit-modal-footer .btn-save:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        }
+
+        .edit-modal-footer .btn-save:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+@media (max-width: 600px) {
+    .edit-modal-content {
+        width: 95%;
+        max-height: 95vh;
+    }
+
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .edit-modal-footer {
+        flex-direction: column;
+    }
+
+        .edit-modal-footer .btn-cancel,
+        .edit-modal-footer .btn-save {
+            width: 100%;
+        }
+}

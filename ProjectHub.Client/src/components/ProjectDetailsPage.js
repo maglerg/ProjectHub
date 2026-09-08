@@ -4,7 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { searchProjectByCode, toggleFavoriteByCode } from '../services/projectsApi';
-import { createApplicationByCode, getProjectApplications, processApplication } from '../services/applicationsApi';
+import { createApplicationByCode } from '../services/applicationsApi';
 import { getCategoryName, getStatusName, getVisibilityName } from '../utils/constants';
 import MemberCard from './MemberCard';
 import '../styles/components/ProjectDetailsPage.css';
@@ -18,15 +18,11 @@ const ProjectDetailsPage = () => {
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [applications, setApplications] = useState([]);
-    const [showApplications, setShowApplications] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [message, setMessage] = useState('');
     const [notification, setNotification] = useState(null);
     const [userStatus, setUserStatus] = useState('NotJoined');
     const [justSubmitted, setJustSubmitted] = useState(false);
-
-    // 📌 Состояния для избранного
     const [isFavorite, setIsFavorite] = useState(false);
     const [favoritesCount, setFavoritesCount] = useState(0);
     const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
@@ -62,7 +58,6 @@ const ProjectDetailsPage = () => {
 
         try {
             const projectData = await searchProjectByCode(code);
-            console.log('🔍 ВЕСЬ ОТВЕТ СЕРВЕРА:', JSON.stringify(projectData, null, 2));
 
             if (projectData) {
                 setProject(projectData);
@@ -86,7 +81,6 @@ const ProjectDetailsPage = () => {
         loadProjectDetails();
     }, [loadProjectDetails]);
 
-    // 📌 Обработчик клика по звездочке
     const handleFavoriteClick = async () => {
         if (isTogglingFavorite || !project?.publicCode) return;
 
@@ -100,18 +94,6 @@ const ProjectDetailsPage = () => {
             setNotification({ type: 'error', text: 'Не удалось изменить избранное' });
         } finally {
             setIsTogglingFavorite(false);
-        }
-    };
-    // 📌 Загрузить заявки (только для владельца/админа)
-    const loadApplications = async () => {
-        if (!project?.id) return;
-
-        try {
-            const data = await getProjectApplications(project.id);
-            setApplications(data);
-            setShowApplications(true);
-        } catch (err) {
-            setNotification({ type: 'error', text: err.message });
         }
     };
 
@@ -138,21 +120,6 @@ const ProjectDetailsPage = () => {
             setJustSubmitted(false);
         } finally {
             setIsSubmitting(false);
-        }
-    };
-
-    // 📌 Обработать заявку (владелец/админ)
-    const handleProcessApplication = async (applicationId, approve) => {
-        try {
-            await processApplication(applicationId, approve);
-            await loadApplications();
-            await loadProjectDetails();
-            setNotification({
-                type: 'success',
-                text: approve ? '✅ Заявка одобрена!' : '❌ Заявка отклонена'
-            });
-        } catch (err) {
-            setNotification({ type: 'error', text: err.message });
         }
     };
 
@@ -196,68 +163,6 @@ const ProjectDetailsPage = () => {
         !justSubmitted &&
         !isSubmitting;
 
-    // 📌 Определяем, что показывать в секции присоединения
-    const renderJoinSection = () => {
-        console.log('🔍 renderJoinSection, userStatus:', userStatus, 'justSubmitted:', justSubmitted);
-
-        switch (userStatus) {
-            case 'Owner':
-                return (
-                    <div className="already-member owner">
-                        👑 Вы являетесь владельцем этого проекта
-                    </div>
-                );
-            case 'Admin':
-                return (
-                    <div className="already-member admin">
-                        ⚡ Вы являетесь администратором этого проекта
-                    </div>
-                );
-            case 'Member':
-                return (
-                    <div className="already-member">
-                        ✅ Вы уже являетесь участником этого проекта
-                    </div>
-                );
-            case 'Pending':
-                return (
-                    <div className="pending-application success">
-                        ✅ Заявка успешно отправлена! Ожидайте ответа от владельца проекта.
-                    </div>
-                );
-            case 'NotJoined':
-            default:
-                if (justSubmitted) {
-                    return (
-                        <div className="pending-application success">
-                            ✅ Заявка успешно отправлена! Ожидайте ответа от владельца проекта.
-                        </div>
-                    );
-                }
-                return (
-                    <div className="join-form-wrapper">
-                        <h3>🤝 Присоединиться к проекту</h3>
-                        <div className="join-form">
-                            <textarea
-                                placeholder="Напишите сообщение владельцу проекта (необязательно)"
-                                value={message}
-                                onChange={(e) => setMessage(e.target.value)}
-                                rows="3"
-                                disabled={!canSubmitApplication || isSubmitting}
-                            />
-                            <button
-                                className="btn-join"
-                                onClick={handleSubmitApplication}
-                                disabled={!canSubmitApplication || isSubmitting}
-                            >
-                                {isSubmitting ? '⏳ Отправка...' : '📩 Отправить заявку'}
-                            </button>
-                        </div>
-                    </div>
-                );
-        }
-    };
-
     return (
         <div className="project-details-page">
             <header className="details-header">
@@ -275,23 +180,10 @@ const ProjectDetailsPage = () => {
                     <span className={`visibility-badge ${project.visibility === 'Private' ? 'private' : 'public'}`}>
                         {getVisibilityName(project.visibility)}
                     </span>
-                    {/* 📌 ЗВЕЗДОЧКА В ШАПКЕ */}
-                    <button
-                        className={`favorite-btn ${isFavorite ? 'active' : ''}`}
-                        onClick={handleFavoriteClick}
-                        disabled={isTogglingFavorite}
-                        title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}
-                    >
-                        {isFavorite ? '⭐' : '☆'}
-                        {favoritesCount > 0 && (
-                            <span className="favorites-count">{favoritesCount}</span>
-                        )}
-                    </button>
                 </div>
             </header>
 
             <div className="details-content">
-                {/* Информация о проекте */}
                 <section className="info-section">
                     <h2>📋 Информация о проекте</h2>
                     <div className="info-grid">
@@ -321,7 +213,6 @@ const ProjectDetailsPage = () => {
                     )}
                 </section>
 
-                {/* Участники */}
                 <section className="members-section">
                     <div className="members-header">
                         <h2>👥 Участники</h2>
@@ -341,78 +232,51 @@ const ProjectDetailsPage = () => {
                     )}
                 </section>
 
-                {/* Уведомления */}
                 {notification && (
                     <div className={`notification ${notification.type}`}>
                         {notification.text}
                     </div>
                 )}
 
-                {/* Секция заявок (только для владельца/админа) */}
-                {(userStatus === 'Owner' || userStatus === 'Admin') && (
-                    <section className="applications-section">
-                        <div className="applications-header">
-                            <h2>📨 Заявки на вступление</h2>
-                            <button
-                                className="btn-toggle-applications"
-                                onClick={() => {
-                                    if (!showApplications) {
-                                        loadApplications();
-                                    } else {
-                                        setShowApplications(false);
-                                    }
-                                }}
-                            >
-                                {showApplications ? 'Скрыть' : 'Показать'} заявки ({applications.filter(a => a.status === 'Pending').length})
-                            </button>
-                        </div>
-
-                        {showApplications && (
-                            <div className="applications-list">
-                                {applications.filter(a => a.status === 'Pending').length === 0 ? (
-                                    <p className="no-applications">Нет ожидающих заявок</p>
-                                ) : (
-                                    applications.filter(a => a.status === 'Pending').map(app => (
-                                        <div key={app.id} className="application-item">
-                                            <div className="application-user">
-                                                <span className="app-user-name">{app.userName}</span>
-                                                <span className="app-user-email">{app.userEmail}</span>
-                                                {app.message && (
-                                                    <span className="app-message">💬 {app.message}</span>
-                                                )}
-                                            </div>
-                                            <div className="application-actions">
-                                                <button
-                                                    className="btn-approve"
-                                                    onClick={() => handleProcessApplication(app.id, true)}
-                                                >
-                                                    ✅ Принять
-                                                </button>
-                                                <button
-                                                    className="btn-reject"
-                                                    onClick={() => handleProcessApplication(app.id, false)}
-                                                >
-                                                    ❌ Отклонить
-                                                </button>
-                                            </div>
-                                        </div>
-                                    ))
-                                )}
+                {/* 📌 Секция присоединения (только для не-участников) */}
+                {userStatus !== 'Owner' && userStatus !== 'Admin' && userStatus !== 'Member' && (
+                    <section className="join-section">
+                        {userStatus === 'Pending' ? (
+                            <div className="pending-application success">
+                                ✅ Заявка успешно отправлена! Ожидайте ответа от владельца проекта.
+                            </div>
+                        ) : (
+                            <div className="join-form-wrapper">
+                                <h3>🤝 Присоединиться к проекту</h3>
+                                <div className="join-form">
+                                    <textarea
+                                        placeholder="Напишите сообщение владельцу проекта (необязательно)"
+                                        value={message}
+                                        onChange={(e) => setMessage(e.target.value)}
+                                        rows="3"
+                                        disabled={!canSubmitApplication || isSubmitting}
+                                    />
+                                    <button
+                                        className="btn-join"
+                                        onClick={handleSubmitApplication}
+                                        disabled={!canSubmitApplication || isSubmitting}
+                                    >
+                                        {isSubmitting ? '⏳ Отправка...' : '📩 Отправить заявку'}
+                                    </button>
+                                </div>
                             </div>
                         )}
                     </section>
                 )}
 
-                {/* 📌 Секция присоединения */}
-                <section className="join-section">
-                    {renderJoinSection()}
-                </section>
-
-                {/* Действия */}
-                <div className="actions-section">
-                    <button className="btn-edit">✏️ Редактировать</button>
-                    <button className="btn-share">📤 Поделиться</button>
-                </div>
+                {/* 📌 Для участников — просто сообщение */}
+                {(userStatus === 'Owner' || userStatus === 'Admin' || userStatus === 'Member') && (
+                    <section className="join-section">
+                        <div className="member-actions">
+                            <p>✅ Вы являетесь участником этого проекта</p>
+                        </div>
+                    </section>
+                )}
             </div>
         </div>
     );
