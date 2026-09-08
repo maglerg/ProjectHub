@@ -87,6 +87,71 @@ namespace ProjectHub.API.Migrations
                     b.ToTable("Favorites");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.Friend", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("FriendId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("FriendId");
+
+                    b.HasIndex("UserId", "FriendId")
+                        .IsUnique();
+
+                    b.ToTable("Friends");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.FriendRequest", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Message")
+                        .HasColumnType("text");
+
+                    b.Property<DateTime?>("ProcessedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("ReceiverId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("SenderId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ReceiverId");
+
+                    b.HasIndex("SenderId", "ReceiverId")
+                        .IsUnique();
+
+                    b.ToTable("FriendRequests");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -296,6 +361,44 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("Project");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.Friend", b =>
+                {
+                    b.HasOne("ProjectHub.Models.User", "FriendUser")
+                        .WithMany()
+                        .HasForeignKey("FriendId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("FriendUser");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.FriendRequest", b =>
+                {
+                    b.HasOne("ProjectHub.Models.User", "Receiver")
+                        .WithMany()
+                        .HasForeignKey("ReceiverId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.Models.User", "Sender")
+                        .WithMany()
+                        .HasForeignKey("SenderId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Receiver");
+
+                    b.Navigation("Sender");
                 });
 
             modelBuilder.Entity("ProjectHub.API.Models.Notification", b =>

@@ -107,7 +107,7 @@ public class NotificationService
         }
     }
 
-    // 📌 УДАЛИТЬ уведомления по RelatedId (новая функция!)
+    // 📌 Удалить уведомления по RelatedId (уже есть, но проверим)
     public async Task DeleteNotificationsByRelatedIdAsync(Guid relatedId)
     {
         var notifications = await _dbContext.Notifications
@@ -121,6 +121,7 @@ public class NotificationService
             _logger.LogInformation($"🗑️ Удалено {notifications.Count} уведомлений с RelatedId={relatedId}");
         }
     }
+
     // 📌 Очистить уведомления по проекту (для обработанных заявок)
     public async Task CleanupNotificationsForProjectAsync(Guid projectId)
     {

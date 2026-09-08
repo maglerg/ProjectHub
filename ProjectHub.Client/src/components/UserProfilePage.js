@@ -2,16 +2,24 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import { getUserProfileByEmail } from '../services/userApi';
+import { getFriendStatus, sendFriendRequest, cancelFriendRequest, processFriendRequest } from '../services/friendRequestsApi';
+import { getFriends, removeFriend } from '../services/friendsApi';
 import '../styles/components/UserProfilePage.css';
 
 const UserProfilePage = () => {
     const { email } = useParams();
     const navigate = useNavigate();
+    const { user: currentUser } = useAuth();
 
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    const [friendStatus, setFriendStatus] = useState({ status: 'None', isFriend: false, requestId: null });
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [notification, setNotification] = useState(null);
+    const [isFriend, setIsFriend] = useState(false);
 
     useEffect(() => {
         loadUserProfile();
@@ -22,20 +30,130 @@ const UserProfilePage = () => {
         setError(null);
         try {
             const decodedEmail = decodeURIComponent(email);
-            console.log('Загрузка профиля для email:', decodedEmail);
             const data = await getUserProfileByEmail(decodedEmail);
-            console.log('Данные пользователя:', data);
             setUser(data);
+
+            if (data && currentUser && data.email !== currentUser.email) {
+                try {
+                    const status = await getFriendStatus(data.email);
+                    setFriendStatus(status);
+                    setIsFriend(status.isFriend);
+                } catch (err) {
+                    console.warn('Не удалось проверить статус:', err);
+                }
+            }
         } catch (err) {
-            setError(err.message || 'Не удалось загрузить профиль пользователя');
+            setError(err.message || 'Не удалось загрузить профиль');
         } finally {
             setLoading(false);
         }
     };
 
+    // 📌 Отправить заявку
+    const handleSendRequest = async () => {
+        if (!user?.email || isProcessing) return;
+
+        setIsProcessing(true);
+        setNotification(null);
+        try {
+            await sendFriendRequest(user.email);
+            setFriendStatus({ ...friendStatus, status: 'Pending' });
+            setNotification({ type: 'success', text: '✅ Заявка отправлена!' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setTimeout(() => setNotification(null), 3000);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    // 📌 Отменить заявку
+    const handleCancelRequest = async () => {
+        if (!friendStatus.requestId || isProcessing) return;
+
+        setIsProcessing(true);
+        setNotification(null);
+        try {
+            await cancelFriendRequest(friendStatus.requestId);
+            setFriendStatus({ ...friendStatus, status: 'None', requestId: null });
+            setNotification({ type: 'success', text: '✅ Заявка отменена' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setTimeout(() => setNotification(null), 3000);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    // 📌 Удалить из друзей
+    const handleRemoveFriend = async () => {
+        if (isProcessing) return;
+
+        setIsProcessing(true);
+        setNotification(null);
+        try {
+            const friendsList = await getFriends();
+            const friend = friendsList.find(f => f.email === user.email);
+            if (friend) {
+                await removeFriend(friend.id);
+                setIsFriend(false);
+                setFriendStatus({ status: 'None', isFriend: false, requestId: null });
+                setNotification({ type: 'success', text: '✅ Удален из друзей' });
+                setTimeout(() => setNotification(null), 3000);
+            }
+        } catch (err) {
+            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setTimeout(() => setNotification(null), 3000);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    // 📌 Принять заявку
+    const handleAcceptRequest = async () => {
+        if (!friendStatus.requestId || isProcessing) return;
+
+        setIsProcessing(true);
+        setNotification(null);
+        try {
+            await processFriendRequest(friendStatus.requestId, true);
+            setIsFriend(true);
+            setFriendStatus({ status: 'Friend', isFriend: true, requestId: null });
+            setNotification({ type: 'success', text: '✅ Заявка принята! Вы теперь друзья' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setTimeout(() => setNotification(null), 3000);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    // 📌 Отклонить заявку
+    const handleRejectRequest = async () => {
+        if (!friendStatus.requestId || isProcessing) return;
+
+        setIsProcessing(true);
+        setNotification(null);
+        try {
+            await processFriendRequest(friendStatus.requestId, false);
+            setFriendStatus({ ...friendStatus, status: 'None', requestId: null });
+            setNotification({ type: 'success', text: '✅ Заявка отклонена' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setTimeout(() => setNotification(null), 3000);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    // 📌 Отправить сообщение
     const handleSendMessage = () => {
-        // TODO: реализовать отправку сообщений
-        alert(`💬 Отправить сообщение пользователю ${user?.name}`);
+        setNotification({ type: 'info', text: '💬 Функция отправки сообщений будет доступна позже' });
+        setTimeout(() => setNotification(null), 3000);
     };
 
     if (loading) {
@@ -73,6 +191,69 @@ const UserProfilePage = () => {
         );
     }
 
+    const isOwnProfile = currentUser?.email === user.email;
+
+    // 📌 Определяем, что показывать
+    const renderFriendButton = () => {
+        if (isFriend) {
+            return (
+                <button
+                    className="btn-friend friend"
+                    onClick={handleRemoveFriend}
+                    disabled={isProcessing}
+                >
+                    {isProcessing ? '⏳' : '❌ Удалить из друзей'}
+                </button>
+            );
+        }
+
+        if (friendStatus.status === 'Pending') {
+            return (
+                <button
+                    className="btn-friend pending"
+                    onClick={handleCancelRequest}
+                    disabled={isProcessing}
+                >
+                    {isProcessing ? '⏳' : '↩️ Отменить заявку'}
+                </button>
+            );
+        }
+
+        if (friendStatus.status === 'Received') {
+            return (
+                <div className="friend-request-received">
+                    <span>📩 Вам отправлена заявка в друзья</span>
+                    <div className="friend-request-actions">
+                        <button
+                            className="btn-friend accept"
+                            onClick={handleAcceptRequest}
+                            disabled={isProcessing}
+                        >
+                            ✅ Принять
+                        </button>
+                        <button
+                            className="btn-friend reject"
+                            onClick={handleRejectRequest}
+                            disabled={isProcessing}
+                        >
+                            ❌ Отклонить
+                        </button>
+                    </div>
+                </div>
+            );
+        }
+
+        return (
+            <button
+                className="btn-friend not-friend"
+                onClick={handleSendRequest}
+                disabled={isProcessing}
+            >
+                {isProcessing ? '⏳' : '➕ Отправить заявку'}
+            </button>
+        );
+    };
+
     return (
         <div className="user-profile-page">
             <header className="user-profile-header">
@@ -83,6 +264,13 @@ const UserProfilePage = () => {
             </header>
 
             <div className="user-profile-content">
+                {/* 📌 Уведомление */}
+                {notification && (
+                    <div className={`notification ${notification.type}`}>
+                        {notification.text}
+                    </div>
+                )}
+
                 <div className="user-profile-card">
                     <div className="user-profile-avatar">
                         {user.name ? user.name[0].toUpperCase() : '👤'}
@@ -138,6 +326,9 @@ const UserProfilePage = () => {
                     </div>
 
                     <div className="user-profile-actions">
+                        {/* 📌 КНОПКА ДРУЗЕЙ */}
+                        {!isOwnProfile && renderFriendButton()}
+
                         <button className="btn-send-message" onClick={handleSendMessage}>
                             💬 Отправить сообщение
                         </button>

@@ -88,6 +88,8 @@ builder.Services.AddScoped<CodeGeneratorService>();
 builder.Services.AddScoped<ProjectsService>();
 builder.Services.AddScoped<ApplicationService>();
 builder.Services.AddScoped<NotificationService>();
+builder.Services.AddScoped<FriendService>();
+builder.Services.AddScoped<FriendRequestService>();
 
 // JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "your-super-secret-key-min-32-characters-long!";

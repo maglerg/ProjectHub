@@ -11,6 +11,7 @@ import SearchSection from './SearchSection';
 import ProjectList from './ProjectList';
 import FilterSection from './FilterSection';
 import NotificationsDropdown from './NotificationsDropdown';
+import FriendsList from './FriendsList';
 
 // Импорты API
 import {
@@ -19,6 +20,7 @@ import {
     fetchProjectsWithFilters,
     fetchMyProjects,
 } from '../services/projectsApi';
+import { getFriends, removeFriend } from '../services/friendsApi';  // ← ДОБАВИТЬ!
 
 const ProjectsPage = () => {
     const { user, logout } = useAuth();
@@ -34,6 +36,8 @@ const ProjectsPage = () => {
     const [shouldResetForm, setShouldResetForm] = useState(false);
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(false);
+    const [friends, setFriends] = useState([]);
+    const [friendsLoading, setFriendsLoading] = useState(false);
 
     // 📌 Загрузка проектов
     const loadProjects = async (favoritesOnly = false, myProjectsOnly = false) => {
@@ -46,7 +50,6 @@ const ProjectsPage = () => {
 
             console.log('🔍 Загрузка проектов...', label);
 
-            // 📌 Если запрошены "Мои проекты" — используем отдельный эндпоинт
             let data;
             if (myProjectsOnly) {
                 data = await fetchMyProjects();
@@ -80,6 +83,39 @@ const ProjectsPage = () => {
             setProjects([]);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // 📌 Загрузить друзей
+    const loadFriends = async () => {
+        setFriendsLoading(true);
+        try {
+            const data = await getFriends();
+            setFriends(data || []);
+        } catch (error) {
+            console.error('❌ Ошибка загрузки друзей:', error);
+            setMessage('❌ ' + error.message);
+        } finally {
+            setFriendsLoading(false);
+        }
+    };
+
+    // 📌 Обработчик добавления друга
+    const handleFriendAdded = (newFriend) => {
+        setFriends(prev => [newFriend, ...prev]);
+        setMessage('✅ Друг добавлен!');
+        setTimeout(() => setMessage(''), 3000);
+    };
+
+    // 📌 Обработчик удаления друга
+    const handleFriendRemoved = async (friendId) => {
+        try {
+            await removeFriend(friendId);
+            setFriends(prev => prev.filter(f => f.id !== friendId));
+            setMessage('✅ Друг удален');
+            setTimeout(() => setMessage(''), 3000);
+        } catch (error) {
+            setMessage('❌ ' + error.message);
         }
     };
 
@@ -144,7 +180,7 @@ const ProjectsPage = () => {
         loadProjects(false, false);
     };
 
-    // Обработчик клика по табу
+    // 📌 Обработчик клика по табу (ОДНА ФУНКЦИЯ!)
     const handleTabClick = (tab) => {
         if (activeTab === tab) {
             // Если уже активен — закрываем
@@ -160,7 +196,6 @@ const ProjectsPage = () => {
         setMessage('');
 
         if (tab === 'create') {
-            // Ничего не загружаем, просто показываем форму
             return;
         }
 
@@ -176,6 +211,8 @@ const ProjectsPage = () => {
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(true);
             loadProjects(false, true);
+        } else if (tab === 'friends') {
+            loadFriends();
         } else if (tab === 'search') {
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(false);
@@ -256,6 +293,12 @@ const ProjectsPage = () => {
                         onClick={() => handleTabClick('favorites')}
                     >
                         ⭐ Избранное
+                    </button>
+                    <button
+                        className={`tab-btn ${activeTab === 'friends' ? 'active' : ''}`}
+                        onClick={() => handleTabClick('friends')}
+                    >
+                        👥 Друзья
                     </button>
                 </div>
 
@@ -341,6 +384,17 @@ const ProjectsPage = () => {
                                     onCopyCode={handleCopyCode}
                                 />
                             )}
+                        </div>
+                    )}
+
+                    {activeTab === 'friends' && (
+                        <div className="friends-tab-content">
+                            <FriendsList
+                                friends={friends}
+                                loading={friendsLoading}
+                                onFriendAdded={handleFriendAdded}
+                                onFriendRemoved={handleFriendRemoved}
+                            />
                         </div>
                     )}
 

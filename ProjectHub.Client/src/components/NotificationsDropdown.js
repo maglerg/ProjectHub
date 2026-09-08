@@ -96,6 +96,11 @@ const NotificationsDropdown = () => {
             navigate(notification.link);
             setIsOpen(false);
         }
+        if (notification.type === 'FriendRequest' || notification.type === 'FriendRequestReceived') {
+            navigate('/friends/requests');
+            setIsOpen(false);
+            return;
+        }
     };
 
     const formatTime = (dateString) => {

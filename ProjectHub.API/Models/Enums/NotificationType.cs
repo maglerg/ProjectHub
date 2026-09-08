@@ -9,7 +9,11 @@
         NewMember,            // Новый участник
         TaskAssigned,         // Назначена задача
         TaskCompleted,        // Задача завершена
-        System                // Системное
+        System,               // Системное
+        FriendRequest,          
+        FriendRequestAccepted,   
+        FriendRequestRejected,
+        FriendRemoved
     }
 
 }

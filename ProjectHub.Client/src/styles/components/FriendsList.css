@@ -1,0 +1,360 @@
+/* projecthub.client/src/styles/components/FriendsList.css */
+
+.friends-container {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 20px 0;
+}
+
+.friends-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+    .friends-header h2 {
+        font-size: 22px;
+        color: #333;
+        margin: 0;
+    }
+
+.friends-count {
+    padding: 4px 14px;
+    background: #f0f0f0;
+    border-radius: 20px;
+    font-size: 13px;
+    color: #666;
+}
+
+/* 📌 ПОИСК */
+.search-user-form {
+    margin-bottom: 20px;
+}
+
+.search-user-input-group {
+    display: flex;
+    gap: 10px;
+}
+
+    .search-user-input-group input {
+        flex: 1;
+        padding: 10px 16px;
+        border: 2px solid #e0e0e0;
+        border-radius: 8px;
+        font-size: 14px;
+        transition: border-color 0.2s;
+    }
+
+        .search-user-input-group input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .search-user-input-group input:disabled {
+            background: #f8f9fa;
+            cursor: not-allowed;
+        }
+
+    .search-user-input-group button {
+        padding: 10px 24px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
+    }
+
+        .search-user-input-group button:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+
+        .search-user-input-group button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+.search-error {
+    margin-top: 8px;
+    color: #e74c3c;
+    font-size: 14px;
+}
+
+/* 📌 РЕЗУЛЬТАТ ПОИСКА */
+.search-result {
+    background: white;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 24px;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+    border: 2px solid #667eea;
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.search-result-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+    .search-result-header span {
+        font-size: 14px;
+        font-weight: 600;
+        color: #667eea;
+    }
+
+.clear-search-btn {
+    background: none;
+    border: none;
+    font-size: 18px;
+    color: #ccc;
+    cursor: pointer;
+    padding: 0 4px;
+}
+
+    .clear-search-btn:hover {
+        color: #e74c3c;
+    }
+
+.search-result-card {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 8px 0;
+}
+
+.search-result-avatar {
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 22px;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.search-result-info {
+    flex: 1;
+}
+
+.search-result-name {
+    font-size: 17px;
+    font-weight: 600;
+    color: #333;
+}
+
+.search-result-email {
+    font-size: 14px;
+    color: #888;
+}
+
+.search-result-specialization {
+    font-size: 13px;
+    color: #4a6fa5;
+    background: #e8eefd;
+    padding: 2px 12px;
+    border-radius: 12px;
+    display: inline-block;
+    margin-top: 2px;
+}
+
+.search-result-status {
+    font-size: 13px;
+    margin-top: 2px;
+}
+
+.search-result-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 14px;
+    padding-top: 14px;
+    border-top: 1px solid #f0f0f0;
+    flex-wrap: wrap;
+}
+
+.btn-send-request {
+    padding: 8px 24px;
+    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    color: #1a1a1a;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex: 1;
+    min-width: 140px;
+}
+
+    .btn-send-request:hover:not(:disabled) {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(67, 233, 123, 0.3);
+    }
+
+    .btn-send-request:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+        transform: none;
+    }
+
+.btn-view-profile {
+    padding: 8px 24px;
+    background: #f0f0f0;
+    color: #555;
+    border: 2px solid #e0e0e0;
+    border-radius: 8px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex: 1;
+    min-width: 140px;
+}
+
+    .btn-view-profile:hover {
+        background: #e8e8e8;
+        border-color: #667eea;
+        color: #667eea;
+    }
+
+.already-friend {
+    padding: 8px 24px;
+    background: #e8f8ee;
+    color: #27ae60;
+    border-radius: 8px;
+    font-weight: 500;
+    text-align: center;
+    flex: 1;
+    min-width: 140px;
+}
+
+.request-pending {
+    padding: 8px 24px;
+    background: #fef3e2;
+    color: #e67e22;
+    border-radius: 8px;
+    font-weight: 500;
+    text-align: center;
+    flex: 1;
+    min-width: 140px;
+}
+
+.request-received {
+    padding: 8px 24px;
+    background: #e8eefd;
+    color: #4a6fa5;
+    border-radius: 8px;
+    font-weight: 500;
+    text-align: center;
+    flex: 1;
+    min-width: 140px;
+}
+
+.search-notification {
+    margin-top: 10px;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 500;
+    animation: slideDown 0.3s ease;
+}
+
+    .search-notification.success {
+        background: #e8f8ee;
+        color: #27ae60;
+        border: 1px solid #b8e6c8;
+    }
+
+    .search-notification.error {
+        background: #fee;
+        color: #c0392b;
+        border: 1px solid #fcc;
+    }
+
+/* 📌 СПИСОК ДРУЗЕЙ */
+.friends-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+}
+
+.no-friends {
+    text-align: center;
+    padding: 60px 20px;
+    background: white;
+    border-radius: 16px;
+}
+
+.no-friends-icon {
+    font-size: 64px;
+    margin-bottom: 16px;
+}
+
+.no-friends h3 {
+    font-size: 22px;
+    color: #333;
+    margin-bottom: 8px;
+}
+
+.no-friends p {
+    color: #888;
+    font-size: 16px;
+}
+
+.friends-loading {
+    text-align: center;
+    padding: 40px;
+    color: #888;
+    font-size: 18px;
+}
+
+@media (min-width: 600px) {
+    .friends-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (max-width: 480px) {
+    .search-user-input-group {
+        flex-direction: column;
+    }
+
+        .search-user-input-group button {
+            width: 100%;
+        }
+
+    .search-result-actions {
+        flex-direction: column;
+    }
+
+    .btn-send-request,
+    .btn-view-profile,
+    .already-friend,
+    .request-pending,
+    .request-received {
+        min-width: 100%;
+    }
+}

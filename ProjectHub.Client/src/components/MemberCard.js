@@ -4,7 +4,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import '../styles/components/MemberCard.css';
 
-const MemberCard = ({ member }) => {
+const MemberCard = ({ member, onRemove }) => {  // ← Добавляем onRemove
     const navigate = useNavigate();
 
     const getRoleColor = (role) => {
@@ -48,12 +48,18 @@ const MemberCard = ({ member }) => {
         return colors[Math.abs(hash) % colors.length];
     };
 
-    // 📌 Обработчик клика по карточке
     const handleCardClick = () => {
         if (member.email) {
-            // Кодируем email для URL
             const encodedEmail = encodeURIComponent(member.email);
             navigate(`/users/${encodedEmail}`);
+        }
+    };
+
+    // 📌 Обработчик удаления
+    const handleRemove = (e) => {
+        e.stopPropagation();
+        if (onRemove) {
+            onRemove();
         }
     };
 
@@ -91,13 +97,26 @@ const MemberCard = ({ member }) => {
                     </div>
 
                     <div className="member-joined">
-                        📅 Присоединился: {member.joinedAt ? new Date(member.joinedAt).toLocaleDateString('ru-RU', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric'
-                        }) : '—'}
+                        📅 {member.joinedAt ?
+                            `Присоединился: ${new Date(member.joinedAt).toLocaleDateString('ru-RU', {
+                                day: '2-digit',
+                                month: '2-digit',
+                                year: 'numeric'
+                            })}`
+                            : '—'}
                     </div>
                 </div>
+
+                {/* 📌 Кнопка удаления (только если есть onRemove) */}
+                {onRemove && (
+                    <button
+                        className="member-remove-btn"
+                        onClick={handleRemove}
+                        title="Удалить"
+                    >
+                        ✕
+                    </button>
+                )}
             </div>
         </div>
     );

@@ -18,6 +18,8 @@ namespace ProjectHub.API.Data
         public DbSet<Application> Applications { get; set; }
         public DbSet<Notification> Notifications { get; set; }
         public DbSet<Favorite> Favorites { get; set; }
+        public DbSet<Friend> Friends { get; set; }
+        public DbSet<FriendRequest> FriendRequests { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -59,6 +61,13 @@ namespace ProjectHub.API.Data
             modelBuilder.Entity<Favorite>()
             .HasIndex(f => new { f.UserId, f.ProjectId })
             .IsUnique();
+            modelBuilder.Entity<Friend>()
+           .HasIndex(f => new { f.UserId, f.FriendId })
+           .IsUnique();
+            // Уникальная пара (SenderId, ReceiverId) для заявок
+            modelBuilder.Entity<FriendRequest>()
+                .HasIndex(fr => new { fr.SenderId, fr.ReceiverId })
+                .IsUnique();
 
             modelBuilder.Entity<Project>(entity =>
             {

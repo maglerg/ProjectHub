@@ -12,6 +12,7 @@ import ProfilePage from './components/ProfilePage';
 import './index.css';
 import UserProfilePage from './components/UserProfilePage';
 import ApplicationsPage from './components/ApplicationsPage';
+import FriendRequestsPage from './components/FriendRequestsPage';
 
 function App() {
     return (
@@ -53,6 +54,11 @@ function App() {
                     <Route path="/users/:email" element={
                         <ProtectedRoute>
                             <UserProfilePage />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/friends/requests" element={
+                        <ProtectedRoute>
+                            <FriendRequestsPage />
                         </ProtectedRoute>
                     } />
 
