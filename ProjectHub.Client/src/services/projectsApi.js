@@ -314,7 +314,30 @@ export const updateProject = async (code, projectData) => {
         throw error;
     }
 };
+// 📌 Удалить участника из проекта по публичному коду и email
+export const removeMemberFromProject = async (projectCode, memberEmail) => {
+    try {
+        const token = getToken();
+        const encodedEmail = encodeURIComponent(memberEmail);
+        const response = await fetch(`${API_BASE_URL}/projects/code/${projectCode}/members/${encodedEmail}`, {
+            method: 'DELETE',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            }
+        });
 
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || 'Ошибка удаления участника');
+        }
+
+        return true;
+    } catch (error) {
+        console.error('❌ Ошибка в removeMemberFromProject:', error);
+        throw error;
+    }
+};
 // 📌 Удалить проект
 export const deleteProject = async (id) => {
     try {

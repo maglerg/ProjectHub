@@ -159,6 +159,48 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+        // 📌 DELETE /api/projects/code/{code}/members/{email} — удалить участника из проекта
+        [HttpDelete("code/{code}/members/{email}")]
+        [Authorize]
+        public async Task<IActionResult> RemoveMember(string code, string email)
+        {
+            try
+            {
+                _logger.LogInformation($"Удаление участника {email} из проекта {code}");
+
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                {
+                    return Unauthorized(new { error = "Пользователь не авторизован" });
+                }
+
+                var result = await _projectsService.RemoveMemberFromProjectAsync(code, userId, email);
+
+                if (!result)
+                {
+                    return BadRequest(new { error = "Не удалось удалить участника" });
+                }
+
+                return Ok(new { message = "Участник удален из проекта" });
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return Forbid(ex.Message);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Ошибка при удалении участника: {ex.Message}");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
         [HttpPost]
         [Authorize]
         public async Task<IActionResult> CreateProject(CreateProjectRequest request)

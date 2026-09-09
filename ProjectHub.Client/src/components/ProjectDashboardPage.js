@@ -27,6 +27,8 @@ const ProjectDashboardPage = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showRoleModal, setShowRoleModal] = useState(false);
 
+    const canManageMembers = userStatus === 'Owner' || userStatus === 'Admin';
+
     const formatDate = (dateString) => {
         if (!dateString) return 'Не указана';
         try {
@@ -237,12 +239,12 @@ const ProjectDashboardPage = () => {
                     <div className="members-header">
                         <h2>👥 Участники</h2>
                         <span className="members-count">{members.length} чел.</span>
-                        {isOwner && (
+                        {canManageMembers && (
                             <button
                                 className="btn-manage-roles"
                                 onClick={handleRoleManagement}
                             >
-                                ⚙️ Управление ролями
+                                ⚙️ Управление участниками
                             </button>
                         )}
                     </div>
@@ -290,8 +292,10 @@ const ProjectDashboardPage = () => {
                 <RoleManagementModal
                     project={project}
                     members={members}
+                    userRole={userStatus} 
                     onClose={() => setShowRoleModal(false)}
                     onRoleChanged={handleRoleChanged}
+                    onMemberRemoved={handleProjectUpdated}
                 />
             )}
         </div>

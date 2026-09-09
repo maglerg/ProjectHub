@@ -10,11 +10,13 @@
         TaskAssigned,         // Назначена задача
         TaskCompleted,        // Задача завершена
         System,               // Системное
-        FriendRequest,          
+        FriendRequest,      //     
         FriendRequestAccepted,   
         FriendRequestRejected,
         FriendRemoved,
-        RoleChanged
+        RoleChanged,
+        RemovedFromProject,  
+        MemberRemoved
     }
 
 }

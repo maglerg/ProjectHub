@@ -505,7 +505,128 @@ namespace ProjectHub.API.Services
 
             return MapToResponse(project);
         }
+        // 📌 Удалить участника из проекта по публичному коду и email
+        public async Task<bool> RemoveMemberFromProjectAsync(string projectCode, Guid userId, string memberEmail)
+        {
+            // Находим проект по коду
+            var project = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.PublicCode == projectCode);
 
+            if (project == null)
+            {
+                throw new KeyNotFoundException("Проект с таким кодом не найден");
+            }
+
+            // Находим пользователя, который хочет удалить
+            var currentUser = await _dbContext.Users.FindAsync(userId);
+            if (currentUser == null)
+            {
+                throw new KeyNotFoundException("Пользователь не найден");
+            }
+
+            // Проверяем права текущего пользователя
+            var isOwner = project.OwnerId == userId;
+            var isAdmin = await _dbContext.ProjectMembers
+                .AnyAsync(pm => pm.ProjectId == project.Id && pm.UserId == userId && pm.Role == ProjectMemberRole.Admin);
+
+            if (!isOwner && !isAdmin)
+            {
+                throw new UnauthorizedAccessException("У вас нет прав для удаления участников");
+            }
+
+            // Находим пользователя, которого хотят удалить
+            var memberUser = await _dbContext.Users
+                .FirstOrDefaultAsync(u => u.Email == memberEmail);
+
+            if (memberUser == null)
+            {
+                throw new KeyNotFoundException("Пользователь с таким email не найден");
+            }
+
+            // Нельзя удалить владельца
+            if (memberUser.Id == project.OwnerId)
+            {
+                throw new InvalidOperationException("Нельзя удалить владельца проекта");
+            }
+
+            // Админ не может удалять админов
+            if (isAdmin && !isOwner)
+            {
+                var isTargetAdmin = await _dbContext.ProjectMembers
+                    .AnyAsync(pm => pm.ProjectId == project.Id && pm.UserId == memberUser.Id && pm.Role == ProjectMemberRole.Admin);
+
+                if (isTargetAdmin)
+                {
+                    throw new UnauthorizedAccessException("Администратор не может удалять других администраторов");
+                }
+            }
+
+            // Нельзя удалить самого себя
+            if (memberUser.Id == userId)
+            {
+                throw new InvalidOperationException("Нельзя удалить себя из проекта");
+            }
+
+            // Находим запись участника
+            var member = await _dbContext.ProjectMembers
+                .FirstOrDefaultAsync(pm => pm.ProjectId == project.Id && pm.UserId == memberUser.Id);
+
+            if (member == null)
+            {
+                throw new KeyNotFoundException("Участник не найден");
+            }
+
+            // Сохраняем имя удаляемого для уведомлений
+            var removedUserName = memberUser.Name;
+            var removedUserEmail = memberUser.Email;
+            var removedUserId = memberUser.Id;
+            var projectName = project.Name;
+            var projectCode_ = project.PublicCode;
+
+            // Удаляем участника
+            _dbContext.ProjectMembers.Remove(member);
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation($"Пользователь {memberEmail} удален из проекта {projectCode} пользователем {userId}");
+
+            // 📨 Уведомление удаленному пользователю
+            await _notificationService.CreateNotificationAsync(
+                removedUserId,
+                "🚪 Вас удалили из проекта",
+                $"Вас удалили из проекта '{projectName}'",
+                NotificationType.MemberRemoved,
+                $"/projects/{projectCode_}",
+                project.Id
+            );
+
+            // 📨 Уведомление ВСЕМ участникам проекта (включая того, кто удалил)
+            var projectMembers = await _dbContext.ProjectMembers
+                .Where(pm => pm.ProjectId == project.Id)
+                .Include(pm => pm.User)
+                .ToListAsync();
+
+            var removerName = currentUser.Name;
+
+            foreach (var pm in projectMembers)
+            {
+                // Не отправляем удаленному пользователю (он уже получил уведомление)
+                if (pm.UserId == removedUserId)
+                    continue;
+
+                await _notificationService.CreateNotificationAsync(
+                    pm.UserId,
+                    "👋 Участник удален из проекта",
+                    $"{removedUserName} был удален из проекта '{projectName}' пользователем {removerName}",
+                    NotificationType.MemberRemoved,
+                    $"/projects/{projectCode_}/dashboard",
+                    project.Id
+                );
+            }
+
+            _logger.LogInformation($"📨 Уведомления об удалении участника отправлены всем участникам проекта");
+
+            return true;
+        }
         private ProjectResponse MapToResponse(Project entity)
         {
             return new ProjectResponse
