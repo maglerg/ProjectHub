@@ -1,10 +1,12 @@
 // src/components/SearchSection.js
 
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';  // ← ДОБАВИТЬ!
 import { searchProjectByCode } from '../services/projectsApi';
 import '../styles/components/SearchSection.css';
 
 const SearchSection = ({ onProjectFound }) => {
+    const navigate = useNavigate();  // ← ДОБАВИТЬ!
     const [searchCode, setSearchCode] = useState('');
     const [isSearching, setIsSearching] = useState(false);
     const [message, setMessage] = useState('');
@@ -47,6 +49,22 @@ const SearchSection = ({ onProjectFound }) => {
             setFoundProject(null);
         } finally {
             setIsSearching(false);
+        }
+    };
+
+    // 📌 Обработчик перехода к проекту
+    const handleGoToProject = () => {
+        if (!foundProject?.publicCode) return;
+
+        const userStatus = foundProject.userStatus || 'NotJoined';
+        const isMember = userStatus === 'Owner' || userStatus === 'Admin' || userStatus === 'Member';
+
+        if (isMember) {
+            // ✅ Участник → открываем дашборд (приватная версия)
+            navigate(`/projects/${foundProject.publicCode}/dashboard`);
+        } else {
+            // ❌ Не участник → открываем публичную страницу
+            navigate(`/projects/${foundProject.publicCode}`);
         }
     };
 
@@ -128,7 +146,7 @@ const SearchSection = ({ onProjectFound }) => {
                     )}
                     <button
                         className="btn-go-to-project"
-                        onClick={() => window.location.href = `/projects/${foundProject.publicCode}`}
+                        onClick={handleGoToProject}  // ← ИСПРАВЛЕНО!
                     >
                         📂 Перейти к проекту
                     </button>

@@ -85,7 +85,6 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
     const handleCardClick = () => {
         if (!project.publicCode) return;
 
-        // 📌 Проверяем, является ли пользователь участником
         const userStatus = project.userStatus || 'NotJoined';
         const isMember = userStatus === 'Owner' || userStatus === 'Admin' || userStatus === 'Member';
 

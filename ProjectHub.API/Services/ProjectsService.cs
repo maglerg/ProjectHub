@@ -374,7 +374,7 @@ namespace ProjectHub.API.Services
             return response;
         }
 
-        // 📌 Поиск проекта по коду для участников (включая приватные)
+        // 📌 Получить проект по коду для участника (включая приватные)
         public async Task<ProjectResponse> GetProjectByCodeForMemberAsync(string code, Guid userId)
         {
             var projectEntity = await _dbContext.Projects
@@ -386,7 +386,7 @@ namespace ProjectHub.API.Services
             if (projectEntity == null)
                 return null;
 
-            // 📌 Проверяем, является ли пользователь участником или владельцем
+            // Проверяем, является ли пользователь участником или владельцем
             var isMember = await _dbContext.ProjectMembers
                 .AnyAsync(pm => pm.ProjectId == projectEntity.Id && pm.UserId == userId);
 

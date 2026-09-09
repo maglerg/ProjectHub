@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { searchProjectByCode, toggleFavoriteByCode } from '../services/projectsApi';
+import { searchMyProjectByCode, toggleFavoriteByCode } from '../services/projectsApi';
 import { getCategoryName, getStatusName, getVisibilityName } from '../utils/constants';
 import MemberCard from './MemberCard';
 import RoleManagementModal from './RoleManagementModal';
@@ -74,7 +74,7 @@ const ProjectDashboardPage = () => {
         setNotification(null);
 
         try {
-            const projectData = await searchProjectByCode(code);
+            const projectData = await searchMyProjectByCode(code);
 
             if (projectData) {
                 const status = projectData.userStatus || 'NotJoined';
