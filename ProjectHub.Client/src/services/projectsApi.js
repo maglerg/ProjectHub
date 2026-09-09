@@ -180,7 +180,7 @@ export const fetchProjectsWithFilters = async (category, visibility, status) => 
     }
 };
 
-// 📌 Поиск проекта по коду
+// 📌 Поиск проекта по коду (только публичные)
 export const searchProjectByCode = async (code) => {
     try {
         const token = getToken();
@@ -205,6 +205,35 @@ export const searchProjectByCode = async (code) => {
         return data;
     } catch (error) {
         console.error('❌ Ошибка в searchProjectByCode:', error);
+        throw error;
+    }
+};
+
+// 📌 Поиск проекта по коду для участников (включая приватные)
+export const searchMyProjectByCode = async (code) => {
+    try {
+        const token = getToken();
+        const response = await fetch(`${API_BASE_URL}/projects/search/my/${code}`, {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+
+        if (response.status === 404) {
+            return null;
+        }
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.message || `HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('❌ Ошибка в searchMyProjectByCode:', error);
         throw error;
     }
 };

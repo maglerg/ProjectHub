@@ -1,7 +1,8 @@
 // src/components/SearchSection.js
+
 import React, { useState } from 'react';
 import { searchProjectByCode } from '../services/projectsApi';
-import '../styles/components/SearchSection.css'; 
+import '../styles/components/SearchSection.css';
 
 const SearchSection = ({ onProjectFound }) => {
     const [searchCode, setSearchCode] = useState('');
@@ -68,7 +69,7 @@ const SearchSection = ({ onProjectFound }) => {
     return (
         <div className="search-section">
             <div className="search-header">
-                <h3>🔍 Поиск по коду</h3>
+                <h3>🔍 Поиск проекта по коду</h3>
                 <span className="search-hint">Введите код в формате ABC-123-DEF</span>
             </div>
 
@@ -106,6 +107,31 @@ const SearchSection = ({ onProjectFound }) => {
             {message && (
                 <div className={`message ${message.includes('❌') ? 'error' : 'success'}`}>
                     {message}
+                </div>
+            )}
+
+            {/* 📌 Карточка найденного проекта */}
+            {foundProject && (
+                <div className="found-project-card">
+                    <div className="found-project-header">
+                        <h4>{foundProject.name}</h4>
+                        <span className={`visibility-tag ${foundProject.visibility === 'Private' ? 'private' : 'public'}`}>
+                            {foundProject.visibility === 'Private' ? '🔒 Приватный' : '🌐 Публичный'}
+                        </span>
+                    </div>
+                    <div className="found-project-info">
+                        <span>📂 {foundProject.category}</span>
+                        <span>📅 {new Date(foundProject.createdAt).toLocaleDateString('ru-RU')}</span>
+                    </div>
+                    {foundProject.description && (
+                        <p className="found-project-description">{foundProject.description}</p>
+                    )}
+                    <button
+                        className="btn-go-to-project"
+                        onClick={() => window.location.href = `/projects/${foundProject.publicCode}`}
+                    >
+                        📂 Перейти к проекту
+                    </button>
                 </div>
             )}
 

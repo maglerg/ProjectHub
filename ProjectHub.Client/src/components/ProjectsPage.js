@@ -31,7 +31,6 @@ const ProjectsPage = () => {
     const [message, setMessage] = useState('');
     const [activeTab, setActiveTab] = useState(null);
     const [selectedCategory, setSelectedCategory] = useState('');
-    const [selectedVisibility, setSelectedVisibility] = useState('Public');
     const [selectedStatus, setSelectedStatus] = useState('');
     const [shouldResetForm, setShouldResetForm] = useState(false);
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -156,24 +155,20 @@ const ProjectsPage = () => {
         }
     };
 
-    // 📌 Обработка изменения фильтров
+    // Убираем из handleFilterChange обработку visibility
     const handleFilterChange = (type, value) => {
         if (type === 'category') {
             setSelectedCategory(value);
-            loadProjectsWithFilters(value, selectedVisibility, selectedStatus);
-        } else if (type === 'visibility') {
-            setSelectedVisibility(value);
-            loadProjectsWithFilters(selectedCategory, value, selectedStatus);
+            loadProjectsWithFilters(value, selectedStatus);
         } else if (type === 'status') {
             setSelectedStatus(value);
-            loadProjectsWithFilters(selectedCategory, selectedVisibility, value);
+            loadProjectsWithFilters(selectedCategory, value);
         }
     };
 
     // Сброс фильтров
     const resetFilters = () => {
         setSelectedCategory('');
-        setSelectedVisibility('Public');
         setSelectedStatus('');
         setShowFavoritesOnly(false);
         setShowMyProjectsOnly(false);
@@ -332,7 +327,6 @@ const ProjectsPage = () => {
                                 <h4>Или ищите по категории:</h4>
                                 <FilterSection
                                     selectedCategory={selectedCategory}
-                                    selectedVisibility={selectedVisibility}
                                     selectedStatus={selectedStatus}
                                     onFilterChange={handleFilterChange}
                                     onReset={resetFilters}

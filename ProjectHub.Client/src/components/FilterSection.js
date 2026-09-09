@@ -1,12 +1,12 @@
 // projecthub.client/src/components/FilterSection.js
 
 import React from 'react';
-import { PROJECT_CATEGORIES, PROJECT_VISIBILITY } from '../utils/constants';
+import { PROJECT_CATEGORIES } from '../utils/constants';  
 import '../styles/components/FilterSection.css';
 
 const FilterSection = ({
     selectedCategory,
-    selectedVisibility,
+    selectedStatus,
     onFilterChange,
     onReset,
     loading
@@ -15,8 +15,8 @@ const FilterSection = ({
         onFilterChange('category', e.target.value);
     };
 
-    const handleVisibilityChange = (e) => {
-        onFilterChange('visibility', e.target.value);
+    const handleStatusChange = (e) => {
+        onFilterChange('status', e.target.value);
     };
 
     return (
@@ -38,18 +38,15 @@ const FilterSection = ({
             </div>
 
             <div className="filter-group">
-                <label>Видимость</label>
+                <label>Статус</label>
                 <select
-                    value={selectedVisibility}
-                    onChange={handleVisibilityChange}
+                    value={selectedStatus}
+                    onChange={handleStatusChange}
                     disabled={loading}
                 >
-                    <option value="">Все</option>
-                    {PROJECT_VISIBILITY.map(vis => (
-                        <option key={vis.value} value={vis.value}>
-                            {vis.label}
-                        </option>
-                    ))}
+                    <option value="">Все статусы</option>
+                    <option value="Completed">✅ Завершен</option>
+                    <option value="Uncompleted">⏳ В процессе</option>
                 </select>
             </div>
 

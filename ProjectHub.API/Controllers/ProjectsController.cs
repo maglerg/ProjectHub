@@ -60,7 +60,38 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+        // 📌 GET /api/projects/search/my/{code} — поиск проекта для участников (включая приватные)
+        [HttpGet("search/my/{code}")]
+        [Authorize]
+        public async Task<IActionResult> GetProjectByCodeForMember(string code)
+        {
+            try
+            {
+                _logger.LogInformation($"Поиск проекта по коду для участника: {code}");
 
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                {
+                    return Unauthorized(new { error = "Пользователь не авторизован" });
+                }
+
+                var project = await _projectsService.GetProjectByCodeForMemberAsync(code, userId);
+
+                if (project == null)
+                {
+                    _logger.LogWarning($"Проект с кодом {code} не найден или доступ запрещен");
+                    return NotFound(new { error = "Проект с таким кодом не найден или у вас нет доступа" });
+                }
+
+                _logger.LogInformation($"Найден проект для участника: {project.Name}");
+                return Ok(project);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Ошибка при поиске: {ex.Message}");
+                return StatusCode(500, new { error = "Ошибка при поиске проекта" });
+            }
+        }
         // 📌 GET /api/projects/my — получить проекты текущего пользователя
         [HttpGet("my")]
         [Authorize]

@@ -351,12 +351,13 @@ namespace ProjectHub.API.Services
             return projects.Select(MapToResponse).ToList();
         }
 
+        // 📌 Поиск проекта по коду (только публичные)
         public async Task<ProjectResponse> GetProjectByCodeAsync(string code, Guid? currentUserId = null)
         {
             var projectEntity = await _dbContext.Projects
                 .Include(p => p.Members)
                     .ThenInclude(m => m.User)
-                     .Include(p => p.Favorites)
+                .Include(p => p.Favorites)
                 .FirstOrDefaultAsync(p => p.PublicCode == code && p.Visibility == ProjectVisibility.Public);
 
             if (projectEntity == null)
@@ -364,21 +365,40 @@ namespace ProjectHub.API.Services
 
             var response = MapToResponse(projectEntity);
 
-            // 📌 Проверяем, добавил ли пользователь проект в избранное
             if (currentUserId.HasValue)
             {
-                var isFavorite = await IsProjectFavoriteAsync(projectEntity.Id, currentUserId.Value);
-                response.IsFavorite = isFavorite;
-
-                var status = await GetUserProjectStatusAsync(projectEntity.Id, currentUserId.Value);
-                response.UserStatus = status;
-            }
-
-            // 📌 Вычисляем статус пользователя, если передан ID
-            if (currentUserId.HasValue)
-            {
+                response.IsFavorite = await IsProjectFavoriteAsync(projectEntity.Id, currentUserId.Value);
                 response.UserStatus = await GetUserProjectStatusAsync(projectEntity.Id, currentUserId.Value);
             }
+
+            return response;
+        }
+
+        // 📌 Поиск проекта по коду для участников (включая приватные)
+        public async Task<ProjectResponse> GetProjectByCodeForMemberAsync(string code, Guid userId)
+        {
+            var projectEntity = await _dbContext.Projects
+                .Include(p => p.Members)
+                    .ThenInclude(m => m.User)
+                .Include(p => p.Favorites)
+                .FirstOrDefaultAsync(p => p.PublicCode == code);
+
+            if (projectEntity == null)
+                return null;
+
+            // 📌 Проверяем, является ли пользователь участником или владельцем
+            var isMember = await _dbContext.ProjectMembers
+                .AnyAsync(pm => pm.ProjectId == projectEntity.Id && pm.UserId == userId);
+
+            var isOwner = projectEntity.OwnerId == userId;
+
+            if (!isMember && !isOwner)
+                return null;
+
+            var response = MapToResponse(projectEntity);
+
+            response.IsFavorite = await IsProjectFavoriteAsync(projectEntity.Id, userId);
+            response.UserStatus = await GetUserProjectStatusAsync(projectEntity.Id, userId);
 
             return response;
         }
