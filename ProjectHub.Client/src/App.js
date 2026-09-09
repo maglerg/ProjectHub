@@ -14,6 +14,7 @@ import UserProfilePage from './components/UserProfilePage';
 import ApplicationsPage from './components/ApplicationsPage';
 import FriendRequestsPage from './components/FriendRequestsPage';
 import ProjectDashboardPage from './components/ProjectDashboardPage';
+import InvitationsPage from './components/InvitationsPage';
 
 function App() {
     return (
@@ -65,6 +66,11 @@ function App() {
                     <Route path="/friends/requests" element={
                         <ProtectedRoute>
                             <FriendRequestsPage />
+                        </ProtectedRoute>
+                    } />
+                    <Route path="/invitations" element={
+                        <ProtectedRoute>
+                            <InvitationsPage />
                         </ProtectedRoute>
                     } />
 

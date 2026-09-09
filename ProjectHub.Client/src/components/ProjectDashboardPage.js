@@ -7,7 +7,8 @@ import { searchProjectByCode, toggleFavoriteByCode } from '../services/projectsA
 import { getCategoryName, getStatusName, getVisibilityName } from '../utils/constants';
 import MemberCard from './MemberCard';
 import RoleManagementModal from './RoleManagementModal';
-import EditProjectModal from './EditProjectModal';  // ← ДОБАВИТЬ!
+import EditProjectModal from './EditProjectModal';
+import InviteUserModal from './InviteUserModal';
 import '../styles/components/ProjectDashboardPage.css';
 
 const ProjectDashboardPage = () => {
@@ -26,6 +27,7 @@ const ProjectDashboardPage = () => {
     const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showRoleModal, setShowRoleModal] = useState(false);
+    const [showInviteModal, setShowInviteModal] = useState(false);  // ← ДОБАВИТЬ!
 
     const canManageMembers = userStatus === 'Owner' || userStatus === 'Admin';
 
@@ -51,6 +53,19 @@ const ProjectDashboardPage = () => {
             case 'Uncompleted': return '#e67e22';
             default: return '#666';
         }
+    };
+
+    // 📌 Обработчик открытия модалки приглашения
+    const handleInviteUser = () => {
+        setShowInviteModal(true);
+    };
+
+    const handleInvitationSent = () => {
+        setNotification({
+            type: 'success',
+            text: '✅ Приглашение отправлено!'
+        });
+        setTimeout(() => setNotification(null), 3000);
     };
 
     const loadProjectDetails = useCallback(async () => {
@@ -274,10 +289,15 @@ const ProjectDashboardPage = () => {
                             ✏️ Редактировать проект
                         </button>
                     )}
+                    {canManageMembers && (
+                        <button className="btn-invite" onClick={handleInviteUser}>
+                            📩 Пригласить участника
+                        </button>
+                    )}
                 </section>
             </div>
 
-            {/* 📌 Модальное окно редактирования */}
+            {/* 📌 Модальные окна */}
             {showEditModal && (
                 <EditProjectModal
                     project={project}
@@ -287,15 +307,22 @@ const ProjectDashboardPage = () => {
                 />
             )}
 
-            {/* 📌 Модальное окно управления ролями */}
             {showRoleModal && (
                 <RoleManagementModal
                     project={project}
                     members={members}
-                    userRole={userStatus} 
+                    userRole={userStatus}
                     onClose={() => setShowRoleModal(false)}
                     onRoleChanged={handleRoleChanged}
                     onMemberRemoved={handleProjectUpdated}
+                />
+            )}
+
+            {showInviteModal && (
+                <InviteUserModal
+                    project={project}
+                    onClose={() => setShowInviteModal(false)}
+                    onInvitationSent={handleInvitationSent}
                 />
             )}
         </div>

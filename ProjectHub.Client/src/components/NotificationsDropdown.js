@@ -108,7 +108,16 @@ const NotificationsDropdown = () => {
             setIsOpen(false);
             return;
         }
-    };
+
+        // 📌 Приглашения в проект
+        if (notification.type === 'ProjectInvitation' ||
+            notification.type === 'InvitationAccepted' ||
+            notification.type === 'InvitationRejected') {
+            navigate('/invitations');
+            setIsOpen(false);
+            return;
+        }
+    };  // ← ЭТА СКОБКА БЫЛА ПРОПУЩЕНА!
 
     const formatTime = (dateString) => {
         if (!dateString) return '';
@@ -150,6 +159,12 @@ const NotificationsDropdown = () => {
                 return '👥';
             case 'FriendRemoved':
                 return '💔';
+            case 'ProjectInvitation':
+                return '📩';
+            case 'InvitationAccepted':
+                return '✅';
+            case 'InvitationRejected':
+                return '❌';
             default:
                 return '📌';
         }

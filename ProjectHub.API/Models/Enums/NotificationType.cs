@@ -16,7 +16,9 @@
         FriendRemoved,
         RoleChanged,
         RemovedFromProject,  
-        MemberRemoved
+        MemberRemoved,
+        InvitationAccepted,       // ← Приглашение принято
+        InvitationRejected,       // ← Приглашение отклонено
     }
 
 }

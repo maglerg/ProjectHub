@@ -20,6 +20,7 @@ namespace ProjectHub.API.Data
         public DbSet<Favorite> Favorites { get; set; }
         public DbSet<Friend> Friends { get; set; }
         public DbSet<FriendRequest> FriendRequests { get; set; }
+        public DbSet<Invitation> Invitations { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -63,6 +64,9 @@ namespace ProjectHub.API.Data
             .IsUnique();
             modelBuilder.Entity<Friend>()
            .HasIndex(f => new { f.UserId, f.FriendId })
+           .IsUnique();
+            modelBuilder.Entity<Invitation>()
+           .HasIndex(i => new { i.ProjectId, i.InviteeId })
            .IsUnique();
             // Уникальная пара (SenderId, ReceiverId) для заявок
             modelBuilder.Entity<FriendRequest>()
