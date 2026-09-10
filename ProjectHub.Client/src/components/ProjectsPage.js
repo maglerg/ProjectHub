@@ -295,6 +295,13 @@ const ProjectsPage = () => {
                     >
                         👥 Друзья
                     </button>
+                    <button
+                        className="btn-chats"
+                        onClick={() => navigate('/chats')}
+                        title="Чаты"
+                    >
+                        💬 Чаты
+                    </button>
                 </div>
 
                 {message && (

@@ -21,6 +21,9 @@ namespace ProjectHub.API.Data
         public DbSet<Friend> Friends { get; set; }
         public DbSet<FriendRequest> FriendRequests { get; set; }
         public DbSet<Invitation> Invitations { get; set; }
+        public DbSet<Chat> Chats { get; set; }
+        public DbSet<ChatParticipant> ChatParticipants { get; set; }
+        public DbSet<ChatMessage> ChatMessages { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -71,6 +74,10 @@ namespace ProjectHub.API.Data
             // Уникальная пара (SenderId, ReceiverId) для заявок
             modelBuilder.Entity<FriendRequest>()
                 .HasIndex(fr => new { fr.SenderId, fr.ReceiverId })
+                .IsUnique();
+            // Уникальная пара (ChatId, UserId) для участников
+            modelBuilder.Entity<ChatParticipant>()
+                .HasIndex(cp => new { cp.ChatId, cp.UserId })
                 .IsUnique();
 
             modelBuilder.Entity<Project>(entity =>

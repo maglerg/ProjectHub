@@ -16,6 +16,9 @@ import FriendRequestsPage from './components/FriendRequestsPage';
 import ProjectDashboardPage from './components/ProjectDashboardPage';
 import InvitationsPage from './components/InvitationsPage';
 
+import ChatsListPage from './components/ChatsListPage';  
+import ChatPage from './components/ChatPage'; 
+
 function App() {
     return (
         <Router>
@@ -47,7 +50,17 @@ function App() {
                             <ProjectDetailsPage />
                         </ProtectedRoute>
                     } />
+                    <Route path="/chats" element={
+                        <ProtectedRoute>
+                            <ChatsListPage />
+                        </ProtectedRoute>
+                    } />
 
+                    <Route path="/chats/:chatId" element={
+                        <ProtectedRoute>
+                            <ChatPage />
+                        </ProtectedRoute>
+                    } />
                     <Route path="/profile" element={
                         <ProtectedRoute>
                             <ProfilePage />

@@ -117,7 +117,13 @@ const NotificationsDropdown = () => {
             setIsOpen(false);
             return;
         }
-    };  // ← ЭТА СКОБКА БЫЛА ПРОПУЩЕНА!
+        if (notification.type === 'NewMessage') {
+            // Переходим в чат по ссылке
+            navigate(notification.link || '/chats');
+            setIsOpen(false);
+            return;
+        }
+    };  
 
     const formatTime = (dateString) => {
         if (!dateString) return '';

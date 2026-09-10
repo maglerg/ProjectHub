@@ -7,6 +7,7 @@ import { getUserProfileByEmail } from '../services/userApi';
 import { getFriendStatus, sendFriendRequest, cancelFriendRequest, processFriendRequest } from '../services/friendRequestsApi';
 import { getFriends, removeFriend } from '../services/friendsApi';
 import '../styles/components/UserProfilePage.css';
+import { createPersonalChat } from '../services/chatsApi';
 
 const UserProfilePage = () => {
     const { email } = useParams();
@@ -48,7 +49,22 @@ const UserProfilePage = () => {
             setLoading(false);
         }
     };
+    // 📌 Отправить сообщение — открыть чат
+    const handleSendMessage = async () => {
+        if (!user?.email || isProcessing) return;
 
+        setIsProcessing(true);
+        setNotification(null);
+
+        try {
+            const chat = await createPersonalChat(user.email);
+            navigate(`/chats/${chat.id}`);
+        } catch (err) {
+            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setTimeout(() => setNotification(null), 3000);
+            setIsProcessing(false);
+        }
+    };
     // 📌 Отправить заявку
     const handleSendRequest = async () => {
         if (!user?.email || isProcessing) return;
@@ -329,8 +345,12 @@ const UserProfilePage = () => {
                         {/* 📌 КНОПКА ДРУЗЕЙ */}
                         {!isOwnProfile && renderFriendButton()}
 
-                        <button className="btn-send-message" onClick={handleSendMessage}>
-                            💬 Отправить сообщение
+                        <button
+                            className="btn-send-message"
+                            onClick={handleSendMessage}
+                            disabled={isProcessing}
+                        >
+                            {isProcessing ? '⏳' : '💬 Отправить сообщение'}
                         </button>
                     </div>
                 </div>
