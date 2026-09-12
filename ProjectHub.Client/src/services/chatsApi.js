@@ -18,7 +18,7 @@ export const getChats = async () => {
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || 'Ошибка получения чатов');
+            throw new Error(error.error || 'Ошибка создания чата');
         }
 
         const data = await response.json();
@@ -44,7 +44,7 @@ export const createPersonalChat = async (email) => {
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || 'Ошибка создания чата');
+            throw new Error(error.error || 'Ошибка создания чата');
         }
 
         const data = await response.json();
@@ -69,7 +69,7 @@ export const getChatById = async (chatId) => {
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || 'Ошибка получения чата');
+            throw new Error(error.error || 'Ошибка получения чата');
         }
 
         const data = await response.json();
@@ -97,7 +97,7 @@ export const getChatMessages = async (chatId, skip = 0, take = 50) => {
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || 'Ошибка получения сообщений');
+            throw new Error(error.error || 'Ошибка получения сообщений');
         }
 
         const data = await response.json();
@@ -123,7 +123,7 @@ export const sendMessage = async (chatId, text) => {
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
-            throw new Error(error.message || 'Ошибка отправки сообщения');
+            throw new Error(error.error || 'Ошибка отправки сообщения');
         }
 
         const data = await response.json();

@@ -23,7 +23,8 @@ const ProfilePage = () => {
         name: '',
         email: '',
         specialization: '',
-        description: ''
+        description: '',
+        chatPrivacy: 'All'  // ← ДОБАВЛЕНО
     });
 
     useEffect(() => {
@@ -40,7 +41,8 @@ const ProfilePage = () => {
                 name: data.name || '',
                 email: data.email || '',
                 specialization: data.specialization || '',
-                description: data.description || ''
+                description: data.description || '',
+                chatPrivacy: data.chatPrivacy || 'All'  // ← ДОБАВЛЕНО
             });
             setUserInStorage(data);
         } catch (err) {
@@ -80,7 +82,8 @@ const ProfilePage = () => {
             name: profile?.name || '',
             email: profile?.email || '',
             specialization: profile?.specialization || '',
-            description: profile?.description || ''
+            description: profile?.description || '',
+            chatPrivacy: profile?.chatPrivacy || 'All'  // ← ДОБАВЛЕНО
         });
         setError(null);
         setSuccess(null);
@@ -203,6 +206,57 @@ const ProfilePage = () => {
                                 placeholder="Расскажите о своем опыте, навыках, интересах..."
                                 rows="4"
                             />
+                        </div>
+
+                        {/* 📌 НАСТРОЙКА ПРИВАТНОСТИ ЧАТОВ */}
+                        <div className="form-group privacy-group">
+                            <label>💬 Кто может мне писать</label>
+                            <div className="privacy-options">
+                                <label className={`privacy-option ${formData.chatPrivacy === 'All' ? 'selected' : ''}`}>
+                                    <input
+                                        type="radio"
+                                        name="chatPrivacy"
+                                        value="All"
+                                        checked={formData.chatPrivacy === 'All'}
+                                        onChange={handleChange}
+                                        disabled={!isEditing || saving}
+                                    />
+                                    <div className="privacy-option-content">
+                                        <span className="privacy-icon">🌐</span>
+                                        <div className="privacy-text">
+                                            <span className="privacy-title">Все пользователи</span>
+                                            <span className="privacy-description">
+                                                Любой может отправить вам сообщение
+                                            </span>
+                                        </div>
+                                    </div>
+                                </label>
+
+                                <label className={`privacy-option ${formData.chatPrivacy === 'FriendsOnly' ? 'selected' : ''}`}>
+                                    <input
+                                        type="radio"
+                                        name="chatPrivacy"
+                                        value="FriendsOnly"
+                                        checked={formData.chatPrivacy === 'FriendsOnly'}
+                                        onChange={handleChange}
+                                        disabled={!isEditing || saving}
+                                    />
+                                    <div className="privacy-option-content">
+                                        <span className="privacy-icon">👥</span>
+                                        <div className="privacy-text">
+                                            <span className="privacy-title">Только друзья</span>
+                                            <span className="privacy-description">
+                                                Писать смогут только ваши друзья
+                                            </span>
+                                        </div>
+                                    </div>
+                                </label>
+                            </div>
+                            {formData.chatPrivacy === 'FriendsOnly' && (
+                                <span className="field-hint">
+                                    ℹ️ Вы по-прежнему сможете писать всем пользователям
+                                </span>
+                            )}
                         </div>
 
                         {isEditing && (

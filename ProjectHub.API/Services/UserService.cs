@@ -95,7 +95,8 @@ public class UserService : IUserService
             CreatedAt = user.CreatedAt,
             Token = token,
             ProjectsCount = 0,
-            CompletedProjectsCount = 0
+            CompletedProjectsCount = 0,
+            ChatPrivacy = user.ChatPrivacy.ToString()
         };
     }
     // 📌 НОВЫЙ МЕТОД — обновление пользователя
@@ -121,6 +122,15 @@ public class UserService : IUserService
             }
         }
 
+        // 📌 Обновляем настройку приватности
+        if (!string.IsNullOrEmpty(dto.ChatPrivacy))
+        {
+            if (Enum.TryParse<ChatPrivacy>(dto.ChatPrivacy, true, out var privacy))
+            {
+                user.ChatPrivacy = privacy;
+            }
+        }
+
         await UpdateUserAsync(user);
 
         // Получаем статистику проектов
@@ -140,7 +150,8 @@ public class UserService : IUserService
             IsOnline = user.IsOnline,
             CreatedAt = user.CreatedAt,
             ProjectsCount = projectsCount,
-            CompletedProjectsCount = completedProjectsCount
+            CompletedProjectsCount = completedProjectsCount,
+            ChatPrivacy = user.ChatPrivacy.ToString()
         };
     }
 
@@ -165,7 +176,8 @@ public class UserService : IUserService
             CreatedAt = user.CreatedAt,
             ProjectsCount = user.OwnedProjects.Count + user.ProjectMemberships.Count,
             CompletedProjectsCount = user.ProjectMemberships
-                .Count(pm => pm.Project.Status == ProjectStatus.Completed)
+                .Count(pm => pm.Project.Status == ProjectStatus.Completed),
+            ChatPrivacy = user.ChatPrivacy.ToString()
         };
     }
     // 📌 ВХОД
@@ -204,7 +216,8 @@ public class UserService : IUserService
             CreatedAt = user.CreatedAt,
             Token = token,
             ProjectsCount = projectsCount,
-            CompletedProjectsCount = completedProjectsCount
+            CompletedProjectsCount = completedProjectsCount,
+            ChatPrivacy = user.ChatPrivacy.ToString()
         };
     }
 
@@ -245,7 +258,8 @@ public class UserService : IUserService
             IsOnline = user.IsOnline,
             CreatedAt = user.CreatedAt,
             ProjectsCount = projectsCount,
-            CompletedProjectsCount = completedProjectsCount
+            CompletedProjectsCount = completedProjectsCount,
+            ChatPrivacy = user.ChatPrivacy.ToString()
         };
     }
 }

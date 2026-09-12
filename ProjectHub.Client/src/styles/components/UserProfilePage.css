@@ -313,3 +313,11 @@
         transform: translateY(0);
     }
 }
+.privacy-badge {
+    padding: 3px 12px;
+    background: #fef3e2;
+    color: #e67e22;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+}

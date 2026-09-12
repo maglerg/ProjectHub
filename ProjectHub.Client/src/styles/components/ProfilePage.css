@@ -339,3 +339,106 @@
     .btn-profile:hover {
         background: #3a5a8a;
     }
+/* 📌 Секция приватности */
+.privacy-group {
+    margin-top: 8px;
+    padding-top: 16px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.privacy-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 8px;
+}
+
+.privacy-option {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 16px;
+    border: 2px solid #e0e0e0;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: white;
+}
+
+    .privacy-option:hover {
+        border-color: #667eea;
+        background: #f8f9ff;
+    }
+
+    .privacy-option.selected {
+        border-color: #667eea;
+        background: #f0f4ff;
+        box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
+    }
+
+    .privacy-option input[type="radio"] {
+        width: 18px;
+        height: 18px;
+        accent-color: #667eea;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+        .privacy-option input[type="radio"]:disabled {
+            cursor: not-allowed;
+        }
+
+.privacy-option-content {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.privacy-icon {
+    font-size: 24px;
+    flex-shrink: 0;
+}
+
+.privacy-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.privacy-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: #333;
+}
+
+.privacy-description {
+    font-size: 13px;
+    color: #888;
+}
+
+.field-hint {
+    display: block;
+    font-size: 12px;
+    color: #888;
+    margin-top: 6px;
+    line-height: 1.4;
+}
+
+@media (max-width: 480px) {
+    .privacy-option {
+        padding: 12px;
+    }
+
+    .privacy-icon {
+        font-size: 20px;
+    }
+
+    .privacy-title {
+        font-size: 14px;
+    }
+
+    .privacy-description {
+        font-size: 12px;
+    }
+}

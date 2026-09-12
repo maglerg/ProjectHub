@@ -6,8 +6,8 @@ import { useAuth } from '../context/AuthContext';
 import { getUserProfileByEmail } from '../services/userApi';
 import { getFriendStatus, sendFriendRequest, cancelFriendRequest, processFriendRequest } from '../services/friendRequestsApi';
 import { getFriends, removeFriend } from '../services/friendsApi';
-import '../styles/components/UserProfilePage.css';
 import { createPersonalChat } from '../services/chatsApi';
+import '../styles/components/UserProfilePage.css';
 
 const UserProfilePage = () => {
     const { email } = useParams();
@@ -49,22 +49,7 @@ const UserProfilePage = () => {
             setLoading(false);
         }
     };
-    // 📌 Отправить сообщение — открыть чат
-    const handleSendMessage = async () => {
-        if (!user?.email || isProcessing) return;
 
-        setIsProcessing(true);
-        setNotification(null);
-
-        try {
-            const chat = await createPersonalChat(user.email);
-            navigate(`/chats/${chat.id}`);
-        } catch (err) {
-            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
-            setTimeout(() => setNotification(null), 3000);
-            setIsProcessing(false);
-        }
-    };
     // 📌 Отправить заявку
     const handleSendRequest = async () => {
         if (!user?.email || isProcessing) return;
@@ -166,12 +151,30 @@ const UserProfilePage = () => {
         }
     };
 
-    // 📌 Отправить сообщение
-    const handleSendMessage = () => {
-        setNotification({ type: 'info', text: '💬 Функция отправки сообщений будет доступна позже' });
-        setTimeout(() => setNotification(null), 3000);
-    };
+    // 📌 Отправить сообщение — открыть чат
+    const handleSendMessage = async () => {
+        if (!user?.email || isProcessing) return;
 
+        setIsProcessing(true);
+        setNotification(null);
+
+        try {
+            const chat = await createPersonalChat(user.email);
+            navigate(`/chats/${chat.id}`);
+        } catch (err) {
+            // 📌 Показываем специальное сообщение для FriendsOnly
+            if (err.message?.includes('только от друзей')) {
+                setNotification({
+                    type: 'info',
+                    text: '👥 Этот пользователь принимает сообщения только от друзей. Отправьте заявку в друзья.'
+                });
+            } else {
+                setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            }
+            setTimeout(() => setNotification(null), 5000);
+            setIsProcessing(false);
+        }
+    };
     if (loading) {
         return (
             <div className="user-profile-loading">
@@ -280,7 +283,6 @@ const UserProfilePage = () => {
             </header>
 
             <div className="user-profile-content">
-                {/* 📌 Уведомление */}
                 {notification && (
                     <div className={`notification ${notification.type}`}>
                         {notification.text}
@@ -321,6 +323,12 @@ const UserProfilePage = () => {
                                 })}
                             </span>
                         </div>
+                        <div className="info-row">
+                            <span className="info-label">💬 Сообщения</span>
+                            <span className="info-value privacy-badge">
+                                👥 Только от друзей
+                            </span>
+                        </div>
                     </div>
 
                     {user.description && (
@@ -342,7 +350,6 @@ const UserProfilePage = () => {
                     </div>
 
                     <div className="user-profile-actions">
-                        {/* 📌 КНОПКА ДРУЗЕЙ */}
                         {!isOwnProfile && renderFriendButton()}
 
                         <button

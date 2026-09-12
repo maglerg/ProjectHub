@@ -61,7 +61,7 @@ export const getUserProfileByEmail = async (email) => {
 // 📌 Обновить данные пользователя
 export const updateUser = async (userData) => {
     try {
-        const token = getToken(); 
+        const token = getToken();
         const response = await fetch(`${API_BASE_URL}/users`, {
             method: 'PUT',
             headers: {
@@ -71,7 +71,8 @@ export const updateUser = async (userData) => {
             body: JSON.stringify({
                 name: userData.name,
                 specialization: userData.specialization,
-                description: userData.description
+                description: userData.description,
+                chatPrivacy: userData.chatPrivacy  // ← ДОБАВЛЕНО
             })
         });
 

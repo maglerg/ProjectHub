@@ -89,7 +89,7 @@ public class ChatService
         if (otherUser.Id == userId)
             throw new InvalidOperationException("Нельзя создать чат с самим собой");
 
-        // Ищем существующий личный чат между двумя пользователями
+        // 📌 Проверяем, есть ли уже чат между пользователями
         var existingChat = await _dbContext.Chats
             .Where(c => c.Type == ChatType.Personal)
             .Include(c => c.Participants)
@@ -100,24 +100,37 @@ public class ChatService
                 c.Participants.Any(p => p.UserId == userId) &&
                 c.Participants.Any(p => p.UserId == otherUser.Id));
 
-        if (existingChat != null)
+        // 📌 Если чата нет — проверяем настройку приватности получателя
+        if (existingChat == null)
         {
-            return await MapChatToDtoAsync(existingChat, userId);
-        }
+            if (otherUser.ChatPrivacy == ChatPrivacy.FriendsOnly)
+            {
+                // Проверяем, являются ли пользователи друзьями
+                var isFriend = await _dbContext.Friends
+                    .AnyAsync(f => f.UserId == otherUser.Id &&
+                                   f.FriendId == userId &&
+                                   f.Status == FriendStatus.Accepted);
 
-        // Создаем новый чат
-        var chat = new Chat
-        {
-            Id = Guid.NewGuid(),
-            Type = ChatType.Personal,
-            CreatedAt = DateTime.UtcNow
-        };
+                if (!isFriend)
+                {
+                    throw new InvalidOperationException(
+                        "Этот пользователь принимает сообщения только от друзей. " +
+                        "Отправьте ему заявку в друзья.");
+                }
+            }
 
-        await _dbContext.Chats.AddAsync(chat);
-        await _dbContext.SaveChangesAsync();
+            // Создаем новый чат
+            var chat = new Chat
+            {
+                Id = Guid.NewGuid(),
+                Type = ChatType.Personal,
+                CreatedAt = DateTime.UtcNow
+            };
 
-        // Добавляем участников
-        var participants = new List<ChatParticipant>
+            await _dbContext.Chats.AddAsync(chat);
+            await _dbContext.SaveChangesAsync();
+
+            var participants = new List<ChatParticipant>
         {
             new ChatParticipant
             {
@@ -135,20 +148,22 @@ public class ChatService
             }
         };
 
-        await _dbContext.ChatParticipants.AddRangeAsync(participants);
-        await _dbContext.SaveChangesAsync();
+            await _dbContext.ChatParticipants.AddRangeAsync(participants);
+            await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation($"Создан личный чат {chat.Id} между {userId} и {otherUser.Id}");
+            _logger.LogInformation($"Создан личный чат {chat.Id} между {userId} и {otherUser.Id}");
 
-        // Перезагружаем с навигационными свойствами
-        var createdChat = await _dbContext.Chats
-            .Include(c => c.Participants)
-                .ThenInclude(p => p.User)
-            .Include(c => c.Messages)
-                .ThenInclude(m => m.Sender)
-            .FirstAsync(c => c.Id == chat.Id);
+            var createdChat = await _dbContext.Chats
+                .Include(c => c.Participants)
+                    .ThenInclude(p => p.User)
+                .Include(c => c.Messages)
+                    .ThenInclude(m => m.Sender)
+                .FirstAsync(c => c.Id == chat.Id);
 
-        return await MapChatToDtoAsync(createdChat, userId);
+            return await MapChatToDtoAsync(createdChat, userId);
+        }
+
+        return await MapChatToDtoAsync(existingChat, userId);
     }
 
     // 📌 Получить чат по ID
@@ -225,7 +240,29 @@ public class ChatService
 
         if (!chat.Participants.Any(p => p.UserId == senderId))
             throw new UnauthorizedAccessException("У вас нет доступа к этому чату");
+        if (chat.Type == ChatType.Personal)
+        {
+            var otherParticipant = chat.Participants.FirstOrDefault(p => p.UserId != senderId);
+            if (otherParticipant != null)
+            {
+                var otherUser = otherParticipant.User;
 
+                if (otherUser.ChatPrivacy == ChatPrivacy.FriendsOnly)
+                {
+                    var isFriend = await _dbContext.Friends
+                        .AnyAsync(f => f.UserId == otherUser.Id &&
+                                       f.FriendId == senderId &&
+                                       f.Status == FriendStatus.Accepted);
+
+                    if (!isFriend)
+                    {
+                        throw new InvalidOperationException(
+            $"Пользователь {otherUser.Name} принимает сообщения только от друзей. " +
+            $"Отправьте заявку в друзья, чтобы начать общение.");
+                    }
+                }
+            }
+        }
         var message = new ChatMessage
         {
             Id = Guid.NewGuid(),
@@ -246,13 +283,23 @@ public class ChatService
 
         _logger.LogInformation($"Сообщение отправлено в чат {chatId} от {senderId}");
 
-        // 📨 Уведомление всем участникам (кроме отправителя)
+        // 📌 Уведомление всем участникам (кроме отправителя и тех, кто сейчас в чате)
+        // Если пользователь читал чат последние N секунд — считаем, что он онлайн в чате
+        var activeThreshold = DateTime.UtcNow.AddSeconds(-10); // 10 секунд — окно активности
+
         foreach (var participant in chat.Participants.Where(p => p.UserId != senderId))
         {
+            // 📌 Пропускаем уведомление, если пользователь недавно был в чате
+            if (participant.LastReadAt.HasValue && participant.LastReadAt.Value >= activeThreshold)
+            {
+                _logger.LogInformation($"Пользователь {participant.UserId} активен в чате — уведомление не отправлено");
+                continue;
+            }
+
             await _notificationService.CreateNotificationAsync(
                 participant.UserId,
                 $"💬 Новое сообщение",
-                $"{sender?.Name}: {message.Text?.Substring(0, Math.Min(50, message.Text.Length))}...",
+                $"{sender?.Name}: {(message.Text?.Length > 50 ? message.Text.Substring(0, 50) + "..." : message.Text)}",
                 NotificationType.NewMessage,
                 $"/chats/{chatId}",
                 chatId

@@ -25,5 +25,12 @@ public class User
     // 2. проекты где пользователь является участником (не овнером)
     [JsonIgnore]
     public virtual ICollection<ProjectMember> ProjectMemberships { get; set; } = new List<ProjectMember>();
+    // настройка приватности сообщений
+    public ChatPrivacy ChatPrivacy { get; set; } = ChatPrivacy.All;
 
+}
+public enum ChatPrivacy
+{
+    All = 0,   // Все могут писать (по умолчанию)
+    FriendsOnly = 1 // Только друзья
 }

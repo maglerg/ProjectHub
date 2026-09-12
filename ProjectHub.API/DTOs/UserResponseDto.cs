@@ -15,4 +15,5 @@ public class UserResponseDto
     public string? Token { get; set; } // JWT токен (для ответа на логин)
     public int ProjectsCount { get; set; }
     public int CompletedProjectsCount { get; set; }
+    public string ChatPrivacy { get; set; } = "Everyone";
 }
