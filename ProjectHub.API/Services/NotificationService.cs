@@ -106,7 +106,23 @@ public class NotificationService
             await _dbContext.SaveChangesAsync();
         }
     }
+    // 📌 Удалить уведомления о новых сообщениях для конкретного чата и пользователя
+    public async Task DeleteChatMessageNotificationsAsync(Guid userId, Guid chatId)
+    {
+        var notifications = await _dbContext.Notifications
+            .Where(n => n.UserId == userId
+                        && n.RelatedId == chatId
+                        && n.Type == NotificationType.NewMessage)
+            .ToListAsync();
 
+        if (notifications.Any())
+        {
+            _dbContext.Notifications.RemoveRange(notifications);
+            await _dbContext.SaveChangesAsync();
+            _logger.LogInformation(
+                $"🗑️ Удалено {notifications.Count} уведомлений о сообщениях для чата {chatId} у пользователя {userId}");
+        }
+    }
     // 📌 Удалить уведомления по RelatedId (уже есть, но проверим)
     public async Task DeleteNotificationsByRelatedIdAsync(Guid relatedId)
     {

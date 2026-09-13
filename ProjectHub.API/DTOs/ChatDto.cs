@@ -48,6 +48,8 @@ public class ChatMessageDto
     public DateTime CreatedAt { get; set; }
     public DateTime? EditedAt { get; set; }
     public bool IsDeleted { get; set; }
+    public bool IsRead { get; set; }
+    public DateTime? ReadAt { get; set; }
 }
 
 public class SendMessageDto

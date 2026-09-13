@@ -38,7 +38,6 @@ const ChatPage = () => {
             const messagesData = await getChatMessages(chatId);
             setMessages(messagesData);
 
-            // Прокручиваем вниз после загрузки
             setTimeout(scrollToBottom, 100);
         } catch (err) {
             console.error('Ошибка загрузки чата:', err);
@@ -53,13 +52,19 @@ const ChatPage = () => {
     }, [loadChat]);
 
     // 📌 Периодическое обновление сообщений (каждые 5 секунд)
+    //    Обновляем, если изменилось количество сообщений ИЛИ статус isRead
     useEffect(() => {
         const interval = setInterval(async () => {
             try {
                 const messagesData = await getChatMessages(chatId);
                 setMessages(prev => {
-                    // Проверяем, есть ли новые сообщения
-                    if (messagesData.length !== prev.length) {
+                    const changed =
+                        messagesData.length !== prev.length ||
+                        messagesData.some((m, i) =>
+                            m.id !== prev[i]?.id || m.isRead !== prev[i]?.isRead
+                        );
+
+                    if (changed) {
                         setTimeout(scrollToBottom, 100);
                         return messagesData;
                     }
@@ -85,12 +90,13 @@ const ChatPage = () => {
 
         try {
             const sentMessage = await sendMessage(chatId, textToSend);
+            // У нового сообщения isRead === false → точка появится сразу
             setMessages(prev => [...prev, sentMessage]);
             setTimeout(scrollToBottom, 100);
         } catch (err) {
             console.error('Ошибка отправки:', err);
             setError(err.message || 'Не удалось отправить сообщение');
-            setNewMessage(textToSend); // Возвращаем текст обратно
+            setNewMessage(textToSend);
         } finally {
             setSending(false);
         }
@@ -240,11 +246,33 @@ const ChatPage = () => {
                                         {message.senderName}
                                     </div>
                                 )}
-                                <div className="message-bubble">
-                                    <div className="message-text">{message.text}</div>
-                                    <div className="message-time">
-                                        {formatTime(message.createdAt)}
+
+                                {/* 📌 Обёртка пузыря + индикатор прочтения */}
+                                <div className="message-bubble-wrapper">
+                                    <div className="message-bubble">
+                                        <div className="message-text">{message.text}</div>
+                                        <div className="message-time">
+                                            {formatTime(message.createdAt)}
+                                        </div>
                                     </div>
+
+                                    {/* 📌 Точка «не прочитано» — только для своих сообщений */}
+                                    {isOwn && !message.isRead && (
+                                        <span
+                                            className="message-unread-dot"
+                                            title="Не прочитано"
+                                        />
+                                    )}
+
+                                    {/* 📌 Галочка «прочитано» — только для своих прочитанных */}
+                                    {isOwn && message.isRead && (
+                                        <span
+                                            className="message-read-check"
+                                            title="Прочитано"
+                                        >
+                                            ✓✓
+                                        </span>
+                                    )}
                                 </div>
                             </div>
                         );

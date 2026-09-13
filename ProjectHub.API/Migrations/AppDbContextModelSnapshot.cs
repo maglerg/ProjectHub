@@ -113,6 +113,12 @@ namespace ProjectHub.API.Migrations
                     b.Property<bool>("IsDeleted")
                         .HasColumnType("boolean");
 
+                    b.Property<bool>("IsRead")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<Guid>("SenderId")
                         .HasColumnType("uuid");
 

@@ -200,6 +200,7 @@ public class ChatService
         if (!chat.Participants.Any(p => p.UserId == userId))
             throw new UnauthorizedAccessException("У вас нет доступа к этому чату");
 
+        // 📌 Загружаем сообщения
         var messages = await _dbContext.ChatMessages
             .Where(m => m.ChatId == chatId && !m.IsDeleted)
             .Include(m => m.Sender)
@@ -208,15 +209,34 @@ public class ChatService
             .Take(take)
             .ToListAsync();
 
-        // Отмечаем как прочитанные
-        var participant = await _dbContext.ChatParticipants
-            .FirstOrDefaultAsync(p => p.ChatId == chatId && p.UserId == userId);
+        // 📌 Помечаем все сообщения собеседника как прочитанные
+        var unreadMessages = await _dbContext.ChatMessages
+            .Where(m => m.ChatId == chatId && m.SenderId != userId && !m.IsRead)
+            .ToListAsync();
 
+        if (unreadMessages.Any())
+        {
+            var now = DateTime.UtcNow;
+            foreach (var msg in unreadMessages)
+            {
+                msg.IsRead = true;
+                msg.ReadAt = now;
+            }
+        }
+
+        // 📌 Обновляем LastReadAt для текущего пользователя
+        var participant = chat.Participants.FirstOrDefault(p => p.UserId == userId);
         if (participant != null)
         {
             participant.LastReadAt = DateTime.UtcNow;
-            await _dbContext.SaveChangesAsync();
         }
+
+        // 📌 Один SaveChanges на всё
+        await _dbContext.SaveChangesAsync();
+
+        // 📌 Удаляем уведомления о новых сообщениях в этом чате
+        //    (они уже неактуальны — пользователь только что прочитал чат)
+        await _notificationService.DeleteChatMessageNotificationsAsync(userId, chatId);
 
         return messages
             .OrderBy(m => m.CreatedAt)
@@ -270,7 +290,9 @@ public class ChatService
             SenderId = senderId,
             Type = MessageType.Text,
             Text = dto.Text.Trim(),
-            CreatedAt = DateTime.UtcNow
+            CreatedAt = DateTime.UtcNow,
+            IsRead = false,        
+            ReadAt = null
         };
 
         await _dbContext.ChatMessages.AddAsync(message);
@@ -324,7 +346,9 @@ public class ChatService
             AttachmentUrl = message.AttachmentUrl,
             CreatedAt = message.CreatedAt,
             EditedAt = message.EditedAt,
-            IsDeleted = message.IsDeleted
+            IsDeleted = message.IsDeleted,
+            IsRead = message.IsRead,
+            ReadAt = message.ReadAt
         };
     }
 

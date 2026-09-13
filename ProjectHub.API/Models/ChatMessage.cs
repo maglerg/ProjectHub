@@ -45,6 +45,8 @@ public class ChatMessage
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public DateTime? EditedAt { get; set; }
     public bool IsDeleted { get; set; } = false;
+    public bool IsRead { get; set; } = false;
+    public DateTime? ReadAt { get; set; }
 }
 
 public enum MessageType
