@@ -123,6 +123,23 @@ public class NotificationService
                 $"🗑️ Удалено {notifications.Count} уведомлений о сообщениях для чата {chatId} у пользователя {userId}");
         }
     }
+    // 📌 Удалить уведомление о новом голосовании для конкретного пользователя
+    public async Task DeleteVotingNotificationAsync(Guid userId, Guid votingId)
+    {
+        var notifications = await _dbContext.Notifications
+            .Where(n => n.UserId == userId
+                        && n.RelatedId == votingId
+                        && n.Type == NotificationType.NewVoting)
+            .ToListAsync();
+
+        if (notifications.Any())
+        {
+            _dbContext.Notifications.RemoveRange(notifications);
+            await _dbContext.SaveChangesAsync();
+            _logger.LogInformation(
+                $"🗑️ Удалено {notifications.Count} уведомлений о голосовании {votingId} у пользователя {userId}");
+        }
+    }
     // 📌 Удалить уведомления по RelatedId (уже есть, но проверим)
     public async Task DeleteNotificationsByRelatedIdAsync(Guid relatedId)
     {

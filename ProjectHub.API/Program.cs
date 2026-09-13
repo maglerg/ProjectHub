@@ -92,6 +92,7 @@ builder.Services.AddScoped<FriendService>();
 builder.Services.AddScoped<FriendRequestService>();
 builder.Services.AddScoped<InvitationService>();
 builder.Services.AddScoped<ChatService>();
+builder.Services.AddScoped<VotingsService>();
 
 // JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "your-super-secret-key-min-32-characters-long!";

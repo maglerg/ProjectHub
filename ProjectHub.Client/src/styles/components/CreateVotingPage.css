@@ -1,0 +1,169 @@
+.create-voting-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    max-width: 640px;
+}
+
+    .create-voting-form .form-group {
+        display: flex;
+        flex-direction: column;
+    }
+
+        .create-voting-form .form-group > label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+            font-size: 14px;
+            color: #333;
+            margin-bottom: 8px;
+        }
+
+    .create-voting-form input[type="text"],
+    .create-voting-form input[type="datetime-local"] {
+        width: 100%;
+        padding: 10px 12px;
+        border: 1px solid #d8dee6;
+        border-radius: 8px;
+        font-size: 14px;
+        box-sizing: border-box;
+        transition: border 0.15s, box-shadow 0.15s;
+    }
+
+        .create-voting-form input[type="text"]:focus,
+        .create-voting-form input[type="datetime-local"]:focus {
+            outline: none;
+            border-color: #4a90e2;
+            box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.15);
+        }
+
+.options-count {
+    font-size: 12px;
+    color: #888;
+    font-weight: 400;
+}
+
+.options-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.option-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.option-number {
+    width: 24px;
+    color: #888;
+    font-size: 13px;
+    text-align: right;
+    flex-shrink: 0;
+}
+
+.option-row input {
+    flex: 1;
+}
+
+.btn-remove-option {
+    width: 34px;
+    height: 34px;
+    border: none;
+    background: #fee;
+    color: #c33;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    flex-shrink: 0;
+    transition: background 0.15s;
+}
+
+    .btn-remove-option:hover:not(:disabled) {
+        background: #fdd;
+    }
+
+    .btn-remove-option:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
+    }
+
+.btn-add-option {
+    margin-top: 10px;
+    padding: 9px 14px;
+    background: #f0f4ff;
+    color: #4a90e2;
+    border: 1px dashed #4a90e2;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+    align-self: flex-start;
+    transition: background 0.15s;
+}
+
+    .btn-add-option:hover:not(:disabled) {
+        background: #e5edff;
+    }
+
+    .btn-add-option:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 0;
+    cursor: pointer;
+    font-weight: 400 !important;
+    font-size: 14px;
+    color: #444;
+    justify-content: flex-start !important;
+}
+
+    .checkbox-label input {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+    }
+
+.form-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding-top: 10px;
+    border-top: 1px solid #eef1f5;
+}
+
+.btn-cancel {
+    padding: 10px 18px;
+    background: #fff;
+    color: #555;
+    border: 1px solid #d8dee6;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 14px;
+}
+
+    .btn-cancel:hover:not(:disabled) {
+        background: #f5f7fa;
+    }
+
+    .btn-cancel:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+.form-error {
+    background: #fff0f0;
+    color: #c33;
+    border: 1px solid #fdd;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 14px;
+}

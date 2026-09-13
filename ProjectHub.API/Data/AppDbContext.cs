@@ -25,6 +25,9 @@ namespace ProjectHub.API.Data
         public DbSet<ChatParticipant> ChatParticipants { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
         public DbSet<ChatMessageRead> ChatMessageReads { get; set; }
+        public DbSet<Voting> Votings { get; set; }
+        public DbSet<VotingOption> VotingOptions { get; set; }
+        public DbSet<VotingVote> VotingVotes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -118,6 +121,31 @@ namespace ProjectHub.API.Data
                 entity.HasIndex(e => e.Visibility)
                     .HasDatabaseName("IX_Projects_Visibility");
             });
+            // 📌 Уникальность голоса: один пользователь — один вариант на голосование
+            modelBuilder.Entity<VotingVote>()
+                .HasIndex(v => new { v.VotingId, v.UserId, v.VotingOptionId })
+                .IsUnique();
+
+            // 📌 Каскадное удаление опций
+            modelBuilder.Entity<Voting>()
+                .HasMany(v => v.Options)
+                .WithOne(o => o.Voting)
+                .HasForeignKey(o => o.VotingId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // 📌 Каскадное удаление голосов при удалении голосования
+            modelBuilder.Entity<Voting>()
+                .HasMany(v => v.Votes)
+                .WithOne(v => v.Voting)
+                .HasForeignKey(v => v.VotingId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // 📌 Голоса привязываются к опции
+            modelBuilder.Entity<VotingOption>()
+                .HasMany(o => o.Votes)
+                .WithOne(v => v.VotingOption)
+                .HasForeignKey(v => v.VotingOptionId)
+                .OnDelete(DeleteBehavior.NoAction); // чтобы не было конфликта каскадов
         }
     }
 }

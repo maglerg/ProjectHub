@@ -19,7 +19,8 @@
         MemberRemoved,
         InvitationAccepted,       // ← Приглашение принято
         InvitationRejected,       // ← Приглашение отклонено
-        NewMessage
+        NewMessage,
+        NewVoting
     }
 
 }

@@ -454,6 +454,107 @@ namespace ProjectHub.API.Migrations
                     b.ToTable("ProjectMembers");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("AllowRevote")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("EndsAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsAnonymous")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsClosed")
+                        .HasColumnType("boolean");
+
+                    b.Property<bool>("IsMultipleChoice")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("ShowResultsBeforeVote")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("Votings");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.VotingOption", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
+                    b.Property<Guid>("VotingId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("VotingId");
+
+                    b.ToTable("VotingOptions");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.VotingVote", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("VotedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("VotingId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("VotingOptionId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("VotingOptionId");
+
+                    b.HasIndex("VotingId", "UserId", "VotingOptionId")
+                        .IsUnique();
+
+                    b.ToTable("VotingVotes");
+                });
+
             modelBuilder.Entity("ProjectHub.Models.User", b =>
                 {
                     b.Property<Guid>("Id")
@@ -708,6 +809,63 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>
+                {
+                    b.HasOne("ProjectHub.Models.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.API.Models.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.VotingOption", b =>
+                {
+                    b.HasOne("ProjectHub.API.Models.Voting", "Voting")
+                        .WithMany("Options")
+                        .HasForeignKey("VotingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Voting");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.VotingVote", b =>
+                {
+                    b.HasOne("ProjectHub.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.API.Models.Voting", "Voting")
+                        .WithMany("Votes")
+                        .HasForeignKey("VotingId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.API.Models.VotingOption", "VotingOption")
+                        .WithMany("Votes")
+                        .HasForeignKey("VotingOptionId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("User");
+
+                    b.Navigation("Voting");
+
+                    b.Navigation("VotingOption");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.Chat", b =>
                 {
                     b.Navigation("Messages");
@@ -725,6 +883,18 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("Favorites");
 
                     b.Navigation("Members");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>
+                {
+                    b.Navigation("Options");
+
+                    b.Navigation("Votes");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.VotingOption", b =>
+                {
+                    b.Navigation("Votes");
                 });
 
             modelBuilder.Entity("ProjectHub.Models.User", b =>

@@ -16,8 +16,13 @@ import FriendRequestsPage from './components/FriendRequestsPage';
 import ProjectDashboardPage from './components/ProjectDashboardPage';
 import InvitationsPage from './components/InvitationsPage';
 
-import ChatsListPage from './components/ChatsListPage';  
-import ChatPage from './components/ChatPage'; 
+import ChatsListPage from './components/ChatsListPage';
+import ChatPage from './components/ChatPage';
+
+import VotingsListPage from './components/VotingsListPage';
+import CreateVotingPage from './components/CreateVotingPage';
+import VotingPage from './components/VotingPage';
+
 
 function App() {
     return (
@@ -86,7 +91,9 @@ function App() {
                             <InvitationsPage />
                         </ProtectedRoute>
                     } />
-
+                    <Route path="/projects/:code/votings" element={<VotingsListPage />} />
+                    <Route path="/projects/:code/votings/new" element={<CreateVotingPage />} />
+                    <Route path="/projects/:code/votings/:votingId" element={<VotingPage />} />
                     {/* Перенаправление */}
                     <Route path="*" element={<Navigate to="/projects" replace />} />
                 </Routes>

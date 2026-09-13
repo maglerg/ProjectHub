@@ -5,12 +5,15 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { searchMyProjectByCode, toggleFavoriteByCode } from '../services/projectsApi';
 import { getCategoryName, getStatusName, getVisibilityName } from '../utils/constants';
+import { getProjectChatByCode } from '../services/chatsApi';
+import { getVotingsSummary } from '../services/votingsApi';
+
 import MemberCard from './MemberCard';
 import RoleManagementModal from './RoleManagementModal';
 import EditProjectModal from './EditProjectModal';
 import InviteUserModal from './InviteUserModal';
+
 import '../styles/components/ProjectDashboardPage.css';
-import { getProjectChatByCode } from '../services/chatsApi';
 
 const ProjectDashboardPage = () => {
     const { code } = useParams();
@@ -28,8 +31,11 @@ const ProjectDashboardPage = () => {
     const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
     const [showEditModal, setShowEditModal] = useState(false);
     const [showRoleModal, setShowRoleModal] = useState(false);
-    const [showInviteModal, setShowInviteModal] = useState(false);  // ← ДОБАВИТЬ!
+    const [showInviteModal, setShowInviteModal] = useState(false);
     const [openingChat, setOpeningChat] = useState(false);
+
+    // 📌 Бейдж голосований
+    const [votingsBadge, setVotingsBadge] = useState(0);
 
     const canManageMembers = userStatus === 'Owner' || userStatus === 'Admin';
 
@@ -38,11 +44,8 @@ const ProjectDashboardPage = () => {
         try {
             const date = new Date(dateString);
             return date.toLocaleDateString('ru-RU', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
             });
         } catch {
             return 'Не указана';
@@ -56,39 +59,42 @@ const ProjectDashboardPage = () => {
             default: return '#666';
         }
     };
+
+    // 📌 Открыть чат проекта
     const handleOpenChat = async () => {
-        console.log('🔵 handleOpenChat вызван, project =', project);
-
-        if (!project?.publicCode || openingChat) {
-            console.warn('⚠️ Нет publicCode или уже открывается');
-            return;
-        }
-
+        if (!project?.publicCode || openingChat) return;
         setOpeningChat(true);
         try {
             const chat = await getProjectChatByCode(project.publicCode);
             navigate(`/chats/${chat.id}`);
         } catch (err) {
             console.error('Ошибка открытия чата:', err);
-            setNotification({
-                type: 'error',
-                text: '❌ ' + (err.message || 'Не удалось открыть чат')
-            });
+            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Не удалось открыть чат') });
             setTimeout(() => setNotification(null), 3000);
         } finally {
             setOpeningChat(false);
         }
     };
-    // 📌 Обработчик открытия модалки приглашения
-    const handleInviteUser = () => {
-        setShowInviteModal(true);
-    };
+
+    // 📌 Загрузить счётчик голосований
+    const loadVotingsBadge = useCallback(async (projectCode) => {
+        if (!projectCode) return;
+        try {
+            const summary = await getVotingsSummary(projectCode);
+            const count = (summary || []).filter(
+                v => !v.isClosed && !v.isExpired && !v.hasVoted
+            ).length;
+            setVotingsBadge(count);
+        } catch (err) {
+            console.warn('Не удалось загрузить сводку голосований:', err);
+            setVotingsBadge(0);
+        }
+    }, []);
+
+    const handleInviteUser = () => setShowInviteModal(true);
 
     const handleInvitationSent = () => {
-        setNotification({
-            type: 'success',
-            text: '✅ Приглашение отправлено!'
-        });
+        setNotification({ type: 'success', text: '✅ Приглашение отправлено!' });
         setTimeout(() => setNotification(null), 3000);
     };
 
@@ -115,6 +121,9 @@ const ProjectDashboardPage = () => {
                 setUserStatus(status);
                 setIsFavorite(projectData.isFavorite || false);
                 setFavoritesCount(projectData.favoritesCount || 0);
+
+                // 📌 Подгружаем счётчик голосований
+                loadVotingsBadge(projectData.publicCode);
             } else {
                 setError('Проект не найден');
             }
@@ -124,7 +133,7 @@ const ProjectDashboardPage = () => {
         } finally {
             setLoading(false);
         }
-    }, [code]);
+    }, [code, loadVotingsBadge]);
 
     useEffect(() => {
         loadProjectDetails();
@@ -132,7 +141,6 @@ const ProjectDashboardPage = () => {
 
     const handleFavoriteClick = async () => {
         if (isTogglingFavorite || !project?.publicCode) return;
-
         setIsTogglingFavorite(true);
         try {
             const result = await toggleFavoriteByCode(project.publicCode);
@@ -146,30 +154,24 @@ const ProjectDashboardPage = () => {
         }
     };
 
-    const handleEditClick = () => {
-        setShowEditModal(true);
-    };
-
-    const handleRoleManagement = () => {
-        setShowRoleModal(true);
-    };
+    const handleEditClick = () => setShowEditModal(true);
+    const handleRoleManagement = () => setShowRoleModal(true);
 
     const handleProjectUpdated = async () => {
         await loadProjectDetails();
-        setNotification({
-            type: 'success',
-            text: '✅ Проект обновлен!'
-        });
+        setNotification({ type: 'success', text: '✅ Проект обновлен!' });
         setTimeout(() => setNotification(null), 3000);
     };
 
     const handleRoleChanged = async () => {
         await loadProjectDetails();
-        setNotification({
-            type: 'success',
-            text: '✅ Роли обновлены!'
-        });
+        setNotification({ type: 'success', text: '✅ Роли обновлены!' });
         setTimeout(() => setNotification(null), 3000);
+    };
+
+    // 📌 Перейти на список голосований
+    const handleOpenVotings = () => {
+        navigate(`/projects/${code}/votings`);
     };
 
     if (loading) {
@@ -207,7 +209,6 @@ const ProjectDashboardPage = () => {
     }
 
     const canEdit = userStatus === 'Owner' || userStatus === 'Admin';
-    const isOwner = userStatus === 'Owner';
 
     return (
         <div className="project-dashboard">
@@ -217,10 +218,7 @@ const ProjectDashboardPage = () => {
                 </button>
                 <h1>{project.name}</h1>
                 <div className="header-badges">
-                    <span
-                        className="status-badge"
-                        style={{ backgroundColor: getStatusColor(project.status) }}
-                    >
+                    <span className="status-badge" style={{ backgroundColor: getStatusColor(project.status) }}>
                         {getStatusName(project.status)}
                     </span>
                     <span className={`visibility-badge ${project.visibility === 'Private' ? 'private' : 'public'}`}>
@@ -233,9 +231,7 @@ const ProjectDashboardPage = () => {
                         title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}
                     >
                         {isFavorite ? '⭐' : '☆'}
-                        {favoritesCount > 0 && (
-                            <span className="favorites-count">{favoritesCount}</span>
-                        )}
+                        {favoritesCount > 0 && <span className="favorites-count">{favoritesCount}</span>}
                     </button>
                 </div>
             </header>
@@ -279,10 +275,7 @@ const ProjectDashboardPage = () => {
                         <h2>👥 Участники</h2>
                         <span className="members-count">{members.length} чел.</span>
                         {canManageMembers && (
-                            <button
-                                className="btn-manage-roles"
-                                onClick={handleRoleManagement}
-                            >
+                            <button className="btn-manage-roles" onClick={handleRoleManagement}>
                                 ⚙️ Управление участниками
                             </button>
                         )}
@@ -318,7 +311,8 @@ const ProjectDashboardPage = () => {
                             📩 Пригласить участника
                         </button>
                     )}
-                    {/* 📌 Кнопка чата — доступна всем участникам */}
+
+                    {/* 📌 Кнопка чата */}
                     <button
                         className="btn-chat"
                         onClick={handleOpenChat}
@@ -326,6 +320,18 @@ const ProjectDashboardPage = () => {
                         title="Открыть чат проекта"
                     >
                         {openingChat ? '⏳' : '💬 Чат проекта'}
+                    </button>
+
+                    {/* 📌 Кнопка голосований с бейджем */}
+                    <button
+                        className="btn-votings"
+                        onClick={handleOpenVotings}
+                        title="Открыть список голосований"
+                    >
+                        🗳️ Голосования
+                        {votingsBadge > 0 && (
+                            <span className="votings-badge">{votingsBadge}</span>
+                        )}
                     </button>
                 </section>
             </div>
