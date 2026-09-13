@@ -5,7 +5,6 @@ import { useAuth } from '../context/AuthContext';
 import '../styles/components/ProjectsPage.css';
 import { useNavigate } from 'react-router-dom';
 
-// Импорты компонентов
 import CreateProjectForm from './CreateProjectForm';
 import SearchSection from './SearchSection';
 import ProjectList from './ProjectList';
@@ -13,14 +12,13 @@ import FilterSection from './FilterSection';
 import NotificationsDropdown from './NotificationsDropdown';
 import FriendsList from './FriendsList';
 
-// Импорты API
 import {
     fetchAllProjects,
     createProject,
     fetchProjectsWithFilters,
     fetchMyProjects,
 } from '../services/projectsApi';
-import { getFriends, removeFriend } from '../services/friendsApi';  // ← ДОБАВИТЬ!
+import { getFriends, removeFriend } from '../services/friendsApi';
 
 const ProjectsPage = () => {
     const { user, logout } = useAuth();
@@ -99,14 +97,12 @@ const ProjectsPage = () => {
         }
     };
 
-    // 📌 Обработчик добавления друга
     const handleFriendAdded = (newFriend) => {
         setFriends(prev => [newFriend, ...prev]);
         setMessage('✅ Друг добавлен!');
         setTimeout(() => setMessage(''), 3000);
     };
 
-    // 📌 Обработчик удаления друга
     const handleFriendRemoved = async (friendId) => {
         try {
             await removeFriend(friendId);
@@ -118,7 +114,37 @@ const ProjectsPage = () => {
         }
     };
 
-    // Загрузка с фильтрами
+    // 📌 Обработчик изменения избранного — синхронизирует стейт projects,
+    //     чтобы UI сразу перерисовался (звезда, счётчик)
+    const handleFavoriteToggle = (publicCode, isFavorite) => {
+        setProjects(prev =>
+            prev.map(p => {
+                if (p.publicCode !== publicCode) return p;
+
+                const prevCount = p.favoritesCount || 0;
+                const nextCount = Math.max(0, prevCount + (isFavorite ? 1 : -1));
+
+                return {
+                    ...p,
+                    isFavorite,
+                    favoritesCount: nextCount
+                };
+            })
+        );
+    };
+
+    // 📌 Обёртка для передачи в ProjectList
+    const projectListProps = {
+        projects,
+        loading,
+        onCopyCode: (code) => {
+            navigator.clipboard.writeText(code);
+            setMessage('✅ Код скопирован в буфер обмена!');
+            setTimeout(() => setMessage(''), 3000);
+        },
+        onFavoriteToggle: handleFavoriteToggle
+    };
+
     const loadProjectsWithFilters = async (category, visibility, status) => {
         setLoading(true);
         setMessage('');
@@ -137,7 +163,6 @@ const ProjectsPage = () => {
         }
     };
 
-    // Создание проекта
     const handleCreateProject = async (projectData) => {
         setLoading(true);
         try {
@@ -155,7 +180,6 @@ const ProjectsPage = () => {
         }
     };
 
-    // Убираем из handleFilterChange обработку visibility
     const handleFilterChange = (type, value) => {
         if (type === 'category') {
             setSelectedCategory(value);
@@ -166,7 +190,6 @@ const ProjectsPage = () => {
         }
     };
 
-    // Сброс фильтров
     const resetFilters = () => {
         setSelectedCategory('');
         setSelectedStatus('');
@@ -175,10 +198,8 @@ const ProjectsPage = () => {
         loadProjects(false, false);
     };
 
-    // 📌 Обработчик клика по табу (ОДНА ФУНКЦИЯ!)
     const handleTabClick = (tab) => {
         if (activeTab === tab) {
-            // Если уже активен — закрываем
             setActiveTab(null);
             setMessage('');
             setProjects([]);
@@ -215,14 +236,12 @@ const ProjectsPage = () => {
         }
     };
 
-    // Копирование кода
     const handleCopyCode = (code) => {
         navigator.clipboard.writeText(code);
         setMessage('✅ Код скопирован в буфер обмена!');
         setTimeout(() => setMessage(''), 3000);
     };
 
-    // Загрузка при первом рендере
     useEffect(() => {
         loadProjects(false, false);
     }, []);
@@ -344,11 +363,7 @@ const ProjectsPage = () => {
                             {projects.length > 0 && (
                                 <div className="search-results">
                                     <h4>Результаты поиска:</h4>
-                                    <ProjectList
-                                        projects={projects}
-                                        loading={loading}
-                                        onCopyCode={handleCopyCode}
-                                    />
+                                    <ProjectList {...projectListProps} />
                                 </div>
                             )}
                         </div>
@@ -356,11 +371,7 @@ const ProjectsPage = () => {
 
                     {activeTab === 'list' && (
                         <div className="list-tab-content">
-                            <ProjectList
-                                projects={projects}
-                                loading={loading}
-                                onCopyCode={handleCopyCode}
-                            />
+                            <ProjectList {...projectListProps} />
                         </div>
                     )}
 
@@ -379,11 +390,7 @@ const ProjectsPage = () => {
                                     </button>
                                 </div>
                             ) : (
-                                <ProjectList
-                                    projects={projects}
-                                    loading={loading}
-                                    onCopyCode={handleCopyCode}
-                                />
+                                <ProjectList {...projectListProps} />
                             )}
                         </div>
                     )}
@@ -414,11 +421,7 @@ const ProjectsPage = () => {
                                     </button>
                                 </div>
                             ) : (
-                                <ProjectList
-                                    projects={projects}
-                                    loading={loading}
-                                    onCopyCode={handleCopyCode}
-                                />
+                                <ProjectList {...projectListProps} />
                             )}
                         </div>
                     )}

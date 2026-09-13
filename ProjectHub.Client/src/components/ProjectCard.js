@@ -1,6 +1,6 @@
 // projecthub.client/src/components/ProjectCard.js
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCategoryName, getStatusName, getVisibilityName } from '../utils/constants';
 import { toggleFavoriteByCode } from '../services/projectsApi';
@@ -11,6 +11,15 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
     const [isFavorite, setIsFavorite] = useState(project.isFavorite || false);
     const [favoritesCount, setFavoritesCount] = useState(project.favoritesCount || 0);
     const [isToggling, setIsToggling] = useState(false);
+
+    // 📌 Синхронизация с пропом — если родитель перезагрузил проекты
+    useEffect(() => {
+        setIsFavorite(project.isFavorite || false);
+    }, [project.isFavorite]);
+
+    useEffect(() => {
+        setFavoritesCount(project.favoritesCount || 0);
+    }, [project.favoritesCount]);
 
     // 📌 ЗАЩИТА: если project нет
     if (!project || typeof project !== 'object') {
@@ -31,7 +40,6 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
         );
     }
 
-    // Форматируем дату
     const formatDate = (dateString) => {
         if (!dateString) return 'Не указана';
         try {
@@ -46,7 +54,6 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
         }
     };
 
-    // Определяем цвет статуса
     const getStatusColor = (status) => {
         switch (status) {
             case 'Completed': return '#27ae60';
@@ -71,6 +78,7 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
             setIsFavorite(result);
             setFavoritesCount(prev => result ? prev + 1 : prev - 1);
 
+            // 📌 Сообщаем родителю, чтобы он обновил стейт projects
             if (onFavoriteToggle) {
                 onFavoriteToggle(project.publicCode, result);
             }
@@ -81,7 +89,7 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
         }
     };
 
-    // 📌 ОБРАБОТЧИК КЛИКА ПО КАРТОЧКЕ
+    // 📌 Клик по карточке
     const handleCardClick = () => {
         if (!project.publicCode) return;
 
@@ -89,15 +97,12 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
         const isMember = userStatus === 'Owner' || userStatus === 'Admin' || userStatus === 'Member';
 
         if (isMember) {
-            // ✅ Участник → открываем дашборд (приватная версия)
             navigate(`/projects/${project.publicCode}/dashboard`);
         } else {
-            // ❌ Не участник → открываем публичную страницу
             navigate(`/projects/${project.publicCode}`);
         }
     };
 
-    // ОБРАБОТЧИК КОПИРОВАНИЯ
     const handleCopyClick = (e) => {
         e.stopPropagation();
         if (onCopyCode && project.publicCode) {
@@ -105,7 +110,6 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
         }
     };
 
-    // 📌 Безопасное получение значений
     const name = project.name || 'Без названия';
     const description = project.description || '';
     const category = project.category || 'Other';
@@ -131,7 +135,6 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
                             {getVisibilityName(visibility)}
                         </span>
                     </div>
-                    {/* 📌 ЗВЕЗДОЧКА */}
                     <button
                         className={`favorite-btn ${isFavorite ? 'active' : ''}`}
                         onClick={handleFavoriteClick}

@@ -317,25 +317,21 @@ namespace ProjectHub.API.Services
             return true;
         }
         public async Task<List<ProjectResponse>> GetProjectsFilteredAsync(
-            ProjectCategory? category = null,
-            ProjectVisibility? visibility = null,
-            bool favoritesOnly = false,
-             Guid? userId = null)
+    ProjectCategory? category = null,
+    ProjectVisibility? visibility = null,
+    bool favoritesOnly = false,
+    Guid? userId = null)
         {
             var query = _dbContext.Projects
-    .Include(p => p.Members)
-        .ThenInclude(m => m.User)
-    .AsQueryable();
+                .Include(p => p.Members)
+                    .ThenInclude(m => m.User)
+                .AsQueryable();
 
             if (category.HasValue)
                 query = query.Where(p => p.Category == category.Value);
 
-            if (visibility.HasValue)
-                query = query.Where(p => p.Visibility == visibility.Value);
-
-            // По умолчанию только публичные
-            query = query.Where(p => p.Visibility == ProjectVisibility.Public);
-            // 📌 Если запрошены только избранные
+            // 📌 Если запрошены только избранные — не ограничиваем по видимости.
+            // Пользователь мог добавить в избранное приватный проект, к которому у него есть доступ.
             if (favoritesOnly && userId.HasValue)
             {
                 var favoriteIds = await _dbContext.Favorites
@@ -345,10 +341,30 @@ namespace ProjectHub.API.Services
 
                 query = query.Where(p => favoriteIds.Contains(p.Id));
             }
+            else
+            {
+                // 📌 Для обычного списка — только публичные
+                query = query.Where(p => p.Visibility == ProjectVisibility.Public);
+
+                // 📌 Дополнительный фильтр по видимости — только для обычного списка
+                if (visibility.HasValue)
+                    query = query.Where(p => p.Visibility == visibility.Value);
+            }
+
             query = query.OrderByDescending(p => p.CreatedAt);
 
             var projects = await query.ToListAsync();
-            return projects.Select(MapToResponse).ToList();
+
+            var responses = projects.Select(MapToResponse).ToList();
+
+            // 📌 Для избранных — проставляем IsFavorite = true
+            if (favoritesOnly)
+            {
+                foreach (var r in responses)
+                    r.IsFavorite = true;
+            }
+
+            return responses;
         }
 
         // 📌 Поиск проекта по коду (только публичные)

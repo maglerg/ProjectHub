@@ -4,30 +4,25 @@ import React from 'react';
 import ProjectCard from './ProjectCard';
 import '../styles/components/ProjectList.css';
 
-const ProjectList = ({ projects, loading, onCopyCode, showStats = true }) => {
-    // 📌 ЗАЩИТА: если загрузка
+const ProjectList = ({ projects, loading, onCopyCode, onFavoriteToggle, showStats = true }) => {
     if (loading) {
         return <div className="loading">⏳ Загрузка...</div>;
     }
 
-    // 📌 ЗАЩИТА: если projects нет
     if (!projects) {
         console.warn('⚠️ ProjectList: projects is undefined');
         return <p className="no-projects">📭 Нет проектов</p>;
     }
 
-    // 📌 ЗАЩИТА: если projects не массив
     if (!Array.isArray(projects)) {
         console.warn('⚠️ ProjectList: projects is not an array', projects);
         return <p className="no-projects">📭 Нет проектов</p>;
     }
 
-    // 📌 ЗАЩИТА: если пустой массив
     if (projects.length === 0) {
         return <p className="no-projects">📭 Нет проектов</p>;
     }
 
-    // 📌 Фильтруем только валидные проекты
     const validProjects = projects.filter((p, index) => {
         if (!p || typeof p !== 'object') {
             console.warn(`⚠️ ProjectList: invalid project at index ${index}`, p);
@@ -54,6 +49,7 @@ const ProjectList = ({ projects, loading, onCopyCode, showStats = true }) => {
                         key={project.id || project.publicCode || index}
                         project={project}
                         onCopyCode={onCopyCode}
+                        onFavoriteToggle={onFavoriteToggle}
                     />
                 ))}
             </ul>
