@@ -137,6 +137,33 @@ public class ChatsController : ControllerBase
         }
     }
 
+    // 📌 GET /api/chats/project/by-code/{publicCode} — получить или создать чат проекта
+    [HttpGet("project/by-code/{publicCode}")]
+    public async Task<IActionResult> GetProjectChatByCode(string publicCode)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            var chat = await _chatService.GetOrCreateProjectChatByCodeAsync(publicCode, userId);
+            return Ok(chat);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Ошибка при получении чата проекта: {ex.Message}");
+            return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+        }
+    }
     // 📌 POST /api/chats/{chatId}/messages — отправить сообщение
     [HttpPost("{chatId}/messages")]
     public async Task<IActionResult> SendMessage(Guid chatId, [FromBody] SendMessageDto dto)

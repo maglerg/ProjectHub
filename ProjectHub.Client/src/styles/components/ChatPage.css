@@ -307,3 +307,70 @@
     margin-bottom: 6px;
     letter-spacing: -2px;
 }
+/* ChatPage.css */
+
+/* Ник + роль над сообщением */
+.message-sender-name {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 4px;
+}
+
+/* Бейдж роли */
+.sender-role {
+    display: inline-block;
+    padding: 1px 6px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+    .sender-role.role-owner {
+        background: #fff3cd;
+        color: #856404;
+    }
+
+    .sender-role.role-admin {
+        background: #d1ecf1;
+        color: #0c5460;
+    }
+
+    .sender-role.role-member {
+        background: #e2e3e5;
+        color: #383d41;
+    }
+
+/* Время под сообщением — уже есть, но уточним отступ */
+.message-time {
+    font-size: 11px;
+    color: #999;
+    text-align: right;
+    margin-top: 2px;
+}
+
+/* Кнопка чата в проекте */
+.btn-chat {
+    background: #4a90e2;
+    color: #fff;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    transition: background 0.2s;
+}
+
+    .btn-chat:hover:not(:disabled) {
+        background: #357abd;
+    }
+
+    .btn-chat:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }

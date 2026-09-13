@@ -28,7 +28,31 @@ export const getChats = async () => {
         throw error;
     }
 };
+// 📌 Получить или создать чат проекта по публичному коду
+export const getProjectChatByCode = async (publicCode) => {
+    try {
+        const token = getToken();
+        const encodedCode = encodeURIComponent(publicCode);
+        const response = await fetch(`${API_BASE_URL}/chats/project/by-code/${encodedCode}`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            }
+        });
 
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || 'Ошибка получения чата проекта');
+        }
+
+        const data = await response.json();
+        return data;
+    } catch (error) {
+        console.error('❌ Ошибка в getProjectChatByCode:', error);
+        throw error;
+    }
+};
 // 📌 Создать или получить личный чат
 export const createPersonalChat = async (email) => {
     try {

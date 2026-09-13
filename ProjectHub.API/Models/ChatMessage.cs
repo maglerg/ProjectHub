@@ -47,6 +47,7 @@ public class ChatMessage
     public bool IsDeleted { get; set; } = false;
     public bool IsRead { get; set; } = false;
     public DateTime? ReadAt { get; set; }
+    public virtual ICollection<ChatMessageRead> Reads { get; set; } = new List<ChatMessageRead>();
 }
 
 public enum MessageType

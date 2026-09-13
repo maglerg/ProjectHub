@@ -25,6 +25,7 @@ public class ChatDto
     /// Количество непрочитанных сообщений
     /// </summary>
     public int UnreadCount { get; set; }
+    public int ParticipantsCount { get; set; }
 }
 
 public class ChatUserDto
@@ -50,6 +51,12 @@ public class ChatMessageDto
     public bool IsDeleted { get; set; }
     public bool IsRead { get; set; }
     public DateTime? ReadAt { get; set; }
+    public string? SenderRole { get; set; } // роль отправителя в проекте
+    public bool IsReadByAll { get; set; }
+
+    // 📌 НОВОЕ: сколько прочитало / всего (для отладки/UI)
+    public int ReadCount { get; set; }
+    public int TotalParticipants { get; set; }
 }
 
 public class SendMessageDto

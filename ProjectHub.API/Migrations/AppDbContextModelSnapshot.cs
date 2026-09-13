@@ -137,6 +137,31 @@ namespace ProjectHub.API.Migrations
                     b.ToTable("ChatMessages");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.ChatMessageRead", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ChatMessageId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("ChatMessageId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("ChatMessageReads");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.ChatParticipant", b =>
                 {
                     b.Property<Guid>("Id")
@@ -520,6 +545,25 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("Sender");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.ChatMessageRead", b =>
+                {
+                    b.HasOne("ProjectHub.API.Models.ChatMessage", "ChatMessage")
+                        .WithMany("Reads")
+                        .HasForeignKey("ChatMessageId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ChatMessage");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.ChatParticipant", b =>
                 {
                     b.HasOne("ProjectHub.API.Models.Chat", "Chat")
@@ -669,6 +713,11 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("Messages");
 
                     b.Navigation("Participants");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.ChatMessage", b =>
+                {
+                    b.Navigation("Reads");
                 });
 
             modelBuilder.Entity("ProjectHub.API.Models.Project", b =>

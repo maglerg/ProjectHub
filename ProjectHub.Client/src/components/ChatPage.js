@@ -21,12 +21,11 @@ const ChatPage = () => {
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
 
-    // 📌 Прокрутка вниз
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    // 📌 Загрузка чата и сообщений
+    // 📌 Загрузка чата
     const loadChat = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -51,8 +50,7 @@ const ChatPage = () => {
         loadChat();
     }, [loadChat]);
 
-    // 📌 Периодическое обновление сообщений (каждые 5 секунд)
-    //    Обновляем, если изменилось количество сообщений ИЛИ статус isRead
+    // 📌 Периодическое обновление — учитываем isReadByAll
     useEffect(() => {
         const interval = setInterval(async () => {
             try {
@@ -61,7 +59,9 @@ const ChatPage = () => {
                     const changed =
                         messagesData.length !== prev.length ||
                         messagesData.some((m, i) =>
-                            m.id !== prev[i]?.id || m.isRead !== prev[i]?.isRead
+                            m.id !== prev[i]?.id ||
+                            m.isRead !== prev[i]?.isRead ||
+                            m.isReadByAll !== prev[i]?.isReadByAll
                         );
 
                     if (changed) {
@@ -78,10 +78,9 @@ const ChatPage = () => {
         return () => clearInterval(interval);
     }, [chatId]);
 
-    // 📌 Отправка сообщения
+    // 📌 Отправка
     const handleSendMessage = async (e) => {
         e.preventDefault();
-
         if (!newMessage.trim() || sending) return;
 
         setSending(true);
@@ -90,7 +89,6 @@ const ChatPage = () => {
 
         try {
             const sentMessage = await sendMessage(chatId, textToSend);
-            // У нового сообщения isRead === false → точка появится сразу
             setMessages(prev => [...prev, sentMessage]);
             setTimeout(scrollToBottom, 100);
         } catch (err) {
@@ -102,7 +100,6 @@ const ChatPage = () => {
         }
     };
 
-    // 📌 Обработка Enter
     const handleKeyPress = (e) => {
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -123,38 +120,41 @@ const ChatPage = () => {
 
             if (isToday) {
                 return date.toLocaleTimeString('ru-RU', {
-                    hour: '2-digit',
-                    minute: '2-digit'
+                    hour: '2-digit', minute: '2-digit'
                 });
             }
             if (isYesterday) {
                 return `Вчера, ${date.toLocaleTimeString('ru-RU', {
-                    hour: '2-digit',
-                    minute: '2-digit'
+                    hour: '2-digit', minute: '2-digit'
                 })}`;
             }
             return date.toLocaleDateString('ru-RU', {
-                day: '2-digit',
-                month: '2-digit',
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
+                day: '2-digit', month: '2-digit', year: 'numeric',
+                hour: '2-digit', minute: '2-digit'
             });
         } catch {
             return '';
         }
     };
 
-    // 📌 Проверка, является ли сообщение своим
-    const isOwnMessage = (message) => {
-        return message.senderEmail === user?.email;
+    const isOwnMessage = (message) => message.senderEmail === user?.email;
+
+    // 📌 Читаемое название роли
+    const getRoleName = (role) => {
+        switch (role) {
+            case 'Owner': return 'Владелец';
+            case 'Admin': return 'Админ';
+            case 'Member': return 'Участник';
+            default: return role || '';
+        }
     };
 
-    // 📌 Получить имя собеседника
+    // 📌 Заголовок чата
     const getChatTitle = () => {
-        if (chat?.type === 'Personal' && chat?.otherUser) {
+        if (chat?.type === 'Personal' && chat?.otherUser)
             return chat.otherUser.name;
-        }
+        if (chat?.type === 'Project')
+            return chat.name || 'Чат проекта';
         return chat?.name || 'Чат';
     };
 
@@ -186,8 +186,10 @@ const ChatPage = () => {
                 <button className="btn-back" onClick={() => navigate('/chats')}>
                     ← Назад
                 </button>
+
                 <div className="chat-header-user">
-                    {chat?.otherUser && (
+                    {/* Личный чат */}
+                    {chat?.type === 'Personal' && chat?.otherUser && (
                         <>
                             <div className="chat-header-avatar">
                                 {chat.otherUser.name?.[0]?.toUpperCase() || '👤'}
@@ -200,10 +202,21 @@ const ChatPage = () => {
                             </div>
                         </>
                     )}
-                    {chat?.type !== 'Personal' && (
-                        <div className="chat-header-name">{getChatTitle()}</div>
+
+                    {/* Групповой чат проекта */}
+                    {chat?.type === 'Project' && (
+                        <>
+                            <div className="chat-header-avatar">👥</div>
+                            <div className="chat-header-info">
+                                <div className="chat-header-name">{getChatTitle()}</div>
+                                <div className="chat-header-status">
+                                    👥 {chat.participantsCount || 0} участников
+                                </div>
+                            </div>
+                        </>
                     )}
                 </div>
+
                 <div className="chat-header-actions">
                     {chat?.otherUser && (
                         <button
@@ -231,44 +244,67 @@ const ChatPage = () => {
                 ) : (
                     messages.map((message, index) => {
                         const isOwn = isOwnMessage(message);
+                        const isProjectChat = chat?.type === 'Project';
+
                         const showSenderName = !isOwn && (
                             index === 0 ||
                             messages[index - 1]?.senderId !== message.senderId
                         );
+
+                        // 📌 Для группового — «прочитали все»; для личного — isRead
+                        const isReadAll = isProjectChat
+                            ? message.isReadByAll
+                            : message.isRead;
 
                         return (
                             <div
                                 key={message.id || index}
                                 className={`chat-message ${isOwn ? 'own' : 'other'}`}
                             >
+                                {/* 📌 Ник + роль над сообщением */}
                                 {!isOwn && showSenderName && (
                                     <div className="message-sender-name">
-                                        {message.senderName}
+                                        <span className="sender-name-text">
+                                            {message.senderName}
+                                        </span>
+                                        {isProjectChat && message.senderRole && (
+                                            <span className={`sender-role role-${message.senderRole.toLowerCase()}`}>
+                                                {getRoleName(message.senderRole)}
+                                            </span>
+                                        )}
                                     </div>
                                 )}
 
-                                {/* 📌 Обёртка пузыря + индикатор прочтения */}
                                 <div className="message-bubble-wrapper">
                                     <div className="message-bubble">
                                         <div className="message-text">{message.text}</div>
+                                        {/* 📌 Время под текстом */}
                                         <div className="message-time">
                                             {formatTime(message.createdAt)}
                                         </div>
                                     </div>
 
-                                    {/* 📌 Точка «не прочитано» — только для своих сообщений */}
-                                    {isOwn && !message.isRead && (
+                                    {/* 📌 Точка — пока не прочитали все */}
+                                    {isOwn && !isReadAll && (
                                         <span
                                             className="message-unread-dot"
-                                            title="Не прочитано"
+                                            title={
+                                                isProjectChat
+                                                    ? `Прочитали: ${message.readCount}/${message.totalParticipants}`
+                                                    : 'Не прочитано'
+                                            }
                                         />
                                     )}
 
-                                    {/* 📌 Галочка «прочитано» — только для своих прочитанных */}
-                                    {isOwn && message.isRead && (
+                                    {/* 📌 Галочка — когда прочитали все */}
+                                    {isOwn && isReadAll && (
                                         <span
                                             className="message-read-check"
-                                            title="Прочитано"
+                                            title={
+                                                isProjectChat
+                                                    ? `Прочитали все (${message.readCount}/${message.totalParticipants})`
+                                                    : 'Прочитано'
+                                            }
                                         >
                                             ✓✓
                                         </span>

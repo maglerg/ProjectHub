@@ -10,6 +10,7 @@ import RoleManagementModal from './RoleManagementModal';
 import EditProjectModal from './EditProjectModal';
 import InviteUserModal from './InviteUserModal';
 import '../styles/components/ProjectDashboardPage.css';
+import { getProjectChatByCode } from '../services/chatsApi';
 
 const ProjectDashboardPage = () => {
     const { code } = useParams();
@@ -28,6 +29,7 @@ const ProjectDashboardPage = () => {
     const [showEditModal, setShowEditModal] = useState(false);
     const [showRoleModal, setShowRoleModal] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);  // ← ДОБАВИТЬ!
+    const [openingChat, setOpeningChat] = useState(false);
 
     const canManageMembers = userStatus === 'Owner' || userStatus === 'Admin';
 
@@ -54,7 +56,29 @@ const ProjectDashboardPage = () => {
             default: return '#666';
         }
     };
+    const handleOpenChat = async () => {
+        console.log('🔵 handleOpenChat вызван, project =', project);
 
+        if (!project?.publicCode || openingChat) {
+            console.warn('⚠️ Нет publicCode или уже открывается');
+            return;
+        }
+
+        setOpeningChat(true);
+        try {
+            const chat = await getProjectChatByCode(project.publicCode);
+            navigate(`/chats/${chat.id}`);
+        } catch (err) {
+            console.error('Ошибка открытия чата:', err);
+            setNotification({
+                type: 'error',
+                text: '❌ ' + (err.message || 'Не удалось открыть чат')
+            });
+            setTimeout(() => setNotification(null), 3000);
+        } finally {
+            setOpeningChat(false);
+        }
+    };
     // 📌 Обработчик открытия модалки приглашения
     const handleInviteUser = () => {
         setShowInviteModal(true);
@@ -294,6 +318,15 @@ const ProjectDashboardPage = () => {
                             📩 Пригласить участника
                         </button>
                     )}
+                    {/* 📌 Кнопка чата — доступна всем участникам */}
+                    <button
+                        className="btn-chat"
+                        onClick={handleOpenChat}
+                        disabled={openingChat}
+                        title="Открыть чат проекта"
+                    >
+                        {openingChat ? '⏳' : '💬 Чат проекта'}
+                    </button>
                 </section>
             </div>
 

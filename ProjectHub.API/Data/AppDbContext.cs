@@ -24,6 +24,7 @@ namespace ProjectHub.API.Data
         public DbSet<Chat> Chats { get; set; }
         public DbSet<ChatParticipant> ChatParticipants { get; set; }
         public DbSet<ChatMessage> ChatMessages { get; set; }
+        public DbSet<ChatMessageRead> ChatMessageReads { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -79,6 +80,9 @@ namespace ProjectHub.API.Data
             modelBuilder.Entity<ChatParticipant>()
                 .HasIndex(cp => new { cp.ChatId, cp.UserId })
                 .IsUnique();
+            modelBuilder.Entity<ChatMessageRead>()
+    .HasIndex(r => new { r.ChatMessageId, r.UserId })
+    .IsUnique();
 
             modelBuilder.Entity<Project>(entity =>
             {
