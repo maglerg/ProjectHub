@@ -32,6 +32,8 @@ namespace ProjectHub.API.Data
         public DbSet<ProjectTask> ProjectTasks { get; set; }
         public DbSet<TaskAssignee> TaskAssignees { get; set; }
         public DbSet<TaskColumn> TaskColumns { get; set; }
+        public DbSet<TaskComment> TaskComments { get; set; }
+        public DbSet<TaskCommentRead> TaskCommentReads { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -201,6 +203,38 @@ namespace ProjectHub.API.Data
 
                 // Один пользователь — одна запись на задачу
                 entity.HasIndex(a => new { a.TaskId, a.UserId }).IsUnique();
+            });
+            modelBuilder.Entity<TaskComment>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(c => c.Task)
+                      .WithMany(t => t.Comments)
+                      .HasForeignKey(c => c.TaskId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(c => c.Author)
+                      .WithMany()
+                      .HasForeignKey(c => c.AuthorId)
+                      .OnDelete(DeleteBehavior.Restrict); // чтобы нельзя было случайно удалить автора вместе с комментариями
+
+                entity.HasIndex(c => new { c.TaskId, c.CreatedAt });
+            });
+            modelBuilder.Entity<TaskCommentRead>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(r => r.TaskComment)
+                      .WithMany()
+                      .HasForeignKey(r => r.TaskCommentId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(r => r.User)
+                      .WithMany()
+                      .HasForeignKey(r => r.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(r => new { r.TaskCommentId, r.UserId }).IsUnique();
             });
         }
     }

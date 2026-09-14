@@ -31,7 +31,33 @@ export const createTask = (projectCode, { title, description, columnId }) =>
         headers: authHeaders(),
         body: JSON.stringify({ title, description, columnId })
     }).then(handleResponse);
+// Удалить задачу (только owner)
+export const deleteTask = (projectCode, taskId) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: authHeaders()
+    }).then(async (resp) => {
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error || 'Ошибка удаления задачи');
+        }
+        // 204 No Content — тела нет
+        return null;
+    });
+// Получить комментарии задачи
+export const getTaskComments = (projectCode, taskId) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/comments`, {
+        method: 'GET',
+        headers: authHeaders()
+    }).then(handleResponse);
 
+// Добавить комментарий
+export const addTaskComment = (projectCode, taskId, text) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/comments`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ text })
+    }).then(handleResponse);
 // Взять задачу
 export const takeTask = (projectCode, taskId) =>
     fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/take`, {

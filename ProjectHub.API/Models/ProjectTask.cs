@@ -36,5 +36,6 @@ namespace ProjectHub.API.Models
         public DateTime? CompletedAt { get; set; }
 
         public virtual ICollection<TaskAssignee> Assignees { get; set; } = new List<TaskAssignee>();
+        public virtual ICollection<TaskComment> Comments { get; set; } = new List<TaskComment>();
     }
 }

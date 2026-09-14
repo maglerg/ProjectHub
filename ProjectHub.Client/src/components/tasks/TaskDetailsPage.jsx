@@ -5,7 +5,10 @@ import {
     getTasksBoard,
     updateTask,
     takeTask,
-    leaveTask
+    leaveTask,
+    deleteTask,
+    getTaskComments,
+    addTaskComment
 } from '../../services/tasksApi';
 import { useAuth } from '../../context/AuthContext';
 import '../../styles/components/tasks/tasks.css';
@@ -25,17 +28,24 @@ export default function TaskDetailsPage() {
     const [form, setForm] = useState({ title: '', description: '', columnId: '' });
     const [saving, setSaving] = useState(false);
 
-    // ── Загрузка ──
+    const [comments, setComments] = useState([]);
+    const [showCommentBox, setShowCommentBox] = useState(false);
+    const [commentText, setCommentText] = useState('');
+    const [commentSubmitting, setCommentSubmitting] = useState(false);
+
+    // ── Загрузка задачи, доски и комментариев ──
     const loadAll = async () => {
         setLoading(true);
         setError(null);
         try {
-            const [taskData, board] = await Promise.all([
+            const [taskData, board, commentsData] = await Promise.all([
                 getTaskById(code, taskId),
-                getTasksBoard(code)
+                getTasksBoard(code),
+                getTaskComments(code, taskId)
             ]);
             setTask(taskData);
             setColumns(board);
+            setComments(commentsData);
             setForm({
                 title: taskData.title,
                 description: taskData.description || '',
@@ -65,9 +75,10 @@ export default function TaskDetailsPage() {
         }
     };
 
-    // ── Снять исполнителя (себя или чужого — единый обработчик) ──
+    // ── Снять исполнителя (себя или чужого) ──
     const handleRemoveAssignee = async (email) => {
-        const isSelf = (email || '').toLowerCase() === (user?.email || '').toLowerCase();
+        const isSelf =
+            (email || '').toLowerCase() === (user?.email || '').toLowerCase();
         const message = isSelf
             ? 'Снять себя с задачи?'
             : `Снять исполнителя ${email} с задачи?`;
@@ -76,7 +87,6 @@ export default function TaskDetailsPage() {
 
         try {
             setActionError(null);
-            // Если снимаем себя — email можно не передавать
             const updated = await leaveTask(code, taskId, isSelf ? null : email);
             setTask(updated);
         } catch (e) {
@@ -117,6 +127,38 @@ export default function TaskDetailsPage() {
         });
     };
 
+    // ── Удалить задачу ──
+    const handleDelete = async () => {
+        if (!window.confirm('Удалить задачу? Это действие необратимо.')) return;
+        try {
+            setActionError(null);
+            await deleteTask(code, taskId);
+            navigate(`/projects/${code}/dashboard`);
+        } catch (e) {
+            setActionError(e.message);
+        }
+    };
+
+    // ── Отправить комментарий ──
+    const handleSubmitComment = async (e) => {
+        e.preventDefault();
+        if (!commentText.trim() || commentSubmitting) return;
+
+        setCommentSubmitting(true);
+        try {
+            setActionError(null);
+            const newComment = await addTaskComment(code, taskId, commentText.trim());
+            setComments(prev => [...prev, newComment]);
+            setCommentText('');
+            setShowCommentBox(false);
+        } catch (e) {
+            console.error('❌ Ошибка добавления комментария:', e);
+            setActionError(e.message);
+        } finally {
+            setCommentSubmitting(false);
+        }
+    };
+
     if (loading) return <div className="tasks-loading">Загрузка задачи…</div>;
     if (error) return <div className="tasks-error">Ошибка: {error}</div>;
     if (!task) return <div className="tasks-error">Задача не найдена</div>;
@@ -153,7 +195,25 @@ export default function TaskDetailsPage() {
                                     className="btn-edit"
                                     onClick={() => setIsEditing(true)}
                                 >
-                                    ✏️ Редактировать
+                                    Редактировать
+                                </button>
+                            )}
+
+                            <button
+                                className="btn-comment"
+                                onClick={() => setShowCommentBox(v => !v)}
+                                title="Оставить комментарий"
+                            >
+                                Комментировать
+                            </button>
+
+                            {isOwnerUser && (
+                                <button
+                                    className="btn-delete-task"
+                                    onClick={handleDelete}
+                                    title="Удалить задачу"
+                                >
+                                    Удалить
                                 </button>
                             )}
 
@@ -167,6 +227,38 @@ export default function TaskDetailsPage() {
                             )}
                         </div>
                     </header>
+
+                    {/* ── Окошко ввода комментария ── */}
+                    {showCommentBox && (
+                        <form className="comment-box" onSubmit={handleSubmitComment}>
+                            <textarea
+                                rows={3}
+                                maxLength={2000}
+                                placeholder="Напишите комментарий…"
+                                value={commentText}
+                                onChange={e => setCommentText(e.target.value)}
+                                autoFocus
+                            />
+                            <div className="comment-box-actions">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        setShowCommentBox(false);
+                                        setCommentText('');
+                                    }}
+                                    disabled={commentSubmitting}
+                                >
+                                    Отмена
+                                </button>
+                                <button
+                                    type="submit"
+                                    disabled={commentSubmitting || !commentText.trim()}
+                                >
+                                    {commentSubmitting ? 'Отправка…' : 'Отправить'}
+                                </button>
+                            </div>
+                        </form>
+                    )}
 
                     <section className="task-details-body">
                         <div className="task-details-meta">
@@ -209,9 +301,6 @@ export default function TaskDetailsPage() {
                                         const isSelf =
                                             (a.email || '').toLowerCase() === emailLower;
 
-                                        // Кнопку снятия видит:
-                                        //   • владелец — у каждого исполнителя
-                                        //   • сам исполнитель — только у себя
                                         const canRemove = isOwnerUser || isSelf;
 
                                         return (
@@ -246,6 +335,36 @@ export default function TaskDetailsPage() {
                                             </li>
                                         );
                                     })}
+                                </ul>
+                            )}
+                        </div>
+
+                        {/* ── Список комментариев ── */}
+                        <div className="task-details-comments">
+                            <h3>Комментарии ({comments.length})</h3>
+
+                            {comments.length === 0 ? (
+                                <p className="no-comments">Комментариев пока нет</p>
+                            ) : (
+                                <ul className="comments-list">
+                                    {comments.map(c => (
+                                        <li key={c.id} className="comment-item">
+                                            <div className="comment-header">
+                                                <span className="comment-author">
+                                                    {c.authorName || c.authorEmail}
+                                                </span>
+                                                {c.authorSpecialization && (
+                                                    <span className="comment-spec">
+                                                        — {c.authorSpecialization}
+                                                    </span>
+                                                )}
+                                                <span className="comment-date">
+                                                    {new Date(c.createdAt).toLocaleString('ru-RU')}
+                                                </span>
+                                            </div>
+                                            <p className="comment-text">{c.text}</p>
+                                        </li>
+                                    ))}
                                 </ul>
                             )}
                         </div>

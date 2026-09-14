@@ -35,6 +35,22 @@
         public bool IsOwner { get; set; }
         public List<TaskAssigneeDto> Assignees { get; set; } = new();
     }
+    public class TaskCommentDto
+    {
+        public Guid Id { get; set; }
+        public string Text { get; set; } = string.Empty;
+
+        public string AuthorEmail { get; set; } = string.Empty;
+        public string AuthorName { get; set; } = string.Empty;
+        public string? AuthorSpecialization { get; set; }
+
+        public DateTime CreatedAt { get; set; }
+    }
+
+    public class CreateTaskCommentDto
+    {
+        public string Text { get; set; } = string.Empty;
+    }
     public class RemoveAssigneeDto
     {
         /// <summary>Email исполнителя, которого нужно снять. Если null — снять себя.</summary>

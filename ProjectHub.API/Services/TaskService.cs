@@ -10,16 +10,21 @@ namespace ProjectHub.API.Services
     {
         private readonly AppDbContext _db;
         private readonly ILogger<TaskService> _logger;
+        private readonly NotificationService _notificationService;
 
         // Системные ключи колонок
         public const string KeyNotStarted = "NotStarted";
         public const string KeyInProgress = "InProgress";
         public const string KeyCompleted = "Completed";
 
-        public TaskService(AppDbContext db, ILogger<TaskService> logger)
+        public TaskService(
+    AppDbContext db,
+    ILogger<TaskService> logger,
+    NotificationService notificationService)
         {
             _db = db;
             _logger = logger;
+            _notificationService = notificationService;
         }
 
         // ─────────────────────────────────────────────────────────
@@ -217,7 +222,25 @@ namespace ProjectHub.API.Services
 
             return project;
         }
+        public async Task DeleteTaskAsync(string projectCode, Guid taskId, Guid userId)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
 
+            if (project.OwnerId != userId)
+                throw new UnauthorizedAccessException(
+                    "Удалять задачи может только владелец проекта");
+
+            var task = await _db.ProjectTasks
+                .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
+                ?? throw new KeyNotFoundException("Задача не найдена");
+
+            _db.ProjectTasks.Remove(task);
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation(
+                $"Задача {taskId} удалена из проекта {projectCode} пользователем {userId}");
+        }
         private async Task EnsureProjectAccessAsync(Guid projectId, Guid userId)
         {
             var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId);
@@ -270,9 +293,13 @@ namespace ProjectHub.API.Services
                 .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
                 ?? throw new KeyNotFoundException("Задача не найдена");
 
+            // 📌 Пользователь открыл задачу — уведомления о комментариях к ней можно удалить
+            await _notificationService.DeleteTaskCommentNotificationsAsync(userId, taskId);
+
             var dto = MapTask(task);
             dto.IsOwner = project.OwnerId == userId;
-            dto.CanEdit = project.OwnerId == userId || task.Assignees.Any(a => a.UserId == userId);
+            dto.CanEdit = project.OwnerId == userId
+                          || task.Assignees.Any(a => a.UserId == userId);
             return dto;
         }
 
@@ -323,6 +350,101 @@ namespace ProjectHub.API.Services
 
             return await BuildTaskDtoAsync(task.Id, userId);
         }
+        //  Получить комментарии задачи
+        // ─────────────────────────────────────────────────────────
+        public async Task<List<TaskCommentDto>> GetCommentsAsync(
+            string projectCode, Guid taskId, Guid userId)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            // Проверяем, что задача принадлежит проекту
+            var taskExists = await _db.ProjectTasks
+                .AnyAsync(t => t.Id == taskId && t.ProjectId == project.Id);
+
+            if (!taskExists)
+                throw new KeyNotFoundException("Задача не найдена");
+
+            var comments = await _db.TaskComments
+                .Where(c => c.TaskId == taskId)
+                .Include(c => c.Author)
+                .OrderBy(c => c.CreatedAt)
+                .ToListAsync();
+
+            return comments.Select(MapComment).ToList();
+        }
+
+        // ─────────────────────────────────────────────────────────
+        //  Добавить комментарий к задаче
+        //  Права: любой участник проекта
+        //  После добавления — уведомление всем assignee (кроме автора)
+        // ─────────────────────────────────────────────────────────
+        public async Task<TaskCommentDto> AddCommentAsync(
+            string projectCode, Guid taskId, Guid userId, CreateTaskCommentDto dto)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            if (string.IsNullOrWhiteSpace(dto.Text))
+                throw new InvalidOperationException("Комментарий не может быть пустым");
+
+            var text = dto.Text.Trim();
+            if (text.Length > 2000)
+                throw new InvalidOperationException("Комментарий слишком длинный (макс. 2000 символов)");
+
+            var task = await _db.ProjectTasks
+                .Include(t => t.Assignees).ThenInclude(a => a.User)
+                .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
+                ?? throw new KeyNotFoundException("Задача не найдена");
+
+            var author = await _db.Users.FindAsync(userId)
+                ?? throw new KeyNotFoundException("Пользователь не найден");
+
+            var comment = new TaskComment
+            {
+                Id = Guid.NewGuid(),
+                TaskId = taskId,
+                AuthorId = userId,
+                Text = text,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.TaskComments.Add(comment);
+            await _db.SaveChangesAsync();
+
+            // 📨 Уведомления всем assignee, кроме автора
+            var preview = text.Length > 60 ? text.Substring(0, 60) + "…" : text;
+
+            foreach (var assignee in task.Assignees)
+            {
+                if (assignee.UserId == userId) continue;
+
+                await _notificationService.CreateNotificationAsync(
+                    assignee.UserId,
+                    "💬 Новый комментарий к задаче",
+                    $"{author.Name}: {preview}",
+                    NotificationType.NewTaskComment,
+                    $"/projects/{project.PublicCode}/tasks/{taskId}",
+                    taskId  
+                );
+            }
+
+            comment.Author = author;
+            return MapComment(comment);
+        }
+
+        // ─────────────────────────────────────────────────────────
+        //  Маппер
+        // ─────────────────────────────────────────────────────────
+        private static TaskCommentDto MapComment(TaskComment c) => new()
+        {
+            Id = c.Id,
+            Text = c.Text,
+            AuthorEmail = c.Author?.Email ?? string.Empty,
+            AuthorName = c.Author?.Name ?? string.Empty,
+            AuthorSpecialization = c.Author?.Specialization.ToString(),
+            CreatedAt = c.CreatedAt
+        };
         private static TaskDto MapTask(ProjectTask t) => new()
         {
             Id = t.Id,

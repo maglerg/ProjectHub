@@ -384,3 +384,148 @@
         background: #ef4444;
         color: #fff;
     }
+.btn-delete-task {
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+    .btn-delete-task:hover {
+        background: #dc2626;
+    }
+/* ─── Кнопка "Комментировать" ─── */
+.btn-comment {
+    background: #6366f1;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+}
+
+    .btn-comment:hover {
+        background: #4f46e5;
+    }
+
+/* ─── Окошко ввода комментария ─── */
+.comment-box {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 12px;
+    margin: 12px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+    .comment-box textarea {
+        width: 100%;
+        resize: vertical;
+        padding: 8px 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-family: inherit;
+        font-size: 14px;
+    }
+
+.comment-box-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+    .comment-box-actions button {
+        padding: 6px 14px;
+        border-radius: 8px;
+        border: none;
+        cursor: pointer;
+        font-weight: 500;
+    }
+
+        .comment-box-actions button[type="button"] {
+            background: #e5e7eb;
+            color: #374151;
+        }
+
+        .comment-box-actions button[type="submit"] {
+            background: #4f46e5;
+            color: #fff;
+        }
+
+        .comment-box-actions button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+/* ─── Список комментариев ─── */
+.task-details-comments {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #f3f4f6;
+}
+
+    .task-details-comments h3 {
+        margin: 0 0 12px 0;
+        font-size: 15px;
+        color: #111827;
+    }
+
+.no-comments {
+    color: #9ca3af;
+    font-size: 13px;
+    margin: 0;
+}
+
+.comments-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.comment-item {
+    background: #f9fafb;
+    border-radius: 10px;
+    padding: 10px 12px;
+}
+
+.comment-header {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    align-items: baseline;
+    margin-bottom: 4px;
+}
+
+.comment-author {
+    font-weight: 600;
+    font-size: 13px;
+    color: #111827;
+}
+
+.comment-spec {
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.comment-date {
+    font-size: 11px;
+    color: #9ca3af;
+    margin-left: auto;
+}
+
+.comment-text {
+    margin: 0;
+    font-size: 14px;
+    color: #374151;
+    white-space: pre-wrap;
+    word-break: break-word;
+}

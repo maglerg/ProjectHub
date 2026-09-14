@@ -553,6 +553,68 @@ namespace ProjectHub.API.Migrations
                     b.ToTable("TaskColumns");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.TaskComment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("EditedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Text")
+                        .IsRequired()
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AuthorId");
+
+                    b.HasIndex("TaskId", "CreatedAt");
+
+                    b.ToTable("TaskComments");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.TaskCommentRead", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("ReadAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TaskCommentId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("TaskCommentId1")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TaskCommentId1");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TaskCommentId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("TaskCommentReads");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>
                 {
                     b.Property<Guid>("Id")
@@ -965,6 +1027,48 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("Project");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.TaskComment", b =>
+                {
+                    b.HasOne("ProjectHub.Models.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.API.Models.ProjectTask", "Task")
+                        .WithMany("Comments")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Author");
+
+                    b.Navigation("Task");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.TaskCommentRead", b =>
+                {
+                    b.HasOne("ProjectHub.API.Models.TaskComment", "TaskComment")
+                        .WithMany()
+                        .HasForeignKey("TaskCommentId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.API.Models.TaskComment", null)
+                        .WithMany("Reads")
+                        .HasForeignKey("TaskCommentId1");
+
+                    b.HasOne("ProjectHub.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("TaskComment");
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>
                 {
                     b.HasOne("ProjectHub.Models.User", "CreatedBy")
@@ -1044,11 +1148,18 @@ namespace ProjectHub.API.Migrations
             modelBuilder.Entity("ProjectHub.API.Models.ProjectTask", b =>
                 {
                     b.Navigation("Assignees");
+
+                    b.Navigation("Comments");
                 });
 
             modelBuilder.Entity("ProjectHub.API.Models.TaskColumn", b =>
                 {
                     b.Navigation("Tasks");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.TaskComment", b =>
+                {
+                    b.Navigation("Reads");
                 });
 
             modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>

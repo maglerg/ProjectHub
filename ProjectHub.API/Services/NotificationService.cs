@@ -123,6 +123,23 @@ public class NotificationService
                 $"🗑️ Удалено {notifications.Count} уведомлений о сообщениях для чата {chatId} у пользователя {userId}");
         }
     }
+    // 📌 Удалить уведомления о комментариях к конкретной задаче у пользователя
+    public async Task DeleteTaskCommentNotificationsAsync(Guid userId, Guid taskId)
+    {
+        var notifications = await _dbContext.Notifications
+            .Where(n => n.UserId == userId
+                        && n.RelatedId == taskId
+                        && n.Type == NotificationType.NewTaskComment)
+            .ToListAsync();
+
+        if (notifications.Any())
+        {
+            _dbContext.Notifications.RemoveRange(notifications);
+            await _dbContext.SaveChangesAsync();
+            _logger.LogInformation(
+                $"🗑️ Удалено {notifications.Count} уведомлений о комментариях к задаче {taskId} у пользователя {userId}");
+        }
+    }
     // 📌 Удалить уведомление о новом голосовании для конкретного пользователя
     public async Task DeleteVotingNotificationAsync(Guid userId, Guid votingId)
     {

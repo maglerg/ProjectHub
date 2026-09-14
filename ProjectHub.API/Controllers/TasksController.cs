@@ -112,6 +112,70 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+        // DELETE /api/projects/{projectCode}/tasks/{taskId}
+        [HttpDelete("{taskId}")]
+        public async Task<IActionResult> Delete(string projectCode, Guid taskId)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                await _taskService.DeleteTaskAsync(projectCode, taskId, userId);
+                return NoContent(); // 204
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка удаления задачи");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+
+        }
+        // GET /api/projects/{projectCode}/tasks/{taskId}/comments
+        [HttpGet("{taskId}/comments")]
+        public async Task<IActionResult> GetComments(string projectCode, Guid taskId)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var comments = await _taskService.GetCommentsAsync(projectCode, taskId, userId);
+                return Ok(comments);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка получения комментариев");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // POST /api/projects/{projectCode}/tasks/{taskId}/comments
+        [HttpPost("{taskId}/comments")]
+        public async Task<IActionResult> AddComment(
+            string projectCode, Guid taskId, [FromBody] CreateTaskCommentDto dto)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var comment = await _taskService.AddCommentAsync(projectCode, taskId, userId, dto);
+                return Ok(comment);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка добавления комментария");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
         // GET /api/projects/{projectCode}/tasks/{taskId}
         [HttpGet("{taskId}")]
         public async Task<IActionResult> GetById(string projectCode, Guid taskId)

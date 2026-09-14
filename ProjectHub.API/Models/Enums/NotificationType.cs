@@ -20,7 +20,8 @@
         InvitationAccepted,       // ← Приглашение принято
         InvitationRejected,       // ← Приглашение отклонено
         NewMessage,
-        NewVoting
+        NewVoting,
+        NewTaskComment
     }
 
 }
