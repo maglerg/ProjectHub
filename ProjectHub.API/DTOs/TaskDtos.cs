@@ -30,10 +30,16 @@
         public DateTime CreatedAt { get; set; }
         public DateTime? UpdatedAt { get; set; }
         public DateTime? CompletedAt { get; set; }
+        public bool CanEdit { get; set; }
 
+        public bool IsOwner { get; set; }
         public List<TaskAssigneeDto> Assignees { get; set; } = new();
     }
-
+    public class RemoveAssigneeDto
+    {
+        /// <summary>Email исполнителя, которого нужно снять. Если null — снять себя.</summary>
+        public string? Email { get; set; }
+    }
     // ─────────────────────────────────────────────────────────
     //  Исполнитель задачи
     // ─────────────────────────────────────────────────────────
@@ -62,6 +68,12 @@
     // ─────────────────────────────────────────────────────────
     public class MoveTaskDto
     {
+        public Guid ColumnId { get; set; }
+    }
+    public class UpdateTaskDto
+    {
+        public string Title { get; set; } = string.Empty;
+        public string? Description { get; set; }
         public Guid ColumnId { get; set; }
     }
 }

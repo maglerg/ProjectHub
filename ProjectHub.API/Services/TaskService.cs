@@ -84,7 +84,7 @@ namespace ProjectHub.API.Services
             _db.ProjectTasks.Add(task);
             await _db.SaveChangesAsync();
 
-            return await BuildTaskDtoAsync(task.Id);
+            return await BuildTaskDtoAsync(task.Id, userId);
         }
 
         // ─────────────────────────────────────────────────────────
@@ -114,31 +114,55 @@ namespace ProjectHub.API.Services
                 await _db.SaveChangesAsync();
             }
 
-            return await BuildTaskDtoAsync(task.Id);
+            return await BuildTaskDtoAsync(task.Id, userId);
         }
 
         // ─────────────────────────────────────────────────────────
         //  Снять себя с задачи
         // ─────────────────────────────────────────────────────────
-        public async Task<TaskDto> LeaveTaskAsync(string projectCode, Guid taskId, Guid userId)
+        public async Task<TaskDto> LeaveTaskAsync(string projectCode, Guid taskId, Guid userId, RemoveAssigneeDto dto)
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
 
             var task = await _db.ProjectTasks
-                .Include(t => t.Assignees)
+                .Include(t => t.Assignees).ThenInclude(a => a.User)
                 .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
                 ?? throw new KeyNotFoundException("Задача не найдена");
 
-            var assignee = task.Assignees.FirstOrDefault(a => a.UserId == userId);
-            if (assignee != null)
+            var isOwner = project.OwnerId == userId;
+
+            // Определяем, кого снимаем
+            Guid targetUserId;
+
+            if (string.IsNullOrWhiteSpace(dto?.Email))
             {
-                _db.TaskAssignees.Remove(assignee);
-                task.UpdatedAt = DateTime.UtcNow;
-                await _db.SaveChangesAsync();
+                // Снять себя
+                targetUserId = userId;
+            }
+            else
+            {
+                // Снять конкретного человека — только owner
+                if (!isOwner)
+                    throw new UnauthorizedAccessException(
+                        "Снимать других исполнителей может только владелец проекта");
+
+                var targetUser = await _db.Users
+                    .FirstOrDefaultAsync(u => u.Email == dto.Email)
+                    ?? throw new KeyNotFoundException("Пользователь с таким email не найден");
+
+                targetUserId = targetUser.Id;
             }
 
-            return await BuildTaskDtoAsync(task.Id);
+            var assignee = task.Assignees.FirstOrDefault(a => a.UserId == targetUserId);
+            if (assignee == null)
+                return await BuildTaskDtoAsync(task.Id, userId); // уже не назначен — ничего не делаем
+
+            _db.TaskAssignees.Remove(assignee);
+            task.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return await BuildTaskDtoAsync(task.Id, userId);
         }
 
         // ─────────────────────────────────────────────────────────
@@ -177,7 +201,7 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
-            return await BuildTaskDtoAsync(task.Id);
+            return await BuildTaskDtoAsync(task.Id, userId);
         }
 
         // ─────────────────────────────────────────────────────────
@@ -208,15 +232,19 @@ namespace ProjectHub.API.Services
                 throw new UnauthorizedAccessException("Нет доступа к этому проекту");
         }
 
-        private async Task<TaskDto> BuildTaskDtoAsync(Guid taskId)
+        private async Task<TaskDto> BuildTaskDtoAsync(Guid taskId, Guid userId)
         {
             var task = await _db.ProjectTasks
                 .Include(t => t.Column)
                 .Include(t => t.CreatedBy)
                 .Include(t => t.Assignees).ThenInclude(a => a.User)
+                .Include(t => t.Project)
                 .FirstAsync(t => t.Id == taskId);
 
-            return MapTask(task);
+            var dto = MapTask(task);
+            dto.CanEdit = task.Project.OwnerId == userId
+                          || task.Assignees.Any(a => a.UserId == userId);
+            return dto;
         }
 
         private static TaskColumnDto MapColumn(TaskColumn c) => new()
@@ -230,7 +258,71 @@ namespace ProjectHub.API.Services
                 .Select(MapTask)
                 .ToList()
         };
+        public async Task<TaskDto> GetTaskByIdAsync(string projectCode, Guid taskId, Guid userId)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
 
+            var task = await _db.ProjectTasks
+                .Include(t => t.Column)
+                .Include(t => t.CreatedBy)
+                .Include(t => t.Assignees).ThenInclude(a => a.User)
+                .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
+                ?? throw new KeyNotFoundException("Задача не найдена");
+
+            var dto = MapTask(task);
+            dto.IsOwner = project.OwnerId == userId;
+            dto.CanEdit = project.OwnerId == userId || task.Assignees.Any(a => a.UserId == userId);
+            return dto;
+        }
+
+        // ─────────────────────────────────────────────────────────
+        //  Обновить задачу (title, description, columnId)
+        //  Права: assignee ИЛИ owner
+        // ─────────────────────────────────────────────────────────
+        public async Task<TaskDto> UpdateTaskAsync(string projectCode, Guid taskId, Guid userId, UpdateTaskDto dto)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            var task = await _db.ProjectTasks
+                .Include(t => t.Assignees)
+                .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
+                ?? throw new KeyNotFoundException("Задача не найдена");
+
+            var isOwner = project.OwnerId == userId;
+            var isAssignee = task.Assignees.Any(a => a.UserId == userId);
+
+            if (!isOwner && !isAssignee)
+                throw new UnauthorizedAccessException(
+                    "Редактировать задачу может только исполнитель или владелец проекта");
+
+            if (string.IsNullOrWhiteSpace(dto.Title))
+                throw new InvalidOperationException("Название задачи не может быть пустым");
+
+            // Меняем колонку, если указана и отличается
+            if (dto.ColumnId != Guid.Empty && dto.ColumnId != task.ColumnId)
+            {
+                var column = await _db.TaskColumns
+                    .FirstOrDefaultAsync(c => c.Id == dto.ColumnId && c.ProjectId == project.Id)
+                    ?? throw new InvalidOperationException("Колонка не найдена в этом проекте");
+
+                task.ColumnId = column.Id;
+
+                if (string.Equals(column.SystemKey, KeyCompleted, StringComparison.OrdinalIgnoreCase))
+                    task.CompletedAt = DateTime.UtcNow;
+                else
+                    task.CompletedAt = null;
+            }
+
+            task.Title = dto.Title.Trim();
+            task.Description = dto.Description;
+            task.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+
+            return await BuildTaskDtoAsync(task.Id, userId);
+        }
         private static TaskDto MapTask(ProjectTask t) => new()
         {
             Id = t.Id,

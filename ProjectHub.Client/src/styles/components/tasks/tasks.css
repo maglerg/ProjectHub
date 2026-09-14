@@ -263,3 +263,124 @@
         grid-template-columns: 1fr;
     }
 }
+/* ── Страница задачи ── */
+.task-details-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.task-details-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    margin: 16px 0;
+    flex-wrap: wrap;
+}
+
+    .task-details-header h1 {
+        margin: 0;
+        font-size: 22px;
+    }
+
+.task-details-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.btn-leave-task {
+    background: #ef4444;
+    color: #fff;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+}
+
+.task-details-body {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+}
+
+.task-details-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    color: #6b7280;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+.task-details-description h3,
+.task-details-assignees h3 {
+    margin: 16px 0 8px;
+    font-size: 15px;
+    color: #111827;
+}
+
+.task-edit-form {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+    .task-edit-form label {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        font-size: 13px;
+        color: #374151;
+    }
+
+    .task-edit-form input,
+    .task-edit-form textarea,
+    .task-edit-form select {
+        padding: 8px 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: inherit;
+    }
+
+/* Карточка задачи теперь кликабельна */
+.task-card {
+    cursor: pointer;
+}
+
+    .task-card.draggable {
+        cursor: grab;
+    }
+.assignee-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 0;
+}
+
+.btn-remove-assignee {
+    background: transparent;
+    border: 1px solid #ef4444;
+    color: #ef4444;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+
+    .btn-remove-assignee:hover {
+        background: #ef4444;
+        color: #fff;
+    }

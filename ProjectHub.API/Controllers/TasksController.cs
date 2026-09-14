@@ -91,16 +91,17 @@ namespace ProjectHub.API.Controllers
             }
         }
 
-        // DELETE /api/projects/{projectCode}/tasks/{taskId}/take
-        [HttpDelete("{taskId}/take")]
-        public async Task<IActionResult> Leave(string projectCode, Guid taskId)
+        // POST /api/projects/{projectCode}/tasks/{taskId}/leave
+        [HttpPost("{taskId}/leave")]
+        public async Task<IActionResult> Leave(string projectCode, Guid taskId, [FromBody] RemoveAssigneeDto? dto)
         {
             if (!TryGetUserId(out var userId))
                 return Unauthorized(new { error = "Пользователь не авторизован" });
 
             try
             {
-                var task = await _taskService.LeaveTaskAsync(projectCode, taskId, userId);
+                var task = await _taskService.LeaveTaskAsync(
+                    projectCode, taskId, userId, dto ?? new RemoveAssigneeDto());
                 return Ok(task);
             }
             catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
@@ -111,7 +112,48 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+        // GET /api/projects/{projectCode}/tasks/{taskId}
+        [HttpGet("{taskId}")]
+        public async Task<IActionResult> GetById(string projectCode, Guid taskId)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
 
+            try
+            {
+                var task = await _taskService.GetTaskByIdAsync(projectCode, taskId, userId);
+                return Ok(task);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка получения задачи");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // PUT /api/projects/{projectCode}/tasks/{taskId}
+        [HttpPut("{taskId}")]
+        public async Task<IActionResult> Update(string projectCode, Guid taskId, [FromBody] UpdateTaskDto dto)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var task = await _taskService.UpdateTaskAsync(projectCode, taskId, userId, dto);
+                return Ok(task);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка обновления задачи");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
         // PATCH /api/projects/{projectCode}/tasks/{taskId}/move
         [HttpPatch("{taskId}/move")]
         public async Task<IActionResult> Move(string projectCode, Guid taskId, [FromBody] MoveTaskDto dto)

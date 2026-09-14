@@ -39,17 +39,30 @@ export const takeTask = (projectCode, taskId) =>
         headers: authHeaders()
     }).then(handleResponse);
 
-// Снять себя с задачи
-export const leaveTask = (projectCode, taskId) =>
-    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/take`, {
-        method: 'DELETE',
-        headers: authHeaders()
+export const leaveTask = (projectCode, taskId, email = null) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/leave`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ email })
     }).then(handleResponse);
-
 // Переместить задачу в другую колонку
 export const moveTask = (projectCode, taskId, columnId) =>
     fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/move`, {
         method: 'PATCH',
         headers: authHeaders(),
         body: JSON.stringify({ columnId })
+    }).then(handleResponse);
+// Получить задачу по ID
+export const getTaskById = (projectCode, taskId) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}`, {
+        method: 'GET',
+        headers: authHeaders()
+    }).then(handleResponse);
+
+// Обновить задачу
+export const updateTask = (projectCode, taskId, payload) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify(payload)
     }).then(handleResponse);
