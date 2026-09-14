@@ -337,3 +337,16 @@
         transform: scale(1.08);
     }
 }
+.tasks-section {
+    background: #fff;
+    border-radius: 12px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+    .tasks-section h2 {
+        margin: 0 0 16px 0;
+        font-size: 18px;
+        color: #333;
+    }

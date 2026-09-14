@@ -63,6 +63,42 @@ namespace ProjectHub.API.Services
             };
             await _dbContext.ProjectMembers.AddAsync(ownerMember);
             await _dbContext.SaveChangesAsync();
+            // ── Создаём системные колонки задач ──
+            var defaultColumns = new List<TaskColumn>
+{
+    new()
+    {
+        Id = Guid.NewGuid(),
+        ProjectId = projectEntity.Id,
+        Name = "Не начато",
+        Order = 0,
+        IsDefault = true,
+        SystemKey = TaskService.KeyNotStarted
+    },
+    new()
+    {
+        Id = Guid.NewGuid(),
+        ProjectId = projectEntity.Id,
+        Name = "В процессе",
+        Order = 1,
+        IsDefault = true,
+        SystemKey = TaskService.KeyInProgress
+    },
+    new()
+    {
+        Id = Guid.NewGuid(),
+        ProjectId = projectEntity.Id,
+        Name = "Завершено",
+        Order = 2,
+        IsDefault = true,
+        SystemKey = TaskService.KeyCompleted
+    }
+};
+
+            await _dbContext.TaskColumns.AddRangeAsync(defaultColumns);
+            await _dbContext.SaveChangesAsync();
+
+
             _logger.LogInformation($"Создан проект с кодом: {publicCode}");
 
             var projectWithMembers = await _dbContext.Projects

@@ -7,6 +7,7 @@ import { searchMyProjectByCode, toggleFavoriteByCode } from '../services/project
 import { getCategoryName, getStatusName, getVisibilityName } from '../utils/constants';
 import { getProjectChatByCode } from '../services/chatsApi';
 import { getVotingsSummary } from '../services/votingsApi';
+import TasksBoard from './tasks/TasksBoard';
 
 import MemberCard from './MemberCard';
 import RoleManagementModal from './RoleManagementModal';
@@ -293,7 +294,13 @@ const ProjectDashboardPage = () => {
                         </div>
                     )}
                 </section>
-
+                <section className="tasks-section">
+                    <TasksBoard
+                        projectCode={project.publicCode}
+                        currentUserEmail={user.email}
+                        isOwner={userStatus === 'Owner'}
+                    />
+                </section>
                 {notification && (
                     <div className={`notification ${notification.type}`}>
                         {notification.text}

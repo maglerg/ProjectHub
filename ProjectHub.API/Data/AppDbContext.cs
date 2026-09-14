@@ -29,6 +29,10 @@ namespace ProjectHub.API.Data
         public DbSet<VotingOption> VotingOptions { get; set; }
         public DbSet<VotingVote> VotingVotes { get; set; }
 
+        public DbSet<ProjectTask> ProjectTasks { get; set; }
+        public DbSet<TaskAssignee> TaskAssignees { get; set; }
+        public DbSet<TaskColumn> TaskColumns { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -146,6 +150,58 @@ namespace ProjectHub.API.Data
                 .WithOne(v => v.VotingOption)
                 .HasForeignKey(v => v.VotingOptionId)
                 .OnDelete(DeleteBehavior.NoAction); // чтобы не было конфликта каскадов
+                                                    // ───── Колонки задач ─────
+            modelBuilder.Entity<TaskColumn>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(c => c.Project)
+                      .WithMany()
+                      .HasForeignKey(c => c.ProjectId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(c => new { c.ProjectId, c.Order });
+            });
+
+            // ───── Задачи ─────
+            modelBuilder.Entity<ProjectTask>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(t => t.Project)
+                      .WithMany()
+                      .HasForeignKey(t => t.ProjectId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(t => t.Column)
+                      .WithMany(c => c.Tasks)
+                      .HasForeignKey(t => t.ColumnId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasOne(t => t.CreatedBy)
+                      .WithMany()
+                      .HasForeignKey(t => t.CreatedById)
+                      .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ───── Исполнители ─────
+            modelBuilder.Entity<TaskAssignee>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(a => a.Task)
+                      .WithMany(t => t.Assignees)
+                      .HasForeignKey(a => a.TaskId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(a => a.User)
+                      .WithMany()
+                      .HasForeignKey(a => a.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Один пользователь — одна запись на задачу
+                entity.HasIndex(a => new { a.TaskId, a.UserId }).IsUnique();
+            });
         }
     }
 }

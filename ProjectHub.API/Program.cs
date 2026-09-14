@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using ProjectHub.API.Data;
+using ProjectHub.API.Models;
 using ProjectHub.API.Services;
 using Serilog;
 using Serilog.Events;
@@ -93,6 +94,7 @@ builder.Services.AddScoped<FriendRequestService>();
 builder.Services.AddScoped<InvitationService>();
 builder.Services.AddScoped<ChatService>();
 builder.Services.AddScoped<VotingsService>();
+builder.Services.AddScoped<TaskService>();
 
 // JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "your-super-secret-key-min-32-characters-long!";

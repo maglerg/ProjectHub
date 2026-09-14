@@ -454,6 +454,105 @@ namespace ProjectHub.API.Migrations
                     b.ToTable("ProjectMembers");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.ProjectTask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ColumnId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<DateTime?>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ColumnId");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("ProjectId");
+
+                    b.ToTable("ProjectTasks");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.TaskAssignee", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AssignedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId");
+
+                    b.HasIndex("TaskId", "UserId")
+                        .IsUnique();
+
+                    b.ToTable("TaskAssignees");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.TaskColumn", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("IsDefault")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("SystemKey")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId", "Order");
+
+                    b.ToTable("TaskColumns");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>
                 {
                     b.Property<Guid>("Id")
@@ -809,6 +908,63 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.ProjectTask", b =>
+                {
+                    b.HasOne("ProjectHub.API.Models.TaskColumn", "Column")
+                        .WithMany("Tasks")
+                        .HasForeignKey("ColumnId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.Models.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.API.Models.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Column");
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.TaskAssignee", b =>
+                {
+                    b.HasOne("ProjectHub.API.Models.ProjectTask", "Task")
+                        .WithMany("Assignees")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Task");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.TaskColumn", b =>
+                {
+                    b.HasOne("ProjectHub.API.Models.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>
                 {
                     b.HasOne("ProjectHub.Models.User", "CreatedBy")
@@ -883,6 +1039,16 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("Favorites");
 
                     b.Navigation("Members");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.ProjectTask", b =>
+                {
+                    b.Navigation("Assignees");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.TaskColumn", b =>
+                {
+                    b.Navigation("Tasks");
                 });
 
             modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>
