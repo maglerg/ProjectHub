@@ -45,14 +45,14 @@ public class TokenService : ITokenService
         return tokenHandler.WriteToken(token);
     }
 
-    public int? GetUserIdFromToken(string token)
+    public Guid? GetUserIdFromToken(string token)
     {
         try
         {
             var tokenHandler = new JwtSecurityTokenHandler();
             var jwtToken = tokenHandler.ReadJwtToken(token);
             var userIdClaim = jwtToken.Claims.FirstOrDefault(c => c.Type == ClaimTypes.NameIdentifier);
-            return userIdClaim != null ? int.Parse(userIdClaim.Value) : null;
+            return userIdClaim != null ? Guid.Parse(userIdClaim.Value) : null;
         }
         catch
         {

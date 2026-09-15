@@ -95,7 +95,7 @@ const ApplicationsPage = () => {
                 setApplications([]);
                 setLoading(false);
                 return;
-            }
+            } 
 
             console.log('📥 Загрузка заявок для проекта по коду:', projectCode);
             const data = await getApplicationsByCode(projectCode);
