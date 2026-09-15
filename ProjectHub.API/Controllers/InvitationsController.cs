@@ -2,7 +2,7 @@
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ProjectHub.API.DTOs;
+using ProjectHub.API.DTOs.InvitationDtos;
 using ProjectHub.API.Services;
 using System.Security.Claims;
 

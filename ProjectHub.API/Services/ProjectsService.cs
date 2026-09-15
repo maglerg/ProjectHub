@@ -2,7 +2,7 @@
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ProjectHub.API.Data;
-using ProjectHub.API.DTOs;
+using ProjectHub.API.DTOs.ProjectDtos;
 using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
 using ProjectHub.Models;
@@ -713,7 +713,7 @@ namespace ProjectHub.API.Services
                 CreatedAt = entity.CreatedAt,
                 OwnerId = entity.OwnerId,
                 FavoritesCount = entity.FavoritesCount,
-                Members = entity.Members.Select(m => new ProjectHub.API.DTOs.MemberInfo
+                Members = entity.Members.Select(m => new ProjectHub.API.DTOs.ProjectDtos.MemberInfo
                 {
                     UserId = m.UserId,
                     Name = m.User.Name,

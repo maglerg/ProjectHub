@@ -2,9 +2,8 @@
 
 using Microsoft.EntityFrameworkCore;
 using ProjectHub.API.Data;
-using ProjectHub.API.DTOs;
 using ProjectHub.API.Models.Enums;
-using ProjectHub.DTOs;
+using ProjectHub.API.DTOs.UserDtos;
 using ProjectHub.Models;
 using ProjectHub.Models.Enums;
 

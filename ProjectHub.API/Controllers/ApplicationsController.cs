@@ -2,7 +2,7 @@
 
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using ProjectHub.API.DTOs;
+using ProjectHub.API.DTOs.ApplicationDtos;
 using ProjectHub.API.Models.Enums;
 using ProjectHub.API.Services;
 using System.Security.Claims;

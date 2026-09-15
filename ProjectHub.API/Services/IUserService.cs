@@ -1,7 +1,6 @@
 ﻿// ProjectHub.API/Services/IUserService.cs
 
-using ProjectHub.API.DTOs;
-using ProjectHub.DTOs;
+using ProjectHub.API.DTOs.UserDtos;
 using ProjectHub.Models;
 
 namespace ProjectHub.API.Services;

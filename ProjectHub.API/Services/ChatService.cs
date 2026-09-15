@@ -2,7 +2,7 @@
 
 using Microsoft.EntityFrameworkCore;
 using ProjectHub.API.Data;
-using ProjectHub.API.DTOs;
+using ProjectHub.API.DTOs.ChatDtos;
 using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
 using ProjectHub.Models;

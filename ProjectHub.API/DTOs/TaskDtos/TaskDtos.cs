@@ -1,0 +1,27 @@
+﻿namespace ProjectHub.API.DTOs.TaskDtos
+{
+  
+    public class TaskDto
+    {
+        public Guid Id { get; set; }
+        public string Title { get; set; } = string.Empty;
+        public string? Description { get; set; }
+
+        public Guid ColumnId { get; set; }
+        public string ColumnName { get; set; } = string.Empty;
+
+        public string CreatedByEmail { get; set; } = string.Empty;
+        public string CreatedByName { get; set; } = string.Empty;
+
+        public DateTime CreatedAt { get; set; }
+        public DateTime? UpdatedAt { get; set; }
+        public DateTime? CompletedAt { get; set; }
+        public bool CanEdit { get; set; }
+
+        public bool IsOwner { get; set; }
+        public List<TaskAssigneeDto> Assignees { get; set; } = new();
+    }
+    
+    
+    
+}

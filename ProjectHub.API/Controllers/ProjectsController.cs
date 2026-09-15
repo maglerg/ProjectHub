@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
-using ProjectHub.API.DTOs;
+using ProjectHub.API.DTOs.ProjectDtos;
 using ProjectHub.API.Models;
 using ProjectHub.API.Services;
 using Microsoft.AspNetCore.Authorization;

@@ -1,0 +1,9 @@
+﻿namespace ProjectHub.API.DTOs.TaskDtos
+{
+    public class UpdateTaskDto
+    {
+        public string Title { get; set; } = string.Empty;
+        public string? Description { get; set; }
+        public Guid ColumnId { get; set; }
+    }
+}

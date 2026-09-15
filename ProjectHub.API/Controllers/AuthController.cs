@@ -3,7 +3,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ProjectHub.API.Services;
-using ProjectHub.DTOs;
+using ProjectHub.API.DTOs.UserDtos;
 using System.Security.Claims;
 
 namespace ProjectHub.Controllers;
