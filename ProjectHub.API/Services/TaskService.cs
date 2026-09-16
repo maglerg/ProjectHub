@@ -99,9 +99,52 @@ namespace ProjectHub.API.Services
             return await BuildTaskDtoAsync(task.Id, userId);
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  Взять задачу (назначить себя исполнителем)
-        // ─────────────────────────────────────────────────────────
+        public async Task<ProjectProgressDto> GetProjectProgressAsync(
+    string projectCode, Guid userId)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            var tasks = await _db.ProjectTasks
+                .Where(t => t.ProjectId == project.Id)
+                .Include(t => t.Column)
+                .ToListAsync();
+
+            if (tasks.Count == 0)
+            {
+                return new ProjectProgressDto
+                {
+                    ProgressPercent = 0,
+                    TotalTasks = 0,
+                    CompletedTasks = 0,
+                    InProgressTasks = 0,
+                    NotStartedTasks = 0
+                };
+            }
+
+            var total = tasks.Count;
+
+            var completed = tasks.Count(t => IsKey(t.Column, KeyCompleted));
+            var inProgress = tasks.Count(t => IsKey(t.Column, KeyInProgress));
+            var notStarted = total - completed - inProgress;
+
+            // Сумма весов задач / количество * 100
+            var sumWeight = tasks.Sum(t => t.Column?.ProgressWeight ?? 0);
+            var progress = sumWeight / total * 100.0;
+
+            return new ProjectProgressDto
+            {
+                ProgressPercent = Math.Round(progress, 1),
+                TotalTasks = total,
+                CompletedTasks = completed,
+                InProgressTasks = inProgress,
+                NotStartedTasks = notStarted
+            };
+        }
+
+        private static bool IsKey(TaskColumn? column, string key)
+            => column != null &&
+               string.Equals(column.SystemKey, key, StringComparison.OrdinalIgnoreCase);
         public async Task<TaskDto> TakeTaskAsync(string projectCode, Guid taskId, Guid userId)
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);

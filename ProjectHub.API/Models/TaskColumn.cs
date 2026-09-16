@@ -27,7 +27,8 @@ namespace ProjectHub.API.Models
         /// <summary>Ключ системной колонки: NotStarted / InProgress / Completed (null для кастомных)</summary>
         [MaxLength(50)]
         public string? SystemKey { get; set; }
-
+        /// <summary>Вес колонки для расчёта прогресса (0..1). 1 = завершено.</summary>
+        public double ProgressWeight { get; set; }
         public virtual ICollection<ProjectTask> Tasks { get; set; } = new List<ProjectTask>();
     }
 }

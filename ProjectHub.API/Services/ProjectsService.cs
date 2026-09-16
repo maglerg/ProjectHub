@@ -66,33 +66,9 @@ namespace ProjectHub.API.Services
             // ── Создаём системные колонки задач ──
             var defaultColumns = new List<TaskColumn>
 {
-    new()
-    {
-        Id = Guid.NewGuid(),
-        ProjectId = projectEntity.Id,
-        Name = "Не начато",
-        Order = 0,
-        IsDefault = true,
-        SystemKey = TaskService.KeyNotStarted
-    },
-    new()
-    {
-        Id = Guid.NewGuid(),
-        ProjectId = projectEntity.Id,
-        Name = "В процессе",
-        Order = 1,
-        IsDefault = true,
-        SystemKey = TaskService.KeyInProgress
-    },
-    new()
-    {
-        Id = Guid.NewGuid(),
-        ProjectId = projectEntity.Id,
-        Name = "Завершено",
-        Order = 2,
-        IsDefault = true,
-        SystemKey = TaskService.KeyCompleted
-    }
+    new() { Id = Guid.NewGuid(), ProjectId = projectEntity.Id, Name = "Не начато",  Order = 0, IsDefault = true, SystemKey = TaskService.KeyNotStarted, ProgressWeight = 0.0 },
+    new() { Id = Guid.NewGuid(), ProjectId = projectEntity.Id, Name = "В процессе", Order = 1, IsDefault = true, SystemKey = TaskService.KeyInProgress, ProgressWeight = 0.5 },
+    new() { Id = Guid.NewGuid(), ProjectId = projectEntity.Id, Name = "Завершено",  Order = 2, IsDefault = true, SystemKey = TaskService.KeyCompleted,  ProgressWeight = 1.0 }
 };
 
             await _dbContext.TaskColumns.AddRangeAsync(defaultColumns);

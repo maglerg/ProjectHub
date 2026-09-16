@@ -1,13 +1,18 @@
 import React, { useEffect, useState } from 'react';
 import {
-    getTasksBoard, takeTask, createTask, moveTask,
-    uploadTaskAttachment
+    getTasksBoard,
+    takeTask,
+    createTask,
+    moveTask,
+    uploadTaskAttachment,
+    getProjectProgress
 } from '../../services/tasksApi';
 import TaskColumn from './TaskColumn';
 import CreateTaskModal from './CreateTaskModal';
 import '../../styles/components/tasks/tasks.css';
 export default function TasksBoard({ projectCode, currentUserEmail, isOwner }) {
     const [columns, setColumns] = useState([]);
+    const [progress, setProgress] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -18,8 +23,12 @@ export default function TasksBoard({ projectCode, currentUserEmail, isOwner }) {
         try {
             setLoading(true);
             setError(null);
-            const data = await getTasksBoard(projectCode);
-            setColumns(data);
+            const [boardData, progressData] = await Promise.all([
+                getTasksBoard(projectCode),
+                getProjectProgress(projectCode)
+            ]);
+            setColumns(boardData);
+            setProgress(progressData);
         } catch (e) {
             console.error('❌ Ошибка загрузки задач:', e);
             setError(e.message);
@@ -102,7 +111,26 @@ export default function TasksBoard({ projectCode, currentUserEmail, isOwner }) {
                     <button onClick={() => setActionError(null)}>×</button>
                 </div>
             )}
-
+            {progress && (
+                <div className="tasks-progress">
+                    <div className="tasks-progress-header">
+                        <span>Прогресс проекта</span>
+                        <span className="progress-percent">{progress.progressPercent}%</span>
+                    </div>
+                    <div className="progress-bar">
+                        <div
+                            className="progress-bar-fill"
+                            style={{ width: `${progress.progressPercent}%` }}
+                        />
+                    </div>
+                    <div className="tasks-progress-details">
+                        Завершено: <b>{progress.completedTasks}</b> ·{' '}
+                        В работе: <b>{progress.inProgressTasks}</b> ·{' '}
+                        Не начато: <b>{progress.notStartedTasks}</b> ·{' '}
+                        Всего: <b>{progress.totalTasks}</b>
+                    </div>
+                </div>
+            )}
             <div className="tasks-columns">
                 {columns.map(col => (
                     <TaskColumn

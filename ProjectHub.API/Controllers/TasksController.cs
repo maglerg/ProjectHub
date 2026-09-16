@@ -287,7 +287,26 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+        // GET /api/projects/{projectCode}/tasks/progress
+        [HttpGet("progress")]
+        public async Task<IActionResult> GetProgress(string projectCode)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
 
+            try
+            {
+                var progress = await _taskService.GetProjectProgressAsync(projectCode, userId);
+                return Ok(progress);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка расчёта прогресса");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
         // DELETE /api/projects/{projectCode}/tasks/{taskId}/attachments/{attachmentId}
         [HttpDelete("{taskId}/attachments/{attachmentId}")]
         public async Task<IActionResult> DeleteAttachment(

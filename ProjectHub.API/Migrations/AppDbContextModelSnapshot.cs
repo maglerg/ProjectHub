@@ -581,6 +581,11 @@ namespace ProjectHub.API.Migrations
                     b.Property<int>("Order")
                         .HasColumnType("integer");
 
+                    b.Property<double>("ProgressWeight")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("double precision")
+                        .HasDefaultValue(0.0);
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 

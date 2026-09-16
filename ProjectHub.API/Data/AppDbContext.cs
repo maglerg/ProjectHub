@@ -164,6 +164,8 @@ namespace ProjectHub.API.Data
                       .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasIndex(c => new { c.ProjectId, c.Order });
+                entity.Property(c => c.ProgressWeight)
+          .HasDefaultValue(0.0);
             });
 
             // ───── Задачи ─────

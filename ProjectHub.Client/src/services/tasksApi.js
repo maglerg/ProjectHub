@@ -108,7 +108,12 @@ export const uploadTaskAttachment = async (projectCode, taskId, file) => {
     );
     return handleResponse(resp);
 };
-
+// Получить прогресс проекта (Kanban-style)
+export const getProjectProgress = (projectCode) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/progress`, {
+        method: 'GET',
+        headers: authHeaders()
+    }).then(handleResponse);
 // Скачать вложение (blob → сохранить как файл)
 export const downloadTaskAttachment = async (projectCode, taskId, attachmentId, fileName) => {
     const resp = await fetch(
