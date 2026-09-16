@@ -7,18 +7,22 @@ import {
     uploadTaskAttachment,
     getProjectProgress
 } from '../../services/tasksApi';
+import { TASK_PRIORITIES } from '../../utils/constants';
 import TaskColumn from './TaskColumn';
 import CreateTaskModal from './CreateTaskModal';
 import '../../styles/components/tasks/tasks.css';
+
 export default function TasksBoard({ projectCode, currentUserEmail, isOwner }) {
     const [columns, setColumns] = useState([]);
     const [progress, setProgress] = useState(null);
+    const [onlyMyTasks, setOnlyMyTasks] = useState(false);
+    const [priorityFilter, setPriorityFilter] = useState('All');
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [actionError, setActionError] = useState(null);
 
-    // ── Загрузка доски ──
+    // ── Загрузка доски и прогресса ──
     const loadBoard = async () => {
         try {
             setLoading(true);
@@ -39,7 +43,35 @@ export default function TasksBoard({ projectCode, currentUserEmail, isOwner }) {
 
     useEffect(() => {
         if (projectCode) loadBoard();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projectCode]);
+
+    // ── Фильтрация: «Мои» + приоритет ──
+    const filterColumns = (cols) => {
+        const emailLower = (currentUserEmail || '').toLowerCase();
+        const useMy = onlyMyTasks;
+        const usePriority = priorityFilter !== 'All';
+
+        if (!useMy && !usePriority) return cols;
+
+        return cols.map(col => ({
+            ...col,
+            tasks: col.tasks.filter(t => {
+                if (useMy) {
+                    const isMine = (t.assignees || []).some(
+                        a => (a.email || '').toLowerCase() === emailLower
+                    );
+                    if (!isMine) return false;
+                }
+                if (usePriority && t.priority !== priorityFilter) return false;
+                return true;
+            })
+        }));
+    };
+
+    const visibleColumns = filterColumns(columns);
+    const hasVisibleTasks = visibleColumns.some(c => c.tasks.length > 0);
+    const isFiltering = onlyMyTasks || priorityFilter !== 'All';
 
     // ── Взять задачу ──
     const handleTake = async (taskId) => {
@@ -52,16 +84,19 @@ export default function TasksBoard({ projectCode, currentUserEmail, isOwner }) {
             setActionError(e.message);
         }
     };
+
+    // ── Загрузить вложение ──
     const handleUpload = async (taskId, file) => {
         try {
             setActionError(null);
             await uploadTaskAttachment(projectCode, taskId, file);
-            await loadBoard(); // перезагружаем, чтобы обновился счётчик вложений
+            await loadBoard();
         } catch (e) {
             console.error('❌ Ошибка загрузки файла:', e);
             setActionError(e.message);
         }
     };
+
     // ── Создать задачу ──
     const handleCreate = async (payload) => {
         try {
@@ -79,14 +114,13 @@ export default function TasksBoard({ projectCode, currentUserEmail, isOwner }) {
     const handleMove = async (taskId, columnId) => {
         try {
             setActionError(null);
-            // оптимистично обновляем локально, чтобы не было "мигания"
             setColumns(prev => moveTaskLocally(prev, taskId, columnId));
             await moveTask(projectCode, taskId, columnId);
             await loadBoard();
         } catch (e) {
             console.error('❌ Ошибка перемещения задачи:', e);
             setActionError(e.message);
-            await loadBoard(); // откат при ошибке
+            await loadBoard();
         }
     };
 
@@ -97,25 +131,54 @@ export default function TasksBoard({ projectCode, currentUserEmail, isOwner }) {
         <div className="tasks-board-wrapper">
             <div className="tasks-board-header">
                 <h2>Задачи</h2>
-                <button
-                    className="btn-create-task"
-                    onClick={() => setIsModalOpen(true)}
-                >
-                    + Создать задачу
-                </button>
+
+                <div className="tasks-board-actions">
+                    {/* ── Кнопка «Все / Мои задачи» ── */}
+                    <button
+                        type="button"
+                        className={`btn-filter-my ${onlyMyTasks ? 'active' : ''}`}
+                        onClick={() => setOnlyMyTasks(v => !v)}
+                        title={
+                            onlyMyTasks
+                                ? 'Показать все задачи'
+                                : 'Показать только мои задачи'
+                        }
+                    >
+                        {onlyMyTasks ? '📋 Все задачи' : '👤 Мои задачи'}
+                    </button>
+
+                    {/* ── Фильтр по приоритету ── */}
+                    <select
+                        className={`priority-filter ${priorityFilter !== 'All' ? 'active' : ''}`}
+                        value={priorityFilter}
+                        onChange={e => setPriorityFilter(e.target.value)}
+                        title="Фильтр по приоритету"
+                    >
+                        <option value="All">Все</option>
+                        {TASK_PRIORITIES.map(p => (
+                            <option key={p.value} value={p.value}>
+                                {p.icon} {p.label}
+                            </option>
+                        ))}
+                    </select>
+
+                    <button
+                        className="btn-create-task"
+                        onClick={() => setIsModalOpen(true)}
+                    >
+                        + Создать задачу
+                    </button>
+                </div>
             </div>
 
-            {actionError && (
-                <div className="tasks-action-error">
-                    {actionError}
-                    <button onClick={() => setActionError(null)}>×</button>
-                </div>
-            )}
+            {/* ── Прогресс проекта ── */}
             {progress && (
                 <div className="tasks-progress">
                     <div className="tasks-progress-header">
                         <span>Прогресс проекта</span>
-                        <span className="progress-percent">{progress.progressPercent}%</span>
+                        <span className="progress-percent">
+                            {progress.progressPercent}%
+                        </span>
                     </div>
                     <div className="progress-bar">
                         <div
@@ -131,20 +194,44 @@ export default function TasksBoard({ projectCode, currentUserEmail, isOwner }) {
                     </div>
                 </div>
             )}
-            <div className="tasks-columns">
-                {columns.map(col => (
-                    <TaskColumn
-                        key={col.id}
-                        column={col}
-                        projectCode={projectCode}
-                        currentUserEmail={currentUserEmail}
-                        isOwner={isOwner}
-                        onTake={handleTake}
-                        onMove={handleMove}
-                        onUpload={handleUpload}
-                    />
-                ))}
-            </div>
+
+            {actionError && (
+                <div className="tasks-action-error">
+                    {actionError}
+                    <button onClick={() => setActionError(null)}>×</button>
+                </div>
+            )}
+
+            {/* ── Доска / пустое состояние ── */}
+            {isFiltering && !hasVisibleTasks ? (
+                <div className="tasks-empty-filter">
+                    <p>По выбранным фильтрам задач не найдено.</p>
+                    <button
+                        className="btn-reset-filters"
+                        onClick={() => {
+                            setOnlyMyTasks(false);
+                            setPriorityFilter('All');
+                        }}
+                    >
+                        Сбросить фильтры
+                    </button>
+                </div>
+            ) : (
+                <div className="tasks-columns">
+                    {visibleColumns.map(col => (
+                        <TaskColumn
+                            key={col.id}
+                            column={col}
+                            projectCode={projectCode}
+                            currentUserEmail={currentUserEmail}
+                            isOwner={isOwner}
+                            onTake={handleTake}
+                            onMove={handleMove}
+                            onUpload={handleUpload}
+                        />
+                    ))}
+                </div>
+            )}
 
             {isModalOpen && (
                 <CreateTaskModal

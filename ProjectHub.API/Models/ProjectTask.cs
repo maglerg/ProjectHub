@@ -1,4 +1,5 @@
-﻿using ProjectHub.Models;
+﻿using ProjectHub.API.Models.Enums;
+using ProjectHub.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -40,5 +41,9 @@ namespace ProjectHub.API.Models
 
         public virtual ICollection<TaskAttachment> Attachments { get; set; }
     = new List<TaskAttachment>();
+
+        public virtual ICollection<TaskSubtask> Subtasks { get; set; } = new List<TaskSubtask>();
+
+        public TaskPriority Priority { get; set; } = TaskPriority.None;
     }
 }

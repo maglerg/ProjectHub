@@ -19,12 +19,23 @@ namespace ProjectHub.API.Services
         public const string KeyInProgress = "InProgress";
         public const string KeyCompleted = "Completed";
 
+        private const int MaxSubtasksPerTask = 50;
+
+        private static readonly string[] AllowedExtensions =
+        {
+            ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+            ".txt", ".md", ".csv",
+            ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg",
+            ".zip", ".rar", ".7z",
+            ".json", ".xml", ".yaml", ".yml"
+        };
+
         public TaskService(
-    AppDbContext db,
-    ILogger<TaskService> logger,
-    NotificationService notificationService,
-    FileStorageService fileStorage,
-    IConfiguration configuration)
+            AppDbContext db,
+            ILogger<TaskService> logger,
+            NotificationService notificationService,
+            FileStorageService fileStorage,
+            IConfiguration configuration)
         {
             _db = db;
             _logger = logger;
@@ -33,9 +44,10 @@ namespace ProjectHub.API.Services
             _configuration = configuration;
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  Доска: колонки + задачи
-        // ─────────────────────────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════
+        //  ДОСКА
+        // ═══════════════════════════════════════════════════════════
+
         public async Task<List<TaskColumnDto>> GetBoardByCodeAsync(string projectCode, Guid userId)
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
@@ -46,15 +58,63 @@ namespace ProjectHub.API.Services
                 .OrderBy(c => c.Order)
                 .Include(c => c.Tasks).ThenInclude(t => t.CreatedBy)
                 .Include(c => c.Tasks).ThenInclude(t => t.Assignees).ThenInclude(a => a.User)
-                .Include(c => c.Tasks).ThenInclude(t => t.Attachments)   // ← добавили
+                .Include(c => c.Tasks).ThenInclude(t => t.Attachments)
+                .Include(c => c.Tasks).ThenInclude(t => t.Subtasks)
                 .ToListAsync();
 
             return columns.Select(c => MapColumn(c, project.OwnerId, userId)).ToList();
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  Создать задачу
-        // ─────────────────────────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════
+        //  ПРОГРЕСС ПРОЕКТА
+        // ═══════════════════════════════════════════════════════════
+
+        public async Task<ProjectProgressDto> GetProjectProgressAsync(
+            string projectCode, Guid userId)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            var tasks = await _db.ProjectTasks
+                .Where(t => t.ProjectId == project.Id)
+                .Include(t => t.Column)
+                .ToListAsync();
+
+            if (tasks.Count == 0)
+            {
+                return new ProjectProgressDto
+                {
+                    ProgressPercent = 0,
+                    TotalTasks = 0,
+                    CompletedTasks = 0,
+                    InProgressTasks = 0,
+                    NotStartedTasks = 0
+                };
+            }
+
+            var total = tasks.Count;
+
+            var completed = tasks.Count(t => IsKey(t.Column, KeyCompleted));
+            var inProgress = tasks.Count(t => IsKey(t.Column, KeyInProgress));
+            var notStarted = total - completed - inProgress;
+
+            var sumWeight = tasks.Sum(t => t.Column?.ProgressWeight ?? 0);
+            var progress = sumWeight / total * 100.0;
+
+            return new ProjectProgressDto
+            {
+                ProgressPercent = Math.Round(progress, 1),
+                TotalTasks = total,
+                CompletedTasks = completed,
+                InProgressTasks = inProgress,
+                NotStartedTasks = notStarted
+            };
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  СОЗДАНИЕ ЗАДАЧИ
+        // ═══════════════════════════════════════════════════════════
+
         public async Task<TaskDto> CreateTaskAsync(string projectCode, Guid userId, CreateTaskDto dto)
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
@@ -89,6 +149,7 @@ namespace ProjectHub.API.Services
                 ColumnId = columnId,
                 Title = dto.Title.Trim(),
                 Description = dto.Description,
+                Priority = dto.Priority,
                 CreatedById = userId,
                 CreatedAt = DateTime.UtcNow
             };
@@ -99,52 +160,10 @@ namespace ProjectHub.API.Services
             return await BuildTaskDtoAsync(task.Id, userId);
         }
 
-        public async Task<ProjectProgressDto> GetProjectProgressAsync(
-    string projectCode, Guid userId)
-        {
-            var project = await GetProjectByCodeOrThrowAsync(projectCode);
-            await EnsureProjectAccessAsync(project.Id, userId);
+        // ═══════════════════════════════════════════════════════════
+        //  ВЗЯТЬ / СНЯТЬ ЗАДАЧУ
+        // ═══════════════════════════════════════════════════════════
 
-            var tasks = await _db.ProjectTasks
-                .Where(t => t.ProjectId == project.Id)
-                .Include(t => t.Column)
-                .ToListAsync();
-
-            if (tasks.Count == 0)
-            {
-                return new ProjectProgressDto
-                {
-                    ProgressPercent = 0,
-                    TotalTasks = 0,
-                    CompletedTasks = 0,
-                    InProgressTasks = 0,
-                    NotStartedTasks = 0
-                };
-            }
-
-            var total = tasks.Count;
-
-            var completed = tasks.Count(t => IsKey(t.Column, KeyCompleted));
-            var inProgress = tasks.Count(t => IsKey(t.Column, KeyInProgress));
-            var notStarted = total - completed - inProgress;
-
-            // Сумма весов задач / количество * 100
-            var sumWeight = tasks.Sum(t => t.Column?.ProgressWeight ?? 0);
-            var progress = sumWeight / total * 100.0;
-
-            return new ProjectProgressDto
-            {
-                ProgressPercent = Math.Round(progress, 1),
-                TotalTasks = total,
-                CompletedTasks = completed,
-                InProgressTasks = inProgress,
-                NotStartedTasks = notStarted
-            };
-        }
-
-        private static bool IsKey(TaskColumn? column, string key)
-            => column != null &&
-               string.Equals(column.SystemKey, key, StringComparison.OrdinalIgnoreCase);
         public async Task<TaskDto> TakeTaskAsync(string projectCode, Guid taskId, Guid userId)
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
@@ -172,9 +191,6 @@ namespace ProjectHub.API.Services
             return await BuildTaskDtoAsync(task.Id, userId);
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  Снять себя с задачи
-        // ─────────────────────────────────────────────────────────
         public async Task<TaskDto> LeaveTaskAsync(string projectCode, Guid taskId, Guid userId, RemoveAssigneeDto dto)
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
@@ -187,17 +203,14 @@ namespace ProjectHub.API.Services
 
             var isOwner = project.OwnerId == userId;
 
-            // Определяем, кого снимаем
             Guid targetUserId;
 
             if (string.IsNullOrWhiteSpace(dto?.Email))
             {
-                // Снять себя
                 targetUserId = userId;
             }
             else
             {
-                // Снять конкретного человека — только owner
                 if (!isOwner)
                     throw new UnauthorizedAccessException(
                         "Снимать других исполнителей может только владелец проекта");
@@ -211,7 +224,7 @@ namespace ProjectHub.API.Services
 
             var assignee = task.Assignees.FirstOrDefault(a => a.UserId == targetUserId);
             if (assignee == null)
-                return await BuildTaskDtoAsync(task.Id, userId); // уже не назначен — ничего не делаем
+                return await BuildTaskDtoAsync(task.Id, userId);
 
             _db.TaskAssignees.Remove(assignee);
             task.UpdatedAt = DateTime.UtcNow;
@@ -220,10 +233,10 @@ namespace ProjectHub.API.Services
             return await BuildTaskDtoAsync(task.Id, userId);
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  Переместить задачу в другую колонку
-        //  Права: исполнитель ИЛИ владелец проекта
-        // ─────────────────────────────────────────────────────────
+        // ═══════════════════════════════════════════════════════════
+        //  ПЕРЕМЕЩЕНИЕ ЗАДАЧИ
+        // ═══════════════════════════════════════════════════════════
+
         public async Task<TaskDto> MoveTaskAsync(string projectCode, Guid taskId, Guid userId, MoveTaskDto dto)
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
@@ -231,6 +244,7 @@ namespace ProjectHub.API.Services
 
             var task = await _db.ProjectTasks
                 .Include(t => t.Assignees)
+                .Include(t => t.Subtasks)
                 .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
                 ?? throw new KeyNotFoundException("Задача не найдена");
 
@@ -241,37 +255,49 @@ namespace ProjectHub.API.Services
                 throw new UnauthorizedAccessException(
                     "Перемещать задачу может только исполнитель или владелец проекта");
 
-            var column = await _db.TaskColumns
+            var targetColumn = await _db.TaskColumns
                 .FirstOrDefaultAsync(c => c.Id == dto.ColumnId && c.ProjectId == project.Id)
                 ?? throw new InvalidOperationException("Колонка не найдена в этом проекте");
 
-            task.ColumnId = column.Id;
+            // ── Проверки для задач с подзадачами ──
+            if (task.Subtasks.Any())
+            {
+                var anyCompleted = task.Subtasks.Any(s => s.IsCompleted);
+                var allCompleted = task.Subtasks.All(s => s.IsCompleted);
+
+                if (IsKey(targetColumn, KeyNotStarted) && anyCompleted)
+                    throw new InvalidOperationException(
+                        "Нельзя вернуть в \"Не начато\": есть выполненные подзадачи. " +
+                        "Сначала снимите с них галочки.");
+
+                if (IsKey(targetColumn, KeyCompleted) && !allCompleted)
+                    throw new InvalidOperationException(
+                        "Нельзя завершить задачу: не все подзадачи выполнены.");
+            }
+
+            task.ColumnId = targetColumn.Id;
             task.UpdatedAt = DateTime.UtcNow;
 
-            // Фиксируем дату завершения при переносе в "Завершено"
-            if (string.Equals(column.SystemKey, KeyCompleted, StringComparison.OrdinalIgnoreCase))
+            if (IsKey(targetColumn, KeyCompleted))
+            {
                 task.CompletedAt = DateTime.UtcNow;
+                // 📌 При перемещении в "Завершено" приоритет сбрасывается
+                task.Priority = TaskPriority.None;
+            }
             else
+            {
                 task.CompletedAt = null;
+            }
 
             await _db.SaveChangesAsync();
 
             return await BuildTaskDtoAsync(task.Id, userId);
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  Вспомогательные
-        // ─────────────────────────────────────────────────────────
-        private async Task<Project> GetProjectByCodeOrThrowAsync(string code)
-        {
-            var project = await _db.Projects
-                .FirstOrDefaultAsync(p => p.PublicCode == code);
+        // ═══════════════════════════════════════════════════════════
+        //  УДАЛЕНИЕ / ОБНОВЛЕНИЕ ЗАДАЧИ
+        // ═══════════════════════════════════════════════════════════
 
-            if (project == null)
-                throw new KeyNotFoundException("Проект с таким кодом не найден");
-
-            return project;
-        }
         public async Task DeleteTaskAsync(string projectCode, Guid taskId, Guid userId)
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
@@ -291,116 +317,7 @@ namespace ProjectHub.API.Services
             _logger.LogInformation(
                 $"Задача {taskId} удалена из проекта {projectCode} пользователем {userId}");
         }
-        private async Task EnsureProjectAccessAsync(Guid projectId, Guid userId)
-        {
-            var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId);
-            if (project == null)
-                throw new KeyNotFoundException("Проект не найден");
 
-            var isOwner = project.OwnerId == userId;
-            var isMember = await _db.ProjectMembers
-                .AnyAsync(pm => pm.ProjectId == projectId && pm.UserId == userId);
-
-            if (!isOwner && !isMember)
-                throw new UnauthorizedAccessException("Нет доступа к этому проекту");
-        }
-
-        private async Task<TaskDto> BuildTaskDtoAsync(Guid taskId, Guid userId)
-        {
-            var task = await _db.ProjectTasks
-                .Include(t => t.Column)
-                .Include(t => t.CreatedBy)
-                .Include(t => t.Assignees).ThenInclude(a => a.User)
-                .Include(t => t.Project)
-                .Include(t => t.Attachments).ThenInclude(a => a.UploadedBy)
-                .FirstAsync(t => t.Id == taskId);
-
-            var dto = MapTask(task);
-
-            var isOwner = task.Project.OwnerId == userId;
-            var isAssignee = task.Assignees.Any(a => a.UserId == userId);
-
-            dto.IsOwner = isOwner;
-            dto.CanEdit = isOwner || isAssignee;
-            dto.CanUploadAttachments = dto.CanEdit;
-
-            dto.Attachments = task.Attachments
-                .OrderBy(a => a.UploadedAt)
-                .Select(a => MapAttachment(
-                    a,
-                    canDelete: isOwner || isAssignee || a.UploadedById == userId))
-                .ToList();
-
-            return dto;
-        }
-
-        private TaskColumnDto MapColumn(TaskColumn c, Guid projectOwnerId, Guid userId)
-        {
-            return new TaskColumnDto
-            {
-                Id = c.Id,
-                Name = c.Name,
-                Order = c.Order,
-                SystemKey = c.SystemKey,
-                Tasks = c.Tasks
-                    .OrderBy(t => t.CreatedAt)
-                    .Select(t => MapTaskForBoard(t, projectOwnerId, userId))
-                    .ToList()
-            };
-        }
-
-        private static TaskDto MapTaskForBoard(ProjectTask t, Guid projectOwnerId, Guid userId)
-        {
-            var dto = MapTask(t);
-
-            var isOwner = projectOwnerId == userId;
-            var isAssignee = t.Assignees.Any(a => a.UserId == userId);
-
-            dto.IsOwner = isOwner;
-            dto.CanEdit = isOwner || isAssignee;
-            dto.CanUploadAttachments = dto.CanEdit;
-            dto.AttachmentsCount = t.Attachments?.Count ?? 0;
-
-            return dto;
-        }
-        public async Task<TaskDto> GetTaskByIdAsync(string projectCode, Guid taskId, Guid userId)
-{
-    var project = await GetProjectByCodeOrThrowAsync(projectCode);
-    await EnsureProjectAccessAsync(project.Id, userId);
-
-    var task = await _db.ProjectTasks
-        .Include(t => t.Column)
-        .Include(t => t.CreatedBy)
-        .Include(t => t.Assignees).ThenInclude(a => a.User)
-        .Include(t => t.Attachments).ThenInclude(a => a.UploadedBy)
-        .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
-        ?? throw new KeyNotFoundException("Задача не найдена");
-
-    await _notificationService.DeleteTaskCommentNotificationsAsync(userId, taskId);
-
-    var dto = MapTask(task);
-
-    var isOwner = project.OwnerId == userId;
-    var isAssignee = task.Assignees.Any(a => a.UserId == userId);
-
-    dto.IsOwner = isOwner;
-    dto.CanEdit = isOwner || isAssignee;
-    dto.CanUploadAttachments = dto.CanEdit;
-
-    dto.Attachments = task.Attachments
-        .OrderBy(a => a.UploadedAt)
-        .Select(a => MapAttachment(
-            a,
-            canDelete: isOwner || isAssignee || a.UploadedById == userId))
-        .ToList();
-
-    return dto;
-}
-
-        // ─────────────────────────────────────────────────────────
-        //  Обновить задачу (title, description, columnId)
-        //  Права: assignee ИЛИ owner
-        // ─────────────────────────────────────────────────────────
         public async Task<TaskDto> UpdateTaskAsync(string projectCode, Guid taskId, Guid userId, UpdateTaskDto dto)
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
@@ -408,6 +325,7 @@ namespace ProjectHub.API.Services
 
             var task = await _db.ProjectTasks
                 .Include(t => t.Assignees)
+                .Include(t => t.Subtasks)
                 .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
                 ?? throw new KeyNotFoundException("Задача не найдена");
 
@@ -421,38 +339,108 @@ namespace ProjectHub.API.Services
             if (string.IsNullOrWhiteSpace(dto.Title))
                 throw new InvalidOperationException("Название задачи не может быть пустым");
 
-            // Меняем колонку, если указана и отличается
             if (dto.ColumnId != Guid.Empty && dto.ColumnId != task.ColumnId)
             {
                 var column = await _db.TaskColumns
                     .FirstOrDefaultAsync(c => c.Id == dto.ColumnId && c.ProjectId == project.Id)
                     ?? throw new InvalidOperationException("Колонка не найдена в этом проекте");
 
+                // ── Проверки для задач с подзадачами ──
+                if (task.Subtasks.Any())
+                {
+                    var anyCompleted = task.Subtasks.Any(s => s.IsCompleted);
+                    var allCompleted = task.Subtasks.All(s => s.IsCompleted);
+
+                    if (IsKey(column, KeyNotStarted) && anyCompleted)
+                        throw new InvalidOperationException(
+                            "Нельзя вернуть в \"Не начато\": есть выполненные подзадачи.");
+
+                    if (IsKey(column, KeyCompleted) && !allCompleted)
+                        throw new InvalidOperationException(
+                            "Нельзя завершить задачу: не все подзадачи выполнены.");
+                }
+
                 task.ColumnId = column.Id;
 
-                if (string.Equals(column.SystemKey, KeyCompleted, StringComparison.OrdinalIgnoreCase))
+                if (IsKey(column, KeyCompleted))
+                {
                     task.CompletedAt = DateTime.UtcNow;
+                    // 📌 При перемещении в "Завершено" приоритет сбрасывается
+                    task.Priority = TaskPriority.None;
+                }
                 else
+                {
                     task.CompletedAt = null;
+                }
             }
 
             task.Title = dto.Title.Trim();
             task.Description = dto.Description;
+            task.Priority = dto.Priority;
             task.UpdatedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
 
             return await BuildTaskDtoAsync(task.Id, userId);
         }
-        //  Получить комментарии задачи
-        // ─────────────────────────────────────────────────────────
+
+        // ═══════════════════════════════════════════════════════════
+        //  ПОЛУЧЕНИЕ ЗАДАЧИ
+        // ═══════════════════════════════════════════════════════════
+
+        public async Task<TaskDto> GetTaskByIdAsync(string projectCode, Guid taskId, Guid userId)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            var task = await _db.ProjectTasks
+                .Include(t => t.Column)
+                .Include(t => t.CreatedBy)
+                .Include(t => t.Assignees).ThenInclude(a => a.User)
+                .Include(t => t.Attachments).ThenInclude(a => a.UploadedBy)
+                .Include(t => t.Subtasks)
+                .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
+                ?? throw new KeyNotFoundException("Задача не найдена");
+
+            await _notificationService.DeleteTaskCommentNotificationsAsync(userId, taskId);
+
+            var dto = MapTask(task);
+
+            var isOwner = project.OwnerId == userId;
+            var isAssignee = task.Assignees.Any(a => a.UserId == userId);
+
+            dto.IsOwner = isOwner;
+            dto.CanEdit = isOwner || isAssignee;
+            dto.CanUploadAttachments = dto.CanEdit;
+
+            dto.Attachments = task.Attachments
+                .OrderBy(a => a.UploadedAt)
+                .Select(a => MapAttachment(
+                    a,
+                    canDelete: isOwner || isAssignee || a.UploadedById == userId))
+                .ToList();
+
+            dto.Subtasks = task.Subtasks
+                .OrderBy(s => s.Order)
+                .Select(MapSubtask)
+                .ToList();
+            dto.HasSubtasks = task.Subtasks.Any();
+            dto.TotalSubtasksCount = task.Subtasks.Count;
+            dto.CompletedSubtasksCount = task.Subtasks.Count(s => s.IsCompleted);
+
+            return dto;
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  КОММЕНТАРИИ
+        // ═══════════════════════════════════════════════════════════
+
         public async Task<List<TaskCommentDto>> GetCommentsAsync(
             string projectCode, Guid taskId, Guid userId)
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
 
-            // Проверяем, что задача принадлежит проекту
             var taskExists = await _db.ProjectTasks
                 .AnyAsync(t => t.Id == taskId && t.ProjectId == project.Id);
 
@@ -468,11 +456,6 @@ namespace ProjectHub.API.Services
             return comments.Select(MapComment).ToList();
         }
 
-        // ─────────────────────────────────────────────────────────
-        //  Добавить комментарий к задаче
-        //  Права: любой участник проекта
-        //  После добавления — уведомление всем assignee (кроме автора)
-        // ─────────────────────────────────────────────────────────
         public async Task<TaskCommentDto> AddCommentAsync(
             string projectCode, Guid taskId, Guid userId, CreateTaskCommentDto dto)
         {
@@ -506,7 +489,6 @@ namespace ProjectHub.API.Services
             _db.TaskComments.Add(comment);
             await _db.SaveChangesAsync();
 
-            // 📨 Уведомления всем assignee, кроме автора
             var preview = text.Length > 60 ? text.Substring(0, 60) + "…" : text;
 
             foreach (var assignee in task.Assignees)
@@ -519,7 +501,7 @@ namespace ProjectHub.API.Services
                     $"{author.Name}: {preview}",
                     NotificationType.NewTaskComment,
                     $"/projects/{project.PublicCode}/tasks/{taskId}",
-                    taskId  
+                    taskId
                 );
             }
 
@@ -527,184 +509,445 @@ namespace ProjectHub.API.Services
             return MapComment(comment);
         }
 
-        private static readonly string[] AllowedExtensions =
-{
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-    ".txt", ".md", ".csv",
-    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg",
-    ".zip", ".rar", ".7z",
-    ".json", ".xml", ".yaml", ".yml"
-};
+        // ═══════════════════════════════════════════════════════════
+        //  ВЛОЖЕНИЯ
+        // ═══════════════════════════════════════════════════════════
 
-public async Task<TaskAttachmentDto> UploadAttachmentAsync(
-    string projectCode, Guid taskId, Guid userId,
-    IFormFile file)
-{
-    var project = await GetProjectByCodeOrThrowAsync(projectCode);
-    await EnsureProjectAccessAsync(project.Id, userId);
-
-    var task = await _db.ProjectTasks
-        .Include(t => t.Assignees)
-        .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
-        ?? throw new KeyNotFoundException("Задача не найдена");
-
-    var isOwner = project.OwnerId == userId;
-    var isAssignee = task.Assignees.Any(a => a.UserId == userId);
-    if (!isOwner && !isAssignee)
-        throw new UnauthorizedAccessException(
-            "Прикреплять файлы может только исполнитель или владелец проекта");
-
-    if (file == null || file.Length == 0)
-        throw new InvalidOperationException("Файл пуст");
-
-    var maxSize = _configuration.GetValue<long?>("FileStorage:MaxFileSizeBytes")
-                  ?? 20 * 1024 * 1024;
-    if (file.Length > maxSize)
-        throw new InvalidOperationException(
-            $"Файл слишком большой (макс. {maxSize / 1024 / 1024} МБ)");
-
-    var maxCount = _configuration.GetValue<int?>("FileStorage:MaxAttachmentsPerTask")
-                   ?? 10;
-    var existingCount = await _db.TaskAttachments.CountAsync(a => a.TaskId == taskId);
-    if (existingCount >= maxCount)
-        throw new InvalidOperationException(
-            $"К задаче можно прикрепить не более {maxCount} файлов");
-
-    var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
-    if (!AllowedExtensions.Contains(extension))
-        throw new InvalidOperationException(
-            $"Тип файла {extension} не разрешён");
-
-    // Сохраняем на диск
-    var storedFileName = await _fileStorage.SaveAsync(file.OpenReadStream(), extension);
-
-    var attachment = new TaskAttachment
-    {
-        Id = Guid.NewGuid(),
-        TaskId = taskId,
-        UploadedById = userId,
-        FileName = Path.GetFileName(file.FileName),
-        StoredFileName = storedFileName,
-        ContentType = string.IsNullOrWhiteSpace(file.ContentType)
-            ? "application/octet-stream"
-            : file.ContentType,
-        SizeBytes = file.Length,
-        UploadedAt = DateTime.UtcNow
-    };
-
-    _db.TaskAttachments.Add(attachment);
-    task.UpdatedAt = DateTime.UtcNow;
-    await _db.SaveChangesAsync();
-
-    var uploader = await _db.Users.FindAsync(userId);
-    attachment.UploadedBy = uploader!;
-
-    return MapAttachment(attachment, canDelete: true);
-}
-
-public async Task<List<TaskAttachmentDto>> GetAttachmentsAsync(
-    string projectCode, Guid taskId, Guid userId)
-{
-    var project = await GetProjectByCodeOrThrowAsync(projectCode);
-    await EnsureProjectAccessAsync(project.Id, userId);
-
-    var task = await _db.ProjectTasks
-        .Include(t => t.Assignees)
-        .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
-        ?? throw new KeyNotFoundException("Задача не найдена");
-
-    var isOwner = project.OwnerId == userId;
-    var isAssignee = task.Assignees.Any(a => a.UserId == userId);
-
-    var attachments = await _db.TaskAttachments
-        .Where(a => a.TaskId == taskId)
-        .Include(a => a.UploadedBy)
-        .OrderBy(a => a.UploadedAt)
-        .ToListAsync();
-
-    return attachments.Select(a =>
-    {
-        // Удалять может: owner, assignee или тот, кто загрузил
-        var canDelete = isOwner || isAssignee || a.UploadedById == userId;
-        return MapAttachment(a, canDelete);
-    }).ToList();
-}
-
-public async Task<(Stream stream, string fileName, string contentType)> DownloadAttachmentAsync(
-    string projectCode, Guid taskId, Guid attachmentId, Guid userId)
-{
-    var project = await GetProjectByCodeOrThrowAsync(projectCode);
-    await EnsureProjectAccessAsync(project.Id, userId);
-
-    var attachment = await _db.TaskAttachments
-        .Include(a => a.Task)
-        .FirstOrDefaultAsync(a => a.Id == attachmentId
-                                  && a.TaskId == taskId
-                                  && a.Task.ProjectId == project.Id)
-        ?? throw new KeyNotFoundException("Вложение не найдено");
-
-    var stream = _fileStorage.OpenRead(attachment.StoredFileName);
-    return (stream, attachment.FileName, attachment.ContentType);
-}
-
-public async Task DeleteAttachmentAsync(
-    string projectCode, Guid taskId, Guid attachmentId, Guid userId)
-{
-    var project = await GetProjectByCodeOrThrowAsync(projectCode);
-    await EnsureProjectAccessAsync(project.Id, userId);
-
-    var task = await _db.ProjectTasks
-        .Include(t => t.Assignees)
-        .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
-        ?? throw new KeyNotFoundException("Задача не найдена");
-
-    var attachment = await _db.TaskAttachments
-        .FirstOrDefaultAsync(a => a.Id == attachmentId && a.TaskId == taskId)
-        ?? throw new KeyNotFoundException("Вложение не найдено");
-
-    var isOwner = project.OwnerId == userId;
-    var isAssignee = task.Assignees.Any(a => a.UserId == userId);
-    var isUploader = attachment.UploadedById == userId;
-
-    if (!isOwner && !isAssignee && !isUploader)
-        throw new UnauthorizedAccessException(
-            "Удалять вложения может только исполнитель, автор загрузки или владелец");
-
-    _db.TaskAttachments.Remove(attachment);
-    await _db.SaveChangesAsync();
-
-    try { _fileStorage.Delete(attachment.StoredFileName); }
-    catch (Exception ex)
-    {
-        _logger.LogWarning(ex, "Не удалось удалить файл с диска {File}", attachment.StoredFileName);
-    }
-}
-
-private static TaskAttachmentDto MapAttachment(TaskAttachment a, bool canDelete) => new()
-{
-    Id = a.Id,
-    FileName = a.FileName,
-    ContentType = a.ContentType,
-    SizeBytes = a.SizeBytes,
-    UploadedByEmail = a.UploadedBy?.Email ?? string.Empty,
-    UploadedByName = a.UploadedBy?.Name ?? string.Empty,
-    UploadedAt = a.UploadedAt,
-    CanDelete = canDelete
-};
-        private static TaskCommentDto MapComment(TaskComment c) => new()
+        public async Task<TaskAttachmentDto> UploadAttachmentAsync(
+            string projectCode, Guid taskId, Guid userId,
+            IFormFile file)
         {
-            Id = c.Id,
-            Text = c.Text,
-            AuthorEmail = c.Author?.Email ?? string.Empty,
-            AuthorName = c.Author?.Name ?? string.Empty,
-            AuthorSpecialization = c.Author?.Specialization.ToString(),
-            CreatedAt = c.CreatedAt
-        };
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            var task = await _db.ProjectTasks
+                .Include(t => t.Assignees)
+                .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
+                ?? throw new KeyNotFoundException("Задача не найдена");
+
+            var isOwner = project.OwnerId == userId;
+            var isAssignee = task.Assignees.Any(a => a.UserId == userId);
+            if (!isOwner && !isAssignee)
+                throw new UnauthorizedAccessException(
+                    "Прикреплять файлы может только исполнитель или владелец проекта");
+
+            if (file == null || file.Length == 0)
+                throw new InvalidOperationException("Файл пуст");
+
+            var maxSize = _configuration.GetValue<long?>("FileStorage:MaxFileSizeBytes")
+                          ?? 20 * 1024 * 1024;
+            if (file.Length > maxSize)
+                throw new InvalidOperationException(
+                    $"Файл слишком большой (макс. {maxSize / 1024 / 1024} МБ)");
+
+            var maxCount = _configuration.GetValue<int?>("FileStorage:MaxAttachmentsPerTask")
+                           ?? 10;
+            var existingCount = await _db.TaskAttachments.CountAsync(a => a.TaskId == taskId);
+            if (existingCount >= maxCount)
+                throw new InvalidOperationException(
+                    $"К задаче можно прикрепить не более {maxCount} файлов");
+
+            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!AllowedExtensions.Contains(extension))
+                throw new InvalidOperationException(
+                    $"Тип файла {extension} не разрешён");
+
+            var storedFileName = await _fileStorage.SaveAsync(file.OpenReadStream(), extension);
+
+            var attachment = new TaskAttachment
+            {
+                Id = Guid.NewGuid(),
+                TaskId = taskId,
+                UploadedById = userId,
+                FileName = Path.GetFileName(file.FileName),
+                StoredFileName = storedFileName,
+                ContentType = string.IsNullOrWhiteSpace(file.ContentType)
+                    ? "application/octet-stream"
+                    : file.ContentType,
+                SizeBytes = file.Length,
+                UploadedAt = DateTime.UtcNow
+            };
+
+            _db.TaskAttachments.Add(attachment);
+            task.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            var uploader = await _db.Users.FindAsync(userId);
+            attachment.UploadedBy = uploader!;
+
+            return MapAttachment(attachment, canDelete: true);
+        }
+
+        public async Task<List<TaskAttachmentDto>> GetAttachmentsAsync(
+            string projectCode, Guid taskId, Guid userId)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            var task = await _db.ProjectTasks
+                .Include(t => t.Assignees)
+                .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
+                ?? throw new KeyNotFoundException("Задача не найдена");
+
+            var isOwner = project.OwnerId == userId;
+            var isAssignee = task.Assignees.Any(a => a.UserId == userId);
+
+            var attachments = await _db.TaskAttachments
+                .Where(a => a.TaskId == taskId)
+                .Include(a => a.UploadedBy)
+                .OrderBy(a => a.UploadedAt)
+                .ToListAsync();
+
+            return attachments.Select(a =>
+            {
+                var canDelete = isOwner || isAssignee || a.UploadedById == userId;
+                return MapAttachment(a, canDelete);
+            }).ToList();
+        }
+
+        public async Task<(Stream stream, string fileName, string contentType)> DownloadAttachmentAsync(
+            string projectCode, Guid taskId, Guid attachmentId, Guid userId)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            var attachment = await _db.TaskAttachments
+                .Include(a => a.Task)
+                .FirstOrDefaultAsync(a => a.Id == attachmentId
+                                          && a.TaskId == taskId
+                                          && a.Task.ProjectId == project.Id)
+                ?? throw new KeyNotFoundException("Вложение не найдено");
+
+            var stream = _fileStorage.OpenRead(attachment.StoredFileName);
+            return (stream, attachment.FileName, attachment.ContentType);
+        }
+
+        public async Task DeleteAttachmentAsync(
+            string projectCode, Guid taskId, Guid attachmentId, Guid userId)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            var task = await _db.ProjectTasks
+                .Include(t => t.Assignees)
+                .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
+                ?? throw new KeyNotFoundException("Задача не найдена");
+
+            var attachment = await _db.TaskAttachments
+                .FirstOrDefaultAsync(a => a.Id == attachmentId && a.TaskId == taskId)
+                ?? throw new KeyNotFoundException("Вложение не найдено");
+
+            var isOwner = project.OwnerId == userId;
+            var isAssignee = task.Assignees.Any(a => a.UserId == userId);
+            var isUploader = attachment.UploadedById == userId;
+
+            if (!isOwner && !isAssignee && !isUploader)
+                throw new UnauthorizedAccessException(
+                    "Удалять вложения может только исполнитель, автор загрузки или владелец");
+
+            _db.TaskAttachments.Remove(attachment);
+            await _db.SaveChangesAsync();
+
+            try { _fileStorage.Delete(attachment.StoredFileName); }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Не удалось удалить файл с диска {File}", attachment.StoredFileName);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  ПОДЗАДАЧИ (чек-лист)
+        // ═══════════════════════════════════════════════════════════
+
+        public async Task<TaskSubtaskDto> AddSubtaskAsync(
+            string projectCode, Guid taskId, Guid userId, CreateSubtaskDto dto)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            if (string.IsNullOrWhiteSpace(dto.Title))
+                throw new InvalidOperationException("Название подзадачи не может быть пустым");
+
+            var task = await GetTaskWithSubtasksAsync(project.Id, taskId);
+
+            var isOwner = project.OwnerId == userId;
+            var isAssignee = task.Assignees.Any(a => a.UserId == userId);
+            if (!isOwner && !isAssignee)
+                throw new UnauthorizedAccessException(
+                    "Редактировать подзадачи может только исполнитель или владелец проекта");
+
+            if (task.Subtasks.Count >= MaxSubtasksPerTask)
+                throw new InvalidOperationException(
+                    $"К задаче можно добавить не более {MaxSubtasksPerTask} подзадач");
+
+            var nextOrder = task.Subtasks.Any()
+                ? task.Subtasks.Max(s => s.Order) + 1
+                : 0;
+
+            var subtask = new TaskSubtask
+            {
+                Id = Guid.NewGuid(),
+                TaskId = taskId,
+                Title = dto.Title.Trim(),
+                IsCompleted = false,
+                Order = nextOrder,
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.TaskSubtasks.Add(subtask);
+
+            // Если задача в "Завершено" — возвращаем в "В процессе"
+            var column = await _db.TaskColumns
+                .FirstOrDefaultAsync(c => c.Id == task.ColumnId);
+
+            if (IsKey(column, KeyCompleted))
+            {
+                var inProgressColumn = await _db.TaskColumns
+                    .FirstOrDefaultAsync(c => c.ProjectId == project.Id
+                                              && c.SystemKey == KeyInProgress);
+
+                if (inProgressColumn != null)
+                {
+                    task.ColumnId = inProgressColumn.Id;
+                    task.CompletedAt = null;
+                    task.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+
+            await _db.SaveChangesAsync();
+
+            return MapSubtask(subtask);
+        }
+
+        public async Task<TaskSubtaskDto> UpdateSubtaskAsync(
+            string projectCode, Guid taskId, Guid subtaskId, Guid userId, UpdateSubtaskDto dto)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            if (string.IsNullOrWhiteSpace(dto.Title))
+                throw new InvalidOperationException("Название подзадачи не может быть пустым");
+
+            var task = await GetTaskWithSubtasksAsync(project.Id, taskId);
+
+            var isOwner = project.OwnerId == userId;
+            var isAssignee = task.Assignees.Any(a => a.UserId == userId);
+            if (!isOwner && !isAssignee)
+                throw new UnauthorizedAccessException(
+                    "Редактировать подзадачи может только исполнитель или владелец проекта");
+
+            var subtask = task.Subtasks.FirstOrDefault(s => s.Id == subtaskId)
+                ?? throw new KeyNotFoundException("Подзадача не найдена");
+
+            subtask.Title = dto.Title.Trim();
+
+            await _db.SaveChangesAsync();
+
+            return MapSubtask(subtask);
+        }
+
+        public async Task<TaskDto> ToggleSubtaskAsync(
+            string projectCode, Guid taskId, Guid subtaskId, Guid userId)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            var task = await GetTaskWithSubtasksAsync(project.Id, taskId);
+
+            var isOwner = project.OwnerId == userId;
+            var isAssignee = task.Assignees.Any(a => a.UserId == userId);
+            if (!isOwner && !isAssignee)
+                throw new UnauthorizedAccessException(
+                    "Отмечать подзадачи может только исполнитель или владелец проекта");
+
+            var subtask = task.Subtasks.FirstOrDefault(s => s.Id == subtaskId)
+                ?? throw new KeyNotFoundException("Подзадача не найдена");
+
+            subtask.IsCompleted = !subtask.IsCompleted;
+            subtask.CompletedAt = subtask.IsCompleted ? DateTime.UtcNow : null;
+
+            var column = await _db.TaskColumns
+                .FirstOrDefaultAsync(c => c.Id == task.ColumnId);
+
+            if (IsKey(column, KeyCompleted))
+            {
+                var inProgress = await _db.TaskColumns
+                    .FirstOrDefaultAsync(c => c.ProjectId == project.Id
+                                              && c.SystemKey == KeyInProgress);
+                if (inProgress != null)
+                {
+                    task.ColumnId = inProgress.Id;
+                    task.CompletedAt = null;
+                    task.UpdatedAt = DateTime.UtcNow;
+                }
+            }
+            else if (IsKey(column, KeyNotStarted))
+            {
+                var anyCompleted = task.Subtasks.Any(s => s.IsCompleted);
+                if (anyCompleted)
+                {
+                    var inProgress = await _db.TaskColumns
+                        .FirstOrDefaultAsync(c => c.ProjectId == project.Id
+                                                  && c.SystemKey == KeyInProgress);
+                    if (inProgress != null)
+                    {
+                        task.ColumnId = inProgress.Id;
+                        task.UpdatedAt = DateTime.UtcNow;
+                    }
+                }
+            }
+            // Кастомные колонки — не трогаем
+
+            await _db.SaveChangesAsync();
+
+            return await BuildTaskDtoAsync(task.Id, userId);
+        }
+
+        public async Task<TaskDto> DeleteSubtaskAsync(
+            string projectCode, Guid taskId, Guid subtaskId, Guid userId)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            var task = await GetTaskWithSubtasksAsync(project.Id, taskId);
+
+            var isOwner = project.OwnerId == userId;
+            var isAssignee = task.Assignees.Any(a => a.UserId == userId);
+            if (!isOwner && !isAssignee)
+                throw new UnauthorizedAccessException(
+                    "Удалять подзадачи может только исполнитель или владелец проекта");
+
+            var subtask = task.Subtasks.FirstOrDefault(s => s.Id == subtaskId)
+                ?? throw new KeyNotFoundException("Подзадача не найдена");
+
+            _db.TaskSubtasks.Remove(subtask);
+            task.UpdatedAt = DateTime.UtcNow;
+
+            await _db.SaveChangesAsync();
+
+            return await BuildTaskDtoAsync(task.Id, userId);
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  ВСПОМОГАТЕЛЬНЫЕ
+        // ═══════════════════════════════════════════════════════════
+
+        private async Task<Project> GetProjectByCodeOrThrowAsync(string code)
+        {
+            var project = await _db.Projects
+                .FirstOrDefaultAsync(p => p.PublicCode == code);
+
+            if (project == null)
+                throw new KeyNotFoundException("Проект с таким кодом не найден");
+
+            return project;
+        }
+
+        private async Task<ProjectTask> GetTaskWithSubtasksAsync(
+            Guid projectId, Guid taskId)
+        {
+            var task = await _db.ProjectTasks
+                .Include(t => t.Subtasks)
+                .Include(t => t.Assignees)
+                .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == projectId)
+                ?? throw new KeyNotFoundException("Задача не найдена");
+
+            return task;
+        }
+
+        private async Task EnsureProjectAccessAsync(Guid projectId, Guid userId)
+        {
+            var project = await _db.Projects.FirstOrDefaultAsync(p => p.Id == projectId);
+            if (project == null)
+                throw new KeyNotFoundException("Проект не найден");
+
+            var isOwner = project.OwnerId == userId;
+            var isMember = await _db.ProjectMembers
+                .AnyAsync(pm => pm.ProjectId == projectId && pm.UserId == userId);
+
+            if (!isOwner && !isMember)
+                throw new UnauthorizedAccessException("Нет доступа к этому проекту");
+        }
+
+        private async Task<TaskDto> BuildTaskDtoAsync(Guid taskId, Guid userId)
+        {
+            var task = await _db.ProjectTasks
+                .Include(t => t.Column)
+                .Include(t => t.CreatedBy)
+                .Include(t => t.Assignees).ThenInclude(a => a.User)
+                .Include(t => t.Project)
+                .Include(t => t.Attachments).ThenInclude(a => a.UploadedBy)
+                .Include(t => t.Subtasks)
+                .FirstAsync(t => t.Id == taskId);
+
+            var dto = MapTask(task);
+
+            var isOwner = task.Project.OwnerId == userId;
+            var isAssignee = task.Assignees.Any(a => a.UserId == userId);
+
+            dto.IsOwner = isOwner;
+            dto.CanEdit = isOwner || isAssignee;
+            dto.CanUploadAttachments = dto.CanEdit;
+
+            dto.Attachments = task.Attachments
+                .OrderBy(a => a.UploadedAt)
+                .Select(a => MapAttachment(
+                    a,
+                    canDelete: isOwner || isAssignee || a.UploadedById == userId))
+                .ToList();
+
+            dto.Subtasks = task.Subtasks
+                .OrderBy(s => s.Order)
+                .Select(MapSubtask)
+                .ToList();
+            dto.HasSubtasks = task.Subtasks.Any();
+            dto.TotalSubtasksCount = task.Subtasks.Count;
+            dto.CompletedSubtasksCount = task.Subtasks.Count(s => s.IsCompleted);
+
+            return dto;
+        }
+
+        private TaskColumnDto MapColumn(TaskColumn c, Guid projectOwnerId, Guid userId)
+        {
+            return new TaskColumnDto
+            {
+                Id = c.Id,
+                Name = c.Name,
+                Order = c.Order,
+                SystemKey = c.SystemKey,
+                Tasks = c.Tasks
+                    .OrderByDescending(t => t.Priority)   // Critical → High → Medium → Low → None
+                    .ThenBy(t => t.CreatedAt)
+                    .Select(t => MapTaskForBoard(t, projectOwnerId, userId))
+                    .ToList()
+            };
+        }
+
+        private static TaskDto MapTaskForBoard(ProjectTask t, Guid projectOwnerId, Guid userId)
+        {
+            var dto = MapTask(t);
+
+            var isOwner = projectOwnerId == userId;
+            var isAssignee = t.Assignees.Any(a => a.UserId == userId);
+
+            dto.IsOwner = isOwner;
+            dto.CanEdit = isOwner || isAssignee;
+            dto.CanUploadAttachments = dto.CanEdit;
+            dto.AttachmentsCount = t.Attachments?.Count ?? 0;
+
+            dto.HasSubtasks = t.Subtasks?.Any() ?? false;
+            dto.TotalSubtasksCount = t.Subtasks?.Count ?? 0;
+            dto.CompletedSubtasksCount = t.Subtasks?.Count(s => s.IsCompleted) ?? 0;
+
+            return dto;
+        }
+
         private static TaskDto MapTask(ProjectTask t) => new()
         {
             Id = t.Id,
             Title = t.Title,
             Description = t.Description,
+            Priority = t.Priority.ToString(),
             ColumnId = t.ColumnId,
             ColumnName = t.Column?.Name ?? string.Empty,
             CreatedByEmail = t.CreatedBy?.Email ?? string.Empty,
@@ -720,5 +963,41 @@ private static TaskAttachmentDto MapAttachment(TaskAttachment a, bool canDelete)
                 AssignedAt = a.AssignedAt
             }).ToList()
         };
+
+        private static TaskSubtaskDto MapSubtask(TaskSubtask s) => new()
+        {
+            Id = s.Id,
+            Title = s.Title,
+            IsCompleted = s.IsCompleted,
+            Order = s.Order,
+            CreatedAt = s.CreatedAt,
+            CompletedAt = s.CompletedAt
+        };
+
+        private static TaskAttachmentDto MapAttachment(TaskAttachment a, bool canDelete) => new()
+        {
+            Id = a.Id,
+            FileName = a.FileName,
+            ContentType = a.ContentType,
+            SizeBytes = a.SizeBytes,
+            UploadedByEmail = a.UploadedBy?.Email ?? string.Empty,
+            UploadedByName = a.UploadedBy?.Name ?? string.Empty,
+            UploadedAt = a.UploadedAt,
+            CanDelete = canDelete
+        };
+
+        private static TaskCommentDto MapComment(TaskComment c) => new()
+        {
+            Id = c.Id,
+            Text = c.Text,
+            AuthorEmail = c.Author?.Email ?? string.Empty,
+            AuthorName = c.Author?.Name ?? string.Empty,
+            AuthorSpecialization = c.Author?.Specialization.ToString(),
+            CreatedAt = c.CreatedAt
+        };
+
+        private static bool IsKey(TaskColumn? column, string key)
+            => column != null &&
+               string.Equals(column.SystemKey, key, StringComparison.OrdinalIgnoreCase);
     }
 }

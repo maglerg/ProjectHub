@@ -475,6 +475,11 @@ namespace ProjectHub.API.Migrations
                     b.Property<string>("Description")
                         .HasColumnType("text");
 
+                    b.Property<int>("Priority")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(0);
+
                     b.Property<Guid>("ProjectId")
                         .HasColumnType("uuid");
 
@@ -492,7 +497,7 @@ namespace ProjectHub.API.Migrations
 
                     b.HasIndex("CreatedById");
 
-                    b.HasIndex("ProjectId");
+                    b.HasIndex("ProjectId", "Priority");
 
                     b.ToTable("ProjectTasks");
                 });
@@ -660,6 +665,39 @@ namespace ProjectHub.API.Migrations
                         .IsUnique();
 
                     b.ToTable("TaskCommentReads");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.TaskSubtask", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime?>("CompletedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsCompleted")
+                        .HasColumnType("boolean");
+
+                    b.Property<int>("Order")
+                        .HasColumnType("integer");
+
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TaskId", "Order");
+
+                    b.ToTable("TaskSubtasks");
                 });
 
             modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>
@@ -1135,6 +1173,17 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.TaskSubtask", b =>
+                {
+                    b.HasOne("ProjectHub.API.Models.ProjectTask", "Task")
+                        .WithMany("Subtasks")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Task");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>
                 {
                     b.HasOne("ProjectHub.Models.User", "CreatedBy")
@@ -1218,6 +1267,8 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("Attachments");
 
                     b.Navigation("Comments");
+
+                    b.Navigation("Subtasks");
                 });
 
             modelBuilder.Entity("ProjectHub.API.Models.TaskColumn", b =>

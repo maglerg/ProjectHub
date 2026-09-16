@@ -1,6 +1,10 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
+    TASK_PRIORITIES,
+    getPriorityInfo
+} from '../../utils/constants';
+import {
     getTaskById,
     getTasksBoard,
     updateTask,
@@ -11,7 +15,11 @@ import {
     addTaskComment,
     uploadTaskAttachment,
     downloadTaskAttachment,
-    deleteTaskAttachment
+    deleteTaskAttachment,
+    addTaskSubtask,
+    updateTaskSubtask,
+    toggleTaskSubtask,
+    deleteTaskSubtask
 } from '../../services/tasksApi';
 import { useAuth } from '../../context/AuthContext';
 import '../../styles/components/tasks/tasks.css';
@@ -21,25 +29,44 @@ export default function TaskDetailsPage() {
     const navigate = useNavigate();
     const { user } = useAuth();
 
+    // ── Основное состояние ──
     const [task, setTask] = useState(null);
     const [columns, setColumns] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [actionError, setActionError] = useState(null);
 
+    // ── Форма редактирования ──
     const [isEditing, setIsEditing] = useState(false);
-    const [form, setForm] = useState({ title: '', description: '', columnId: '' });
+    const [form, setForm] = useState({
+        title: '',
+        description: '',
+        columnId: '',
+        priority: 'None'
+    });
     const [saving, setSaving] = useState(false);
 
+    // ── Комментарии ──
     const [comments, setComments] = useState([]);
     const [showCommentBox, setShowCommentBox] = useState(false);
     const [commentText, setCommentText] = useState('');
     const [commentSubmitting, setCommentSubmitting] = useState(false);
 
+    // ── Вложения ──
     const [uploading, setUploading] = useState(false);
     const fileInputRef = useRef(null);
 
-    // ── Загрузка задачи, доски и комментариев ──
+    // ── Подзадачи ──
+    const [newSubtaskTitle, setNewSubtaskTitle] = useState('');
+    const [subtaskAdding, setSubtaskAdding] = useState(false);
+    const [editingSubtaskId, setEditingSubtaskId] = useState(null);
+    const [editingSubtaskTitle, setEditingSubtaskTitle] = useState('');
+    const [subtaskBusyId, setSubtaskBusyId] = useState(null);
+
+    // ═══════════════════════════════════════════════════════════
+    //  ЗАГРУЗКА
+    // ═══════════════════════════════════════════════════════════
+
     const loadAll = async () => {
         setLoading(true);
         setError(null);
@@ -55,7 +82,8 @@ export default function TaskDetailsPage() {
             setForm({
                 title: taskData.title,
                 description: taskData.description || '',
-                columnId: taskData.columnId
+                columnId: taskData.columnId,
+                priority: taskData.priority || 'None'
             });
         } catch (e) {
             console.error('❌ Ошибка загрузки задачи:', e);
@@ -70,7 +98,10 @@ export default function TaskDetailsPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [code, taskId]);
 
-    // ── Взять задачу ──
+    // ═══════════════════════════════════════════════════════════
+    //  ЗАДАЧА — ДЕЙСТВИЯ
+    // ═══════════════════════════════════════════════════════════
+
     const handleTake = async () => {
         try {
             setActionError(null);
@@ -81,7 +112,6 @@ export default function TaskDetailsPage() {
         }
     };
 
-    // ── Снять исполнителя (себя или чужого) ──
     const handleRemoveAssignee = async (email) => {
         const isSelf =
             (email || '').toLowerCase() === (user?.email || '').toLowerCase();
@@ -100,7 +130,6 @@ export default function TaskDetailsPage() {
         }
     };
 
-    // ── Сохранить изменения ──
     const handleSave = async (e) => {
         e.preventDefault();
         if (!form.title.trim() || saving) return;
@@ -111,7 +140,8 @@ export default function TaskDetailsPage() {
             const updated = await updateTask(code, taskId, {
                 title: form.title.trim(),
                 description: form.description.trim() || null,
-                columnId: form.columnId
+                columnId: form.columnId,
+                priority: form.priority
             });
             setTask(updated);
             setIsEditing(false);
@@ -123,17 +153,16 @@ export default function TaskDetailsPage() {
         }
     };
 
-    // ── Отмена редактирования ──
     const handleCancelEdit = () => {
         setIsEditing(false);
         setForm({
             title: task.title,
             description: task.description || '',
-            columnId: task.columnId
+            columnId: task.columnId,
+            priority: task.priority || 'None'
         });
     };
 
-    // ── Удалить задачу ──
     const handleDelete = async () => {
         if (!window.confirm('Удалить задачу? Это действие необратимо.')) return;
         try {
@@ -145,7 +174,10 @@ export default function TaskDetailsPage() {
         }
     };
 
-    // ── Отправить комментарий ──
+    // ═══════════════════════════════════════════════════════════
+    //  КОММЕНТАРИИ
+    // ═══════════════════════════════════════════════════════════
+
     const handleSubmitComment = async (e) => {
         e.preventDefault();
         if (!commentText.trim() || commentSubmitting) return;
@@ -165,7 +197,10 @@ export default function TaskDetailsPage() {
         }
     };
 
-    // ── Вложения: утилита размера ──
+    // ═══════════════════════════════════════════════════════════
+    //  ВЛОЖЕНИЯ
+    // ═══════════════════════════════════════════════════════════
+
     const formatSize = (bytes) => {
         if (!bytes) return '0 Б';
         const units = ['Б', 'КБ', 'МБ', 'ГБ'];
@@ -174,26 +209,16 @@ export default function TaskDetailsPage() {
         return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
     };
 
-    // ── Вложения: загрузка ──
     const handleUploadFile = async (e) => {
         const file = e.target.files?.[0];
-        if (!file) {
-            console.warn('❌ Файл не выбран');
-            return;
-        }
-
-        console.log('📎 Файл для загрузки:', {
-            name: file.name,
-            size: file.size,
-            type: file.type
-        });
+        if (!file) return;
 
         if (file.size === 0) {
             setActionError('Файл пустой');
             e.target.value = '';
             return;
         }
-        if (!file) return;
+
         setUploading(true);
         try {
             setActionError(null);
@@ -202,16 +227,15 @@ export default function TaskDetailsPage() {
                 ...prev,
                 attachments: [...(prev.attachments || []), newAtt]
             }));
-        } catch (e) {
-            console.error('❌ Ошибка загрузки файла:', e);
-            setActionError(e.message);
+        } catch (err) {
+            console.error('❌ Ошибка загрузки файла:', err);
+            setActionError(err.message);
         } finally {
             setUploading(false);
             e.target.value = '';
         }
     };
 
-    // ── Вложения: скачивание ──
     const handleDownloadFile = async (att) => {
         try {
             await downloadTaskAttachment(code, taskId, att.id, att.fileName);
@@ -220,7 +244,6 @@ export default function TaskDetailsPage() {
         }
     };
 
-    // ── Вложения: удаление ──
     const handleDeleteFile = async (att) => {
         if (!window.confirm(`Удалить файл "${att.fileName}"?`)) return;
         try {
@@ -235,6 +258,100 @@ export default function TaskDetailsPage() {
         }
     };
 
+    // ═══════════════════════════════════════════════════════════
+    //  ПОДЗАДАЧИ
+    // ═══════════════════════════════════════════════════════════
+
+    const handleAddSubtask = async (e) => {
+        e.preventDefault();
+        const title = newSubtaskTitle.trim();
+        if (!title || subtaskAdding) return;
+
+        setSubtaskAdding(true);
+        try {
+            setActionError(null);
+            const newSubtask = await addTaskSubtask(code, taskId, title);
+
+            setTask(prev => {
+                const updated = {
+                    ...prev,
+                    subtasks: [...(prev.subtasks || []), newSubtask]
+                };
+                updated.hasSubtasks = updated.subtasks.length > 0;
+                updated.totalSubtasksCount = updated.subtasks.length;
+                updated.completedSubtasksCount = updated.subtasks.filter(s => s.isCompleted).length;
+                return updated;
+            });
+
+            setNewSubtaskTitle('');
+        } catch (e) {
+            console.error('❌ Ошибка добавления подзадачи:', e);
+            setActionError(e.message);
+        } finally {
+            setSubtaskAdding(false);
+        }
+    };
+
+    const handleToggleSubtask = async (subtask) => {
+        if (subtaskBusyId) return;
+        setSubtaskBusyId(subtask.id);
+        try {
+            setActionError(null);
+            const updated = await toggleTaskSubtask(code, taskId, subtask.id);
+            setTask(updated);
+        } catch (e) {
+            console.error('❌ Ошибка toggle подзадачи:', e);
+            setActionError(e.message);
+        } finally {
+            setSubtaskBusyId(null);
+        }
+    };
+
+    const handleStartEditSubtask = (subtask) => {
+        setEditingSubtaskId(subtask.id);
+        setEditingSubtaskTitle(subtask.title);
+    };
+
+    const handleSaveSubtask = async (subtaskId) => {
+        const title = editingSubtaskTitle.trim();
+        if (!title) return;
+
+        try {
+            setActionError(null);
+            const updated = await updateTaskSubtask(code, taskId, subtaskId, title);
+            setTask(prev => ({
+                ...prev,
+                subtasks: prev.subtasks.map(s => s.id === subtaskId ? updated : s)
+            }));
+            setEditingSubtaskId(null);
+            setEditingSubtaskTitle('');
+        } catch (e) {
+            console.error('❌ Ошибка обновления подзадачи:', e);
+            setActionError(e.message);
+        }
+    };
+
+    const handleCancelEditSubtask = () => {
+        setEditingSubtaskId(null);
+        setEditingSubtaskTitle('');
+    };
+
+    const handleDeleteSubtask = async (subtask) => {
+        if (!window.confirm(`Удалить подзадачу "${subtask.title}"?`)) return;
+        try {
+            setActionError(null);
+            const updated = await deleteTaskSubtask(code, taskId, subtask.id);
+            setTask(updated);
+        } catch (e) {
+            console.error('❌ Ошибка удаления подзадачи:', e);
+            setActionError(e.message);
+        }
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    //  RENDER
+    // ═══════════════════════════════════════════════════════════
+
     if (loading) return <div className="tasks-loading">Загрузка задачи…</div>;
     if (error) return <div className="tasks-error">Ошибка: {error}</div>;
     if (!task) return <div className="tasks-error">Задача не найдена</div>;
@@ -247,6 +364,8 @@ export default function TaskDetailsPage() {
     );
     const isTaken = assignees.length > 0;
     const isOwnerUser = !!task.isOwner;
+
+    const priorityInfo = getPriorityInfo(task.priority);
 
     return (
         <div className="task-details-page">
@@ -264,7 +383,18 @@ export default function TaskDetailsPage() {
             {!isEditing ? (
                 <>
                     <header className="task-details-header">
-                        <h1>{task.title}</h1>
+                        <h1>
+                            {task.priority && task.priority !== 'None' && (
+                                <span
+                                    className="task-priority-icon-lg"
+                                    title={priorityInfo.label}
+                                    style={{ color: priorityInfo.color }}
+                                >
+                                    {priorityInfo.icon}
+                                </span>
+                            )}
+                            {task.title}
+                        </h1>
 
                         <div className="task-details-actions">
                             {task.canEdit && (
@@ -294,18 +424,18 @@ export default function TaskDetailsPage() {
                                 </button>
                             )}
 
-                            {!isTaken && (
+                            {!isMine && (
                                 <button
                                     className="btn-take-task"
                                     onClick={handleTake}
+                                    title={isTaken ? 'Присоединиться к задаче' : 'Взять задачу'}
                                 >
-                                    Взять задачу
+                                    {isTaken ? 'Присоединиться' : 'Взять задачу'}
                                 </button>
                             )}
                         </div>
                     </header>
 
-                    {/* ── Окошко ввода комментария ── */}
                     {showCommentBox && (
                         <form className="comment-box" onSubmit={handleSubmitComment}>
                             <textarea
@@ -340,6 +470,10 @@ export default function TaskDetailsPage() {
                     <section className="task-details-body">
                         <div className="task-details-meta">
                             <span><b>Блок:</b> {task.columnName}</span>
+                            <span>
+                                <b>Приоритет:</b>{' '}
+                                {priorityInfo.icon} {priorityInfo.label}
+                            </span>
                             <span>
                                 <b>Создал:</b>{' '}
                                 {task.createdByName || task.createdByEmail}
@@ -397,14 +531,8 @@ export default function TaskDetailsPage() {
                                                 {canRemove && (
                                                     <button
                                                         className="btn-remove-assignee"
-                                                        title={
-                                                            isSelf
-                                                                ? 'Снять задачу'
-                                                                : 'Снять исполнителя'
-                                                        }
-                                                        onClick={() =>
-                                                            handleRemoveAssignee(a.email)
-                                                        }
+                                                        title={isSelf ? 'Снять задачу' : 'Снять исполнителя'}
+                                                        onClick={() => handleRemoveAssignee(a.email)}
                                                     >
                                                         ×
                                                     </button>
@@ -413,6 +541,112 @@ export default function TaskDetailsPage() {
                                         );
                                     })}
                                 </ul>
+                            )}
+                        </div>
+
+                        {/* ── Подзадачи ── */}
+                        <div className="task-details-subtasks">
+                            <div className="subtasks-header">
+                                <h3>
+                                    Подзадачи ({task.completedSubtasksCount || 0}/{task.totalSubtasksCount || 0})
+                                </h3>
+
+                                {task.subtasks?.length > 0 && (
+                                    <div className="subtasks-mini-progress">
+                                        <div
+                                            className="subtasks-mini-progress-fill"
+                                            style={{
+                                                width: `${(task.completedSubtasksCount / task.totalSubtasksCount) * 100}%`
+                                            }}
+                                        />
+                                    </div>
+                                )}
+                            </div>
+
+                            {(!task.subtasks || task.subtasks.length === 0) ? (
+                                <p className="no-subtasks">Подзадач пока нет</p>
+                            ) : (
+                                <ul className="subtasks-list">
+                                    {task.subtasks.map(s => (
+                                        <li
+                                            key={s.id}
+                                            className={`subtask-item ${s.isCompleted ? 'completed' : ''}`}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={s.isCompleted}
+                                                disabled={!task.canEdit || subtaskBusyId === s.id}
+                                                onChange={() => handleToggleSubtask(s)}
+                                            />
+
+                                            {editingSubtaskId === s.id ? (
+                                                <input
+                                                    type="text"
+                                                    className="subtask-edit-input"
+                                                    value={editingSubtaskTitle}
+                                                    onChange={e => setEditingSubtaskTitle(e.target.value)}
+                                                    onKeyDown={e => {
+                                                        if (e.key === 'Enter') handleSaveSubtask(s.id);
+                                                        if (e.key === 'Escape') handleCancelEditSubtask();
+                                                    }}
+                                                    onBlur={() => handleSaveSubtask(s.id)}
+                                                    autoFocus
+                                                    maxLength={255}
+                                                />
+                                            ) : (
+                                                <span
+                                                    className="subtask-title"
+                                                    onDoubleClick={() =>
+                                                        task.canEdit && handleStartEditSubtask(s)
+                                                    }
+                                                    title={task.canEdit ? 'Двойной клик — редактировать' : ''}
+                                                >
+                                                    {s.title}
+                                                </span>
+                                            )}
+
+                                            {task.canEdit && editingSubtaskId !== s.id && (
+                                                <div className="subtask-actions">
+                                                    <button
+                                                        type="button"
+                                                        className="btn-subtask-edit"
+                                                        title="Редактировать"
+                                                        onClick={() => handleStartEditSubtask(s)}
+                                                    >
+                                                        ✎
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        className="btn-subtask-delete"
+                                                        title="Удалить"
+                                                        onClick={() => handleDeleteSubtask(s)}
+                                                    >
+                                                        ×
+                                                    </button>
+                                                </div>
+                                            )}
+                                        </li>
+                                    ))}
+                                </ul>
+                            )}
+
+                            {task.canEdit && (
+                                <form className="subtask-add-form" onSubmit={handleAddSubtask}>
+                                    <input
+                                        type="text"
+                                        placeholder="Новая подзадача…"
+                                        value={newSubtaskTitle}
+                                        onChange={e => setNewSubtaskTitle(e.target.value)}
+                                        maxLength={255}
+                                        disabled={subtaskAdding}
+                                    />
+                                    <button
+                                        type="submit"
+                                        disabled={subtaskAdding || !newSubtaskTitle.trim()}
+                                    >
+                                        {subtaskAdding ? '…' : '+ Добавить'}
+                                    </button>
+                                </form>
                             )}
                         </div>
 
@@ -478,7 +712,7 @@ export default function TaskDetailsPage() {
                             )}
                         </div>
 
-                        {/* ── Список комментариев ── */}
+                        {/* ── Комментарии ── */}
                         <div className="task-details-comments">
                             <h3>Комментарии ({comments.length})</h3>
 
@@ -541,6 +775,20 @@ export default function TaskDetailsPage() {
                         >
                             {columns.map(c => (
                                 <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <label>
+                        Приоритет
+                        <select
+                            value={form.priority}
+                            onChange={e => setForm({ ...form, priority: e.target.value })}
+                        >
+                            {TASK_PRIORITIES.map(p => (
+                                <option key={p.value} value={p.value}>
+                                    {p.icon} {p.label}
+                                </option>
                             ))}
                         </select>
                     </label>

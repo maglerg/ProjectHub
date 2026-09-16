@@ -748,3 +748,437 @@
         font-size: 18px;
         color: #333;
     }
+/* ── Подзадачи на странице задачи ── */
+.task-details-subtasks {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #f3f4f6;
+}
+
+.subtasks-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    gap: 12px;
+}
+
+    .subtasks-header h3 {
+        margin: 0;
+        font-size: 15px;
+        color: #111827;
+    }
+
+.subtasks-mini-progress {
+    flex: 1;
+    max-width: 160px;
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.subtasks-mini-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #4f46e5);
+    transition: width 0.3s ease;
+}
+
+.no-subtasks {
+    color: #9ca3af;
+    font-size: 13px;
+    margin: 0 0 10px 0;
+}
+
+.subtasks-list {
+    list-style: none;
+    padding: 0;
+    margin: 0 0 10px 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.subtask-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    transition: background 0.15s;
+}
+
+    .subtask-item:hover {
+        background: #f9fafb;
+    }
+
+    .subtask-item input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+        .subtask-item input[type="checkbox"]:disabled {
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
+.subtask-title {
+    flex: 1;
+    font-size: 14px;
+    color: #111827;
+    cursor: default;
+    word-break: break-word;
+}
+
+.subtask-item.completed .subtask-title {
+    text-decoration: line-through;
+    color: #9ca3af;
+}
+
+.subtask-edit-input {
+    flex: 1;
+    font-size: 14px;
+    padding: 4px 8px;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    outline: none;
+}
+
+    .subtask-edit-input:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+    }
+
+.subtask-actions {
+    display: flex;
+    gap: 2px;
+    flex-shrink: 0;
+}
+
+.btn-subtask-edit,
+.btn-subtask-delete {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    width: 24px;
+    height: 24px;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #6b7280;
+    transition: background 0.15s, color 0.15s;
+}
+
+    .btn-subtask-edit:hover {
+        background: #e0e7ff;
+        color: #4f46e5;
+    }
+
+    .btn-subtask-delete:hover {
+        background: #fee2e2;
+        color: #ef4444;
+    }
+
+.subtask-add-form {
+    display: flex;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+    .subtask-add-form input {
+        flex: 1;
+        padding: 6px 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: inherit;
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+        .subtask-add-form input:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+        }
+
+    .subtask-add-form button {
+        padding: 6px 12px;
+        border: none;
+        background: #4f46e5;
+        color: #fff;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+        white-space: nowrap;
+    }
+
+        .subtask-add-form button:hover:not(:disabled) {
+            background: #4338ca;
+        }
+
+        .subtask-add-form button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+/* ── Подзадачи на карточке ── */
+.task-card-subtasks {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.subtask-badge {
+    font-size: 12px;
+    color: #4f46e5;
+    background: #eef2ff;
+    padding: 2px 6px;
+    border-radius: 6px;
+    white-space: nowrap;
+    font-weight: 500;
+}
+
+.subtask-mini-bar {
+    flex: 1;
+    height: 4px;
+    background: #e5e7eb;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.subtask-mini-bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #6366f1, #4f46e5);
+    transition: width 0.3s ease;
+}
+/* ── Кнопка раскрытия подзадач ── */
+.btn-expand-subtasks {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 2px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+    color: #4b5563;
+    margin-top: 6px;
+    transition: background 0.15s;
+}
+
+    .btn-expand-subtasks:hover {
+        background: #eef2ff;
+    }
+
+    .btn-expand-subtasks .triangle {
+        display: inline-block;
+        font-size: 10px;
+        transition: transform 0.2s ease;
+        transform: rotate(0deg);
+    }
+
+    .btn-expand-subtasks.expanded .triangle {
+        transform: rotate(180deg);
+    }
+
+.subtask-counter {
+    color: #6b7280;
+}
+
+/* ── Раскрытый список подзадач на карточке ── */
+.task-card-subtasks-expanded {
+    margin-top: 8px;
+    padding: 8px 10px;
+    background: #f9fafb;
+    border-radius: 8px;
+    cursor: default;
+}
+
+.subtasks-loading,
+.subtasks-empty,
+.subtasks-load-error {
+    font-size: 12px;
+    color: #9ca3af;
+    text-align: center;
+    padding: 4px 0;
+}
+
+.subtasks-load-error {
+    color: #ef4444;
+}
+
+.subtasks-preview-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.subtasks-preview-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #374151;
+    padding: 2px 0;
+}
+
+    .subtasks-preview-item.completed .subtask-preview-title {
+        text-decoration: line-through;
+        color: #9ca3af;
+    }
+
+.subtask-check {
+    color: #6366f1;
+    font-size: 12px;
+    flex-shrink: 0;
+}
+
+.subtask-preview-title {
+    flex: 1;
+    word-break: break-word;
+}
+/* ── Шапка доски задач ── */
+.tasks-board-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.btn-filter-my {
+    background: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+    .btn-filter-my:hover {
+        background: #e0e7ff;
+        border-color: #a5b4fc;
+    }
+
+    .btn-filter-my.active {
+        background: #4f46e5;
+        color: #fff;
+        border-color: #4f46e5;
+    }
+
+        .btn-filter-my.active:hover {
+            background: #4338ca;
+            border-color: #4338ca;
+        }
+
+/* ── Пустое состояние «Мои задачи» ── */
+.tasks-empty-my {
+    background: #f9fafb;
+    border: 1px dashed #d1d5db;
+    border-radius: 12px;
+    padding: 32px 24px;
+    text-align: center;
+    color: #6b7280;
+    margin: 16px 0;
+}
+
+    .tasks-empty-my p {
+        margin: 4px 0;
+        font-size: 14px;
+    }
+
+        .tasks-empty-my p:first-child {
+            font-weight: 600;
+            color: #374151;
+            font-size: 15px;
+        }
+/* ── Приоритеты ── */
+.task-card {
+    border-left: 4px solid transparent;
+    transition: border-left-color 0.15s;
+}
+
+.task-priority-icon {
+    margin-right: 6px;
+    font-size: 12px;
+    vertical-align: middle;
+}
+
+.task-priority-icon-lg {
+    margin-right: 8px;
+    font-size: 20px;
+    vertical-align: middle;
+}
+/* ── Фильтр по приоритету ── */
+.priority-filter {
+    padding: 8px 12px;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    background: #fff;
+    font-size: 13px;
+    cursor: pointer;
+    color: #374151;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    outline: none;
+}
+
+    .priority-filter:hover {
+        border-color: #a5b4fc;
+    }
+
+    .priority-filter:focus {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .priority-filter.active {
+        border-color: #4f46e5;
+        background: #eef2ff;
+        color: #4f46e5;
+        font-weight: 500;
+    }
+
+/* ── Пустое состояние при фильтрации ── */
+.tasks-empty-filter {
+    background: #f9fafb;
+    border: 1px dashed #d1d5db;
+    border-radius: 12px;
+    padding: 32px 24px;
+    text-align: center;
+    color: #6b7280;
+    margin: 16px 0;
+}
+
+    .tasks-empty-filter p {
+        margin: 0 0 12px 0;
+        font-size: 14px;
+        font-weight: 500;
+        color: #374151;
+    }
+
+.btn-reset-filters {
+    padding: 8px 16px;
+    border: none;
+    background: #4f46e5;
+    color: #fff;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: background 0.15s;
+}
+
+    .btn-reset-filters:hover {
+        background: #4338ca;
+    }

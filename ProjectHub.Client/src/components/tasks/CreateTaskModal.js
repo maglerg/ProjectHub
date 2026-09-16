@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
+import { TASK_PRIORITIES } from '../../utils/constants';
 
 export default function CreateTaskModal({ columns, onClose, onCreate }) {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
     const [columnId, setColumnId] = useState(columns[0]?.id || '');
+    const [priority, setPriority] = useState('None');
     const [submitting, setSubmitting] = useState(false);
 
     const handleSubmit = async (e) => {
@@ -15,7 +17,8 @@ export default function CreateTaskModal({ columns, onClose, onCreate }) {
             await onCreate({
                 title: title.trim(),
                 description: description.trim() || null,
-                columnId
+                columnId,
+                priority
             });
         } finally {
             setSubmitting(false);
@@ -54,6 +57,20 @@ export default function CreateTaskModal({ columns, onClose, onCreate }) {
                         <select value={columnId} onChange={e => setColumnId(e.target.value)}>
                             {columns.map(c => (
                                 <option key={c.id} value={c.id}>{c.name}</option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <label>
+                        Приоритет
+                        <select
+                            value={priority}
+                            onChange={e => setPriority(e.target.value)}
+                        >
+                            {TASK_PRIORITIES.map(p => (
+                                <option key={p.value} value={p.value}>
+                                    {p.icon} {p.label}
+                                </option>
                             ))}
                         </select>
                     </label>

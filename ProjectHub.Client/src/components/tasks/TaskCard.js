@@ -1,5 +1,7 @@
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import { getTaskById } from '../../services/tasksApi';
+import { getPriorityInfo, getPriorityColor } from '../../utils/constants';
 
 export default function TaskCard({
     task, projectCode, currentUserEmail, isOwner, onTake, onUpload
@@ -8,6 +10,11 @@ export default function TaskCard({
     const { code } = useParams();
     const draggedRef = useRef(false);
     const fileInputRef = useRef(null);
+
+    const [expanded, setExpanded] = useState(false);
+    const [subtasks, setSubtasks] = useState(null);
+    const [loadingSubtasks, setLoadingSubtasks] = useState(false);
+    const [loadError, setLoadError] = useState(null);
 
     const assignees = task.assignees || [];
     const isTaken = assignees.length > 0;
@@ -18,8 +25,17 @@ export default function TaskCard({
     const canDrag = isOwner || isMine;
     const canUpload = !!task.canUploadAttachments;
 
+    const hasSubtasks = task.hasSubtasks && task.totalSubtasksCount > 0;
+
+    const priorityInfo = getPriorityInfo(task.priority);
+    const priorityColor = getPriorityColor(task.priority);
+
+    // ── Drag-n-drop ──
     const handleDragStart = (e) => {
-        if (!canDrag) { e.preventDefault(); return; }
+        if (!canDrag) {
+            e.preventDefault();
+            return;
+        }
         draggedRef.current = true;
         e.dataTransfer.setData('taskId', task.id);
         e.dataTransfer.effectAllowed = 'move';
@@ -47,8 +63,28 @@ export default function TaskCard({
     const handleFileChange = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
-        e.target.value = ''; // сбрасываем, чтобы можно было выбрать тот же файл
+        e.target.value = '';
         await onUpload(task.id, file);
+    };
+
+    const handleToggleExpand = async (e) => {
+        e.stopPropagation();
+        const next = !expanded;
+        setExpanded(next);
+
+        if (next && subtasks === null) {
+            setLoadingSubtasks(true);
+            setLoadError(null);
+            try {
+                const full = await getTaskById(code, task.id);
+                setSubtasks(full.subtasks || []);
+            } catch (err) {
+                console.error('❌ Ошибка загрузки подзадач:', err);
+                setLoadError(err.message);
+            } finally {
+                setLoadingSubtasks(false);
+            }
+        }
     };
 
     return (
@@ -60,23 +96,93 @@ export default function TaskCard({
             onClick={handleClick}
             role="button"
             tabIndex={0}
+            style={{ borderLeftColor: priorityColor }}
         >
             <div className="task-card-header">
-                <h4 className="task-card-title">{task.title}</h4>
+                <h4 className="task-card-title">
+                    {task.priority && task.priority !== 'None' && (
+                        <span
+                            className="task-priority-icon"
+                            title={priorityInfo.label}
+                            style={{ color: priorityInfo.color }}
+                        >
+                            {priorityInfo.icon}
+                        </span>
+                    )}
+                    {task.title}
+                </h4>
 
-                {!isTaken && (
-                    <button
-                        className="btn-take-task"
-                        onClick={handleTakeClick}
-                        title="Взять задачу"
-                    >
-                        Взять
-                    </button>
-                )}
             </div>
+
+            {hasSubtasks && (
+                <button
+                    type="button"
+                    className={`btn-expand-subtasks ${expanded ? 'expanded' : ''}`}
+                    onClick={handleToggleExpand}
+                    title={expanded ? 'Свернуть подзадачи' : 'Показать подзадачи'}
+                >
+                    <span className="triangle">▼</span>
+                    <span className="subtask-counter">
+                        {task.completedSubtasksCount}/{task.totalSubtasksCount}
+                    </span>
+                </button>
+            )}
 
             {task.description && (
                 <p className="task-card-description">{task.description}</p>
+            )}
+
+            {hasSubtasks && (
+                <div className="task-card-subtasks">
+                    <div className="subtask-mini-bar">
+                        <div
+                            className="subtask-mini-bar-fill"
+                            style={{
+                                width: `${(task.completedSubtasksCount / task.totalSubtasksCount) * 100}%`
+                            }}
+                        />
+                    </div>
+                </div>
+            )}
+
+            {expanded && (
+                <div
+                    className="task-card-subtasks-expanded"
+                    onClick={e => e.stopPropagation()}
+                >
+                    {loadingSubtasks && (
+                        <div className="subtasks-loading">Загрузка…</div>
+                    )}
+
+                    {loadError && (
+                        <div className="subtasks-load-error">
+                            Ошибка: {loadError}
+                        </div>
+                    )}
+
+                    {!loadingSubtasks && !loadError && subtasks?.length === 0 && (
+                        <div className="subtasks-empty">Подзадач нет</div>
+                    )}
+
+                    {!loadingSubtasks && !loadError && subtasks?.length > 0 && (
+                        <ul className="subtasks-preview-list">
+                            {subtasks.map(s => (
+                                <li
+                                    key={s.id}
+                                    className={`subtasks-preview-item ${s.isCompleted ? 'completed' : ''
+                                        }`}
+                                >
+                                    <span className="subtask-check">
+                                        {s.isCompleted ? '☑' : '☐'}
+                                    </span>
+                                    <span className="subtask-preview-title">
+                                        {s.title}
+                                    </span>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </div>
             )}
 
             {isTaken && (
@@ -100,7 +206,6 @@ export default function TaskCard({
                 </span>
 
                 <div className="task-card-actions">
-                    {/* Бейдж "есть вложения" */}
                     {task.attachmentsCount > 0 && (
                         <span
                             className="task-card-attachments-badge"
@@ -110,7 +215,6 @@ export default function TaskCard({
                         </span>
                     )}
 
-                    {/* Кнопка прикрепить — только owner/assignee */}
                     {canUpload && (
                         <>
                             <input

@@ -30,6 +30,23 @@ export const SPECIALIZATIONS = [
     { value: 'Mobile', label: '📱 Мобильный разработчик' },
     { value: 'Other', label: '🔹 Другое' }
 ];
+export const TASK_PRIORITIES = [
+    { value: 'None', label: 'Без приоритета', short: 'Нет', color: '#9ca3af', icon: '⚪' },
+    { value: 'Low', label: 'Низкий', short: 'Низкий', color: '#3b82f6', icon: '🔵' },
+    { value: 'Medium', label: 'Средний', short: 'Сред.', color: '#eab308', icon: '🟡' },
+    { value: 'High', label: 'Высокий', short: 'Выс.', color: '#f97316', icon: '🟠' },
+    { value: 'Critical', label: 'Критический', short: 'Крит.', color: '#ef4444', icon: '🔴' }
+];
+
+export const getPriorityInfo = (priority) => {
+    return TASK_PRIORITIES.find(p => p.value === priority) || TASK_PRIORITIES[0];
+};
+
+/** Цвет полосы слева на карточке. Для None — прозрачный */
+export const getPriorityColor = (priority) => {
+    const info = getPriorityInfo(priority);
+    return info.value === 'None' ? 'transparent' : info.color;
+};
 // Статусы проектов
 export const PROJECT_STATUSES = [
     { value: 'Completed', label: '✅ Завершен' },

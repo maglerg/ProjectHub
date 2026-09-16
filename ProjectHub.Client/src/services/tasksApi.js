@@ -17,6 +17,10 @@ async function handleResponse(resp) {
     return resp.json();
 }
 
+// ═══════════════════════════════════════════════════════════
+//  ДОСКА И ПРОГРЕСС
+// ═══════════════════════════════════════════════════════════
+
 // Получить доску задач по публичному коду проекта
 export const getTasksBoard = (projectCode) =>
     fetch(`${API_BASE_URL}/projects/${projectCode}/tasks`, {
@@ -24,60 +28,25 @@ export const getTasksBoard = (projectCode) =>
         headers: authHeaders()
     }).then(handleResponse);
 
-// Создать задачу
-export const createTask = (projectCode, { title, description, columnId }) =>
-    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ title, description, columnId })
-    }).then(handleResponse);
-// Удалить задачу (только owner)
-export const deleteTask = (projectCode, taskId) =>
-    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}`, {
-        method: 'DELETE',
-        headers: authHeaders()
-    }).then(async (resp) => {
-        if (!resp.ok) {
-            const err = await resp.json().catch(() => ({}));
-            throw new Error(err.error || 'Ошибка удаления задачи');
-        }
-        // 204 No Content — тела нет
-        return null;
-    });
-// Получить комментарии задачи
-export const getTaskComments = (projectCode, taskId) =>
-    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/comments`, {
+// Получить прогресс проекта (Kanban-style)
+export const getProjectProgress = (projectCode) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/progress`, {
         method: 'GET',
         headers: authHeaders()
     }).then(handleResponse);
 
-// Добавить комментарий
-export const addTaskComment = (projectCode, taskId, text) =>
-    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/comments`, {
+// ═══════════════════════════════════════════════════════════
+//  ЗАДАЧА — CRUD
+// ═══════════════════════════════════════════════════════════
+
+// Создать задачу
+export const createTask = (projectCode, { title, description, columnId, priority }) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ text })
-    }).then(handleResponse);
-// Взять задачу
-export const takeTask = (projectCode, taskId) =>
-    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/take`, {
-        method: 'POST',
-        headers: authHeaders()
+        body: JSON.stringify({ title, description, columnId, priority })
     }).then(handleResponse);
 
-export const leaveTask = (projectCode, taskId, email = null) =>
-    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/leave`, {
-        method: 'POST',
-        headers: authHeaders(),
-        body: JSON.stringify({ email })
-    }).then(handleResponse);
-// Переместить задачу в другую колонку
-export const moveTask = (projectCode, taskId, columnId) =>
-    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/move`, {
-        method: 'PATCH',
-        headers: authHeaders(),
-        body: JSON.stringify({ columnId })
-    }).then(handleResponse);
 // Получить задачу по ID
 export const getTaskById = (projectCode, taskId) =>
     fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}`, {
@@ -92,7 +61,70 @@ export const updateTask = (projectCode, taskId, payload) =>
         headers: authHeaders(),
         body: JSON.stringify(payload)
     }).then(handleResponse);
-// Загрузить вложение
+
+// Удалить задачу (только owner)
+export const deleteTask = (projectCode, taskId) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}`, {
+        method: 'DELETE',
+        headers: authHeaders()
+    }).then(async (resp) => {
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error || 'Ошибка удаления задачи');
+        }
+        // 204 No Content — тела нет
+        return null;
+    });
+
+// ═══════════════════════════════════════════════════════════
+//  ВЗЯТЬ / СНЯТЬ / ПЕРЕМЕСТИТЬ
+// ═══════════════════════════════════════════════════════════
+
+// Взять / присоединиться к задаче
+export const takeTask = (projectCode, taskId) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/take`, {
+        method: 'POST',
+        headers: authHeaders()
+    }).then(handleResponse);
+
+// Снять исполнителя (себя — если email не передан; другого — только owner)
+export const leaveTask = (projectCode, taskId, email = null) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/leave`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ email })
+    }).then(handleResponse);
+
+// Переместить задачу в другую колонку
+export const moveTask = (projectCode, taskId, columnId) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/move`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ columnId })
+    }).then(handleResponse);
+
+// ═══════════════════════════════════════════════════════════
+//  КОММЕНТАРИИ
+// ═══════════════════════════════════════════════════════════
+
+export const getTaskComments = (projectCode, taskId) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/comments`, {
+        method: 'GET',
+        headers: authHeaders()
+    }).then(handleResponse);
+
+export const addTaskComment = (projectCode, taskId, text) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/comments`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ text })
+    }).then(handleResponse);
+
+// ═══════════════════════════════════════════════════════════
+//  ВЛОЖЕНИЯ
+// ═══════════════════════════════════════════════════════════
+
+// Загрузить вложение (multipart/form-data)
 export const uploadTaskAttachment = async (projectCode, taskId, file) => {
     const formData = new FormData();
     formData.append('file', file);
@@ -108,12 +140,7 @@ export const uploadTaskAttachment = async (projectCode, taskId, file) => {
     );
     return handleResponse(resp);
 };
-// Получить прогресс проекта (Kanban-style)
-export const getProjectProgress = (projectCode) =>
-    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/progress`, {
-        method: 'GET',
-        headers: authHeaders()
-    }).then(handleResponse);
+
 // Скачать вложение (blob → сохранить как файл)
 export const downloadTaskAttachment = async (projectCode, taskId, attachmentId, fileName) => {
     const resp = await fetch(
@@ -141,3 +168,33 @@ export const deleteTaskAttachment = (projectCode, taskId, attachmentId) =>
         `${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/attachments/${attachmentId}`,
         { method: 'DELETE', headers: authHeaders() }
     ).then(handleResponse);
+
+// ═══════════════════════════════════════════════════════════
+//  ПОДЗАДАЧИ
+// ═══════════════════════════════════════════════════════════
+
+export const addTaskSubtask = (projectCode, taskId, title) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/subtasks`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ title })
+    }).then(handleResponse);
+
+export const updateTaskSubtask = (projectCode, taskId, subtaskId, title) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/subtasks/${subtaskId}`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({ title })
+    }).then(handleResponse);
+
+export const toggleTaskSubtask = (projectCode, taskId, subtaskId) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/subtasks/${subtaskId}/toggle`, {
+        method: 'PATCH',
+        headers: authHeaders()
+    }).then(handleResponse);
+
+export const deleteTaskSubtask = (projectCode, taskId, subtaskId) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/subtasks/${subtaskId}`, {
+        method: 'DELETE',
+        headers: authHeaders()
+    }).then(handleResponse);

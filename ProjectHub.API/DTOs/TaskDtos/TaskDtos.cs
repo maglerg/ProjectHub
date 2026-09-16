@@ -27,6 +27,11 @@
         // Может ли текущий пользователь прикреплять файлы (owner или assignee)
         public bool CanUploadAttachments { get; set; }
         public List<TaskAttachmentDto> Attachments { get; set; } = new();
+        public List<TaskSubtaskDto> Subtasks { get; set; } = new();
+        public bool HasSubtasks { get; set; }
+        public int TotalSubtasksCount { get; set; }
+        public int CompletedSubtasksCount { get; set; }
+        public string Priority { get; set; } = "None";
     }
     
     

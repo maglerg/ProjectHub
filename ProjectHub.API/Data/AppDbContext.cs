@@ -1,6 +1,7 @@
 ﻿// Data/AppDbContext.cs
 using Microsoft.EntityFrameworkCore;
 using ProjectHub.API.Models;
+using ProjectHub.API.Models.Enums;
 using ProjectHub.Models;
 
 namespace ProjectHub.API.Data
@@ -35,6 +36,7 @@ namespace ProjectHub.API.Data
         public DbSet<TaskComment> TaskComments { get; set; }
         public DbSet<TaskCommentRead> TaskCommentReads { get; set; }
         public DbSet<TaskAttachment> TaskAttachments { get; set; }
+        public DbSet<TaskSubtask> TaskSubtasks { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -187,6 +189,10 @@ namespace ProjectHub.API.Data
                       .WithMany()
                       .HasForeignKey(t => t.CreatedById)
                       .OnDelete(DeleteBehavior.Restrict);
+                entity.Property(t => t.Priority)
+      .HasDefaultValue(TaskPriority.None);
+
+                entity.HasIndex(t => new { t.ProjectId, t.Priority });
             });
 
             // ───── Исполнители ─────
@@ -254,6 +260,17 @@ namespace ProjectHub.API.Data
                       .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasIndex(a => a.TaskId);
+            });
+            modelBuilder.Entity<TaskSubtask>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(s => s.Task)
+                      .WithMany(t => t.Subtasks)
+                      .HasForeignKey(s => s.TaskId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(s => new { s.TaskId, s.Order });
             });
         }
     }

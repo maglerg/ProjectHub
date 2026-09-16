@@ -307,6 +307,98 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+        // POST /api/projects/{projectCode}/tasks/{taskId}/subtasks
+        [HttpPost("{taskId}/subtasks")]
+        public async Task<IActionResult> AddSubtask(
+            string projectCode, Guid taskId, [FromBody] CreateSubtaskDto dto)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var subtask = await _taskService.AddSubtaskAsync(projectCode, taskId, userId, dto);
+                return Ok(subtask);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка добавления подзадачи");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // PUT /api/projects/{projectCode}/tasks/{taskId}/subtasks/{subtaskId}
+        [HttpPut("{taskId}/subtasks/{subtaskId}")]
+        public async Task<IActionResult> UpdateSubtask(
+            string projectCode, Guid taskId, Guid subtaskId, [FromBody] UpdateSubtaskDto dto)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var subtask = await _taskService.UpdateSubtaskAsync(
+                    projectCode, taskId, subtaskId, userId, dto);
+                return Ok(subtask);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка обновления подзадачи");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // PATCH /api/projects/{projectCode}/tasks/{taskId}/subtasks/{subtaskId}/toggle
+        [HttpPatch("{taskId}/subtasks/{subtaskId}/toggle")]
+        public async Task<IActionResult> ToggleSubtask(
+            string projectCode, Guid taskId, Guid subtaskId)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var task = await _taskService.ToggleSubtaskAsync(
+                    projectCode, taskId, subtaskId, userId);
+                return Ok(task);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка переключения подзадачи");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // DELETE /api/projects/{projectCode}/tasks/{taskId}/subtasks/{subtaskId}
+        [HttpDelete("{taskId}/subtasks/{subtaskId}")]
+        public async Task<IActionResult> DeleteSubtask(
+            string projectCode, Guid taskId, Guid subtaskId)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var task = await _taskService.DeleteSubtaskAsync(
+                    projectCode, taskId, subtaskId, userId);
+                return Ok(task);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка удаления подзадачи");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
         // DELETE /api/projects/{projectCode}/tasks/{taskId}/attachments/{attachmentId}
         [HttpDelete("{taskId}/attachments/{attachmentId}")]
         public async Task<IActionResult> DeleteAttachment(
