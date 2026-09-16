@@ -20,6 +20,13 @@
 
         public bool IsOwner { get; set; }
         public List<TaskAssigneeDto> Assignees { get; set; } = new();
+
+        
+        public int AttachmentsCount { get; set; }
+
+        // Может ли текущий пользователь прикреплять файлы (owner или assignee)
+        public bool CanUploadAttachments { get; set; }
+        public List<TaskAttachmentDto> Attachments { get; set; } = new();
     }
     
     

@@ -95,6 +95,7 @@ builder.Services.AddScoped<InvitationService>();
 builder.Services.AddScoped<ChatService>();
 builder.Services.AddScoped<VotingsService>();
 builder.Services.AddScoped<TaskService>();
+builder.Services.AddSingleton<FileStorageService>();
 
 // JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "your-super-secret-key-min-32-characters-long!";
@@ -147,6 +148,22 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowReactApp");
+app.UseStaticFiles(new StaticFileOptions
+{
+    OnPrepareResponse = ctx =>
+    {
+        var path = ctx.File.PhysicalPath ?? string.Empty;
+
+        if (path.Contains(
+                Path.DirectorySeparatorChar + "App_Data" + Path.DirectorySeparatorChar,
+                StringComparison.OrdinalIgnoreCase))
+        {
+            ctx.Context.Response.StatusCode = 404;
+            ctx.Context.Response.ContentLength = 0;
+            ctx.Context.Response.Body = Stream.Null;
+        }
+    }
+});
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

@@ -1,5 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { getTasksBoard, takeTask, createTask, moveTask } from '../../services/tasksApi';
+import {
+    getTasksBoard, takeTask, createTask, moveTask,
+    uploadTaskAttachment
+} from '../../services/tasksApi';
 import TaskColumn from './TaskColumn';
 import CreateTaskModal from './CreateTaskModal';
 import '../../styles/components/tasks/tasks.css';
@@ -40,7 +43,16 @@ export default function TasksBoard({ projectCode, currentUserEmail, isOwner }) {
             setActionError(e.message);
         }
     };
-
+    const handleUpload = async (taskId, file) => {
+        try {
+            setActionError(null);
+            await uploadTaskAttachment(projectCode, taskId, file);
+            await loadBoard(); // перезагружаем, чтобы обновился счётчик вложений
+        } catch (e) {
+            console.error('❌ Ошибка загрузки файла:', e);
+            setActionError(e.message);
+        }
+    };
     // ── Создать задачу ──
     const handleCreate = async (payload) => {
         try {
@@ -96,10 +108,12 @@ export default function TasksBoard({ projectCode, currentUserEmail, isOwner }) {
                     <TaskColumn
                         key={col.id}
                         column={col}
+                        projectCode={projectCode}
                         currentUserEmail={currentUserEmail}
                         isOwner={isOwner}
                         onTake={handleTake}
                         onMove={handleMove}
+                        onUpload={handleUpload}
                     />
                 ))}
             </div>

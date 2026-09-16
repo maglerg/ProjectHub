@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import TaskCard from './TaskCard';
 
-export default function TaskColumn({ column, currentUserEmail, isOwner, onTake, onMove }) {
+export default function TaskColumn({ column, projectCode, currentUserEmail, isOwner, onTake, onMove, onUpload }) {
     const [isDragOver, setIsDragOver] = useState(false);
 
     const handleDragOver = (e) => {
@@ -50,9 +50,11 @@ export default function TaskColumn({ column, currentUserEmail, isOwner, onTake, 
                     <TaskCard
                         key={task.id}
                         task={task}
+                        projectCode={projectCode}
                         currentUserEmail={currentUserEmail}
                         isOwner={isOwner}
                         onTake={onTake}
+                        onUpload={onUpload}
                     />
                 ))}
             </div>

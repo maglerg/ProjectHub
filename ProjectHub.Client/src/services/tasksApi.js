@@ -92,3 +92,47 @@ export const updateTask = (projectCode, taskId, payload) =>
         headers: authHeaders(),
         body: JSON.stringify(payload)
     }).then(handleResponse);
+// Загрузить вложение
+export const uploadTaskAttachment = async (projectCode, taskId, file) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const token = getToken();
+    const resp = await fetch(
+        `${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/attachments`,
+        {
+            method: 'POST',
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+            body: formData
+        }
+    );
+    return handleResponse(resp);
+};
+
+// Скачать вложение (blob → сохранить как файл)
+export const downloadTaskAttachment = async (projectCode, taskId, attachmentId, fileName) => {
+    const resp = await fetch(
+        `${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/attachments/${attachmentId}/download`,
+        { headers: { 'Authorization': `Bearer ${getToken()}` } }
+    );
+    if (!resp.ok) {
+        const err = await resp.json().catch(() => ({}));
+        throw new Error(err.error || 'Ошибка скачивания файла');
+    }
+    const blob = await resp.blob();
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+};
+
+// Удалить вложение
+export const deleteTaskAttachment = (projectCode, taskId, attachmentId) =>
+    fetch(
+        `${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/attachments/${attachmentId}`,
+        { method: 'DELETE', headers: authHeaders() }
+    ).then(handleResponse);

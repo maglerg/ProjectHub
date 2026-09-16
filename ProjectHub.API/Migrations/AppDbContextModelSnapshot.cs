@@ -522,6 +522,48 @@ namespace ProjectHub.API.Migrations
                     b.ToTable("TaskAssignees");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.TaskAttachment", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("ContentType")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<string>("FileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<long>("SizeBytes")
+                        .HasColumnType("bigint");
+
+                    b.Property<string>("StoredFileName")
+                        .IsRequired()
+                        .HasMaxLength(255)
+                        .HasColumnType("character varying(255)");
+
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("UploadedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UploadedById")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TaskId");
+
+                    b.HasIndex("UploadedById");
+
+                    b.ToTable("TaskAttachments");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.TaskColumn", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1016,6 +1058,25 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.TaskAttachment", b =>
+                {
+                    b.HasOne("ProjectHub.API.Models.ProjectTask", "Task")
+                        .WithMany("Attachments")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.Models.User", "UploadedBy")
+                        .WithMany()
+                        .HasForeignKey("UploadedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Task");
+
+                    b.Navigation("UploadedBy");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.TaskColumn", b =>
                 {
                     b.HasOne("ProjectHub.API.Models.Project", "Project")
@@ -1148,6 +1209,8 @@ namespace ProjectHub.API.Migrations
             modelBuilder.Entity("ProjectHub.API.Models.ProjectTask", b =>
                 {
                     b.Navigation("Assignees");
+
+                    b.Navigation("Attachments");
 
                     b.Navigation("Comments");
                 });

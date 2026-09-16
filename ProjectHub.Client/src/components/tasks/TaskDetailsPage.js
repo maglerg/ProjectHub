@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     getTaskById,
@@ -8,7 +8,10 @@ import {
     leaveTask,
     deleteTask,
     getTaskComments,
-    addTaskComment
+    addTaskComment,
+    uploadTaskAttachment,
+    downloadTaskAttachment,
+    deleteTaskAttachment
 } from '../../services/tasksApi';
 import { useAuth } from '../../context/AuthContext';
 import '../../styles/components/tasks/tasks.css';
@@ -32,6 +35,9 @@ export default function TaskDetailsPage() {
     const [showCommentBox, setShowCommentBox] = useState(false);
     const [commentText, setCommentText] = useState('');
     const [commentSubmitting, setCommentSubmitting] = useState(false);
+
+    const [uploading, setUploading] = useState(false);
+    const fileInputRef = useRef(null);
 
     // ── Загрузка задачи, доски и комментариев ──
     const loadAll = async () => {
@@ -159,11 +165,82 @@ export default function TaskDetailsPage() {
         }
     };
 
+    // ── Вложения: утилита размера ──
+    const formatSize = (bytes) => {
+        if (!bytes) return '0 Б';
+        const units = ['Б', 'КБ', 'МБ', 'ГБ'];
+        let i = 0, v = bytes;
+        while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
+        return `${v.toFixed(v < 10 ? 1 : 0)} ${units[i]}`;
+    };
+
+    // ── Вложения: загрузка ──
+    const handleUploadFile = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) {
+            console.warn('❌ Файл не выбран');
+            return;
+        }
+
+        console.log('📎 Файл для загрузки:', {
+            name: file.name,
+            size: file.size,
+            type: file.type
+        });
+
+        if (file.size === 0) {
+            setActionError('Файл пустой');
+            e.target.value = '';
+            return;
+        }
+        if (!file) return;
+        setUploading(true);
+        try {
+            setActionError(null);
+            const newAtt = await uploadTaskAttachment(code, taskId, file);
+            setTask(prev => ({
+                ...prev,
+                attachments: [...(prev.attachments || []), newAtt]
+            }));
+        } catch (e) {
+            console.error('❌ Ошибка загрузки файла:', e);
+            setActionError(e.message);
+        } finally {
+            setUploading(false);
+            e.target.value = '';
+        }
+    };
+
+    // ── Вложения: скачивание ──
+    const handleDownloadFile = async (att) => {
+        try {
+            await downloadTaskAttachment(code, taskId, att.id, att.fileName);
+        } catch (e) {
+            setActionError(e.message);
+        }
+    };
+
+    // ── Вложения: удаление ──
+    const handleDeleteFile = async (att) => {
+        if (!window.confirm(`Удалить файл "${att.fileName}"?`)) return;
+        try {
+            setActionError(null);
+            await deleteTaskAttachment(code, taskId, att.id);
+            setTask(prev => ({
+                ...prev,
+                attachments: (prev.attachments || []).filter(a => a.id !== att.id)
+            }));
+        } catch (e) {
+            setActionError(e.message);
+        }
+    };
+
     if (loading) return <div className="tasks-loading">Загрузка задачи…</div>;
     if (error) return <div className="tasks-error">Ошибка: {error}</div>;
     if (!task) return <div className="tasks-error">Задача не найдена</div>;
 
     const assignees = task.assignees || [];
+    const attachments = task.attachments || [];
     const emailLower = (user?.email || '').toLowerCase();
     const isMine = assignees.some(
         a => (a.email || '').toLowerCase() === emailLower
@@ -335,6 +412,68 @@ export default function TaskDetailsPage() {
                                             </li>
                                         );
                                     })}
+                                </ul>
+                            )}
+                        </div>
+
+                        {/* ── Вложения ── */}
+                        <div className="task-details-attachments">
+                            <div className="attachments-header">
+                                <h3>Вложения ({attachments.length})</h3>
+
+                                {task.canUploadAttachments && (
+                                    <>
+                                        <input
+                                            type="file"
+                                            ref={fileInputRef}
+                                            style={{ display: 'none' }}
+                                            onChange={handleUploadFile}
+                                        />
+                                        <button
+                                            type="button"
+                                            className="btn-upload-attachment"
+                                            onClick={() => fileInputRef.current?.click()}
+                                            disabled={uploading}
+                                        >
+                                            {uploading ? 'Загрузка…' : '📎 Прикрепить файл'}
+                                        </button>
+                                    </>
+                                )}
+                            </div>
+
+                            {attachments.length === 0 ? (
+                                <p className="no-attachments">Файлов пока нет</p>
+                            ) : (
+                                <ul className="attachments-list">
+                                    {attachments.map(att => (
+                                        <li key={att.id} className="attachment-item">
+                                            <span className="attachment-icon">📄</span>
+                                            <div className="attachment-info">
+                                                <button
+                                                    type="button"
+                                                    className="attachment-name"
+                                                    onClick={() => handleDownloadFile(att)}
+                                                    title="Скачать"
+                                                >
+                                                    {att.fileName}
+                                                </button>
+                                                <span className="attachment-meta">
+                                                    {formatSize(att.sizeBytes)} ·{' '}
+                                                    {att.uploadedByName || att.uploadedByEmail} ·{' '}
+                                                    {new Date(att.uploadedAt).toLocaleString('ru-RU')}
+                                                </span>
+                                            </div>
+                                            {att.canDelete && (
+                                                <button
+                                                    className="btn-remove-attachment"
+                                                    title="Удалить файл"
+                                                    onClick={() => handleDeleteFile(att)}
+                                                >
+                                                    ×
+                                                </button>
+                                            )}
+                                        </li>
+                                    ))}
                                 </ul>
                             )}
                         </div>

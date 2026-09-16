@@ -34,6 +34,7 @@ namespace ProjectHub.API.Data
         public DbSet<TaskColumn> TaskColumns { get; set; }
         public DbSet<TaskComment> TaskComments { get; set; }
         public DbSet<TaskCommentRead> TaskCommentReads { get; set; }
+        public DbSet<TaskAttachment> TaskAttachments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -235,6 +236,22 @@ namespace ProjectHub.API.Data
                       .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasIndex(r => new { r.TaskCommentId, r.UserId }).IsUnique();
+            });
+            modelBuilder.Entity<TaskAttachment>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(a => a.Task)
+                      .WithMany(t => t.Attachments)   
+                      .HasForeignKey(a => a.TaskId)   
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(a => a.UploadedBy)
+                      .WithMany()
+                      .HasForeignKey(a => a.UploadedById)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(a => a.TaskId);
             });
         }
     }

@@ -1,0 +1,92 @@
+вкеоооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооооо
+е
+
+каор
+
+но
+
+мпл
+г
+
+лллллллллллллллллллллридлод
+Шаг 4. Проверить
+sql
+SELECT "Id", "FileName", "TaskId" FROM "TaskAttachments";
+Все строки должны иметь корректный TaskId. Колонки ProjectTaskId больше нет.
+
+Затем:
+
+Перезапусти бэк.
+
+Открой страницу задачи в браузере — файл должен отобразиться в блоке вложений.
+
+Проверь, что attachmentsCount на карточке доски стал больше нуля.
+
+Если ничего не жалко
+Если тестовые файлы не нужны — просто применяй миграцию как есть:
+
+bash
+dotnet ef database update
+Таблица TaskAttachments очистится (точнее, привязка потеряется), но новые загрузки будут работать корректно.
+
+Почему это вообще произошло
+Ты сначала создал TaskAttachment с полем TaskId (правильное имя), но в AppDbContext связь была настроена как .WithMany() — без указания коллекции ProjectTask.Attachments. EF не смог понять, что TaskId — это FK для Attachments, и по соглашению создал теневую колонку ProjectTaskId.
+
+Когда ты поправил AppDbContext на .WithMany(t => t.Attachments).HasForeignKey(a => a.TaskId) — EF понял, что ProjectTaskId больше не нужна, и сгенерировал миграцию на её удаление.
+
+Резюме
+лает твоя миграция
+csharp
+DropForeignKey("FK_TaskAttachments_ProjectTasks_ProjectTaskId")   // убираем старую связь
+DropIndex("IX_TaskAttachments_ProjectTaskId")                    // убираем индекс
+DropColumn("ProjectTaskId", "TaskAttachments")                   // удаляем лишнюю колонку
+Это именно то, что нужно. НО: если в таблице TaskAttachments уже есть строки, у которых заполнена только ProjectTaskId, а TaskId — пустой (или нулевой Guid), после применения миграции ты потеряешь привязку файла к задаче. Файл останется в БД, но «повиснет».
+
+Что сделать перед применением
+Шаг 1. Проверь данные
+Открой БД и выполни:
+
+sql
+SELECT "Id", "FileName", "TaskId", "ProjectTaskId" FROM "TaskAttachments";
+Возможны три сценария:
+
+A. TaskId заполнен у всех строк → ничего переносить не надо, применяй миграцию как есть.
+
+B. TaskId пустой (00000000-0000-0000-0000-000000000000), а ProjectTaskId заполнен → нужен перенос.
+
+C. Таблица пустая → тоже можно применять как есть.
+
+Шаг 2. Если сценарий B — добавь Sql перед DropColumn
+Открой файл миграции и вставь этот блок между DropIndex и DropColumn:
+
+csharp
+// Переносим FK из ProjectTaskId в TaskId для существующих строк
+migrationBuilder.Sql(@"
+    UPDATE ""TaskAttachments""
+    SET ""TaskId"" = ""ProjectTaskId""
+    WHERE ""TaskId"" = '00000000-0000-0000-0000-000000000000'
+       OR ""TaskId"" IS NULL;
+");
+Итоговый Up() станет:
+
+csharp
+protected override void Up(MigrationBuilder migrationBuilder)
+{
+    migrationBuilder.DropForeignKey(
+        name: "FK_TaskAttachments_ProjectTasks_ProjectTaskId",
+        table: "TaskAttachments");
+
+    migrationBuilder.DropIndex(
+        name: "IX_TaskAttachments_ProjectTaskId",
+        table: "TaskAttachments");
+
+    // 🔑 Перенос данных из старой колонки в новую
+    migrationBuilder.Sql(@"
+        UPDATE ""TaskAttachments""
+        SET ""TaskId"" = ""ProjectTaskId""
+        WHERE ""TaskId"" = '00000000-0000-0000-0000-000000000000'
+           OR ""TaskId"" IS NULL;
+    ");
+
+    migrationBuilder.DropColumn(
+        name: "ProjectTaskId",

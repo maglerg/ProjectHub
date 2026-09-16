@@ -1,12 +1,13 @@
 import React, { useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 
-export default function TaskCard({ task, currentUserEmail, isOwner, onTake }) {
+export default function TaskCard({
+    task, projectCode, currentUserEmail, isOwner, onTake, onUpload
+}) {
     const navigate = useNavigate();
     const { code } = useParams();
-
-    // Запоминаем, был ли drag — чтобы не открывать страницу после перетаскивания
     const draggedRef = useRef(false);
+    const fileInputRef = useRef(null);
 
     const assignees = task.assignees || [];
     const isTaken = assignees.length > 0;
@@ -15,22 +16,17 @@ export default function TaskCard({ task, currentUserEmail, isOwner, onTake }) {
         a => (a.email || '').toLowerCase() === emailLower
     );
     const canDrag = isOwner || isMine;
+    const canUpload = !!task.canUploadAttachments;
 
     const handleDragStart = (e) => {
-        if (!canDrag) {
-            e.preventDefault();
-            return;
-        }
+        if (!canDrag) { e.preventDefault(); return; }
         draggedRef.current = true;
         e.dataTransfer.setData('taskId', task.id);
         e.dataTransfer.effectAllowed = 'move';
     };
 
     const handleDragEnd = () => {
-        // Небольшая задержка, чтобы click не сработал сразу после drop
-        setTimeout(() => {
-            draggedRef.current = false;
-        }, 0);
+        setTimeout(() => { draggedRef.current = false; }, 0);
     };
 
     const handleClick = () => {
@@ -39,8 +35,20 @@ export default function TaskCard({ task, currentUserEmail, isOwner, onTake }) {
     };
 
     const handleTakeClick = (e) => {
-        e.stopPropagation(); // не открываем страницу
+        e.stopPropagation();
         onTake(task.id);
+    };
+
+    const handleUploadClick = (e) => {
+        e.stopPropagation();
+        fileInputRef.current?.click();
+    };
+
+    const handleFileChange = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+        e.target.value = ''; // сбрасываем, чтобы можно было выбрать тот же файл
+        await onUpload(task.id, file);
     };
 
     return (
@@ -90,6 +98,38 @@ export default function TaskCard({ task, currentUserEmail, isOwner, onTake }) {
                 <span className="task-card-author">
                     от {task.createdByName || task.createdByEmail}
                 </span>
+
+                <div className="task-card-actions">
+                    {/* Бейдж "есть вложения" */}
+                    {task.attachmentsCount > 0 && (
+                        <span
+                            className="task-card-attachments-badge"
+                            title={`Вложений: ${task.attachmentsCount}`}
+                        >
+                            📎 {task.attachmentsCount}
+                        </span>
+                    )}
+
+                    {/* Кнопка прикрепить — только owner/assignee */}
+                    {canUpload && (
+                        <>
+                            <input
+                                type="file"
+                                ref={fileInputRef}
+                                style={{ display: 'none' }}
+                                onChange={handleFileChange}
+                                onClick={e => e.stopPropagation()}
+                            />
+                            <button
+                                className="btn-card-attach"
+                                title="Прикрепить файл"
+                                onClick={handleUploadClick}
+                            >
+                                📎
+                            </button>
+                        </>
+                    )}
+                </div>
             </div>
         </div>
     );

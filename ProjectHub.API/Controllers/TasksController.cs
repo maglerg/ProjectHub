@@ -239,5 +239,76 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+        // POST /api/projects/{projectCode}/tasks/{taskId}/attachments
+        [HttpPost("{taskId}/attachments")]
+        [RequestSizeLimit(25 * 1024 * 1024)]   // страховка на уровне контроллера
+        public async Task<IActionResult> UploadAttachment(
+            string projectCode, Guid taskId, IFormFile file)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var dto = await _taskService.UploadAttachmentAsync(
+                    projectCode, taskId, userId, file);
+                return Ok(dto);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка загрузки вложения");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // GET /api/projects/{projectCode}/tasks/{taskId}/attachments/{attachmentId}/download
+        [HttpGet("{taskId}/attachments/{attachmentId}/download")]
+        public async Task<IActionResult> DownloadAttachment(
+            string projectCode, Guid taskId, Guid attachmentId)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var (stream, fileName, contentType) = await _taskService
+                    .DownloadAttachmentAsync(projectCode, taskId, attachmentId, userId);
+
+                return File(stream, contentType, fileName);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка скачивания вложения");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // DELETE /api/projects/{projectCode}/tasks/{taskId}/attachments/{attachmentId}
+        [HttpDelete("{taskId}/attachments/{attachmentId}")]
+        public async Task<IActionResult> DeleteAttachment(
+            string projectCode, Guid taskId, Guid attachmentId)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                await _taskService.DeleteAttachmentAsync(projectCode, taskId, attachmentId, userId);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка удаления вложения");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
     }
 }

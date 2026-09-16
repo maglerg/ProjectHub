@@ -37,5 +37,8 @@ namespace ProjectHub.API.Models
 
         public virtual ICollection<TaskAssignee> Assignees { get; set; } = new List<TaskAssignee>();
         public virtual ICollection<TaskComment> Comments { get; set; } = new List<TaskComment>();
+
+        public virtual ICollection<TaskAttachment> Attachments { get; set; }
+    = new List<TaskAttachment>();
     }
 }
