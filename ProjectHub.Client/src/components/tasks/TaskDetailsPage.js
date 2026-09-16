@@ -5,6 +5,11 @@ import {
     getPriorityInfo
 } from '../../utils/constants';
 import {
+    toLocalInputValue,
+    formatDateTime,
+    getDeadlineStatus
+} from '../../utils/datetime';
+import {
     getTaskById,
     getTasksBoard,
     updateTask,
@@ -42,7 +47,9 @@ export default function TaskDetailsPage() {
         title: '',
         description: '',
         columnId: '',
-        priority: 'None'
+        priority: 'None',
+        dueDate: '',
+        noDueDate: true
     });
     const [saving, setSaving] = useState(false);
 
@@ -83,7 +90,9 @@ export default function TaskDetailsPage() {
                 title: taskData.title,
                 description: taskData.description || '',
                 columnId: taskData.columnId,
-                priority: taskData.priority || 'None'
+                priority: taskData.priority || 'None',
+                dueDate: taskData.dueDate ? toLocalInputValue(taskData.dueDate) : '',
+                noDueDate: !taskData.dueDate
             });
         } catch (e) {
             console.error('❌ Ошибка загрузки задачи:', e);
@@ -134,6 +143,14 @@ export default function TaskDetailsPage() {
         e.preventDefault();
         if (!form.title.trim() || saving) return;
 
+        // Клиентская проверка дедлайна
+        if (!form.noDueDate && form.dueDate && task.projectDeadline) {
+            if (new Date(form.dueDate) > new Date(task.projectDeadline)) {
+                setActionError('Дедлайн задачи не может быть позже дедлайна проекта.');
+                return;
+            }
+        }
+
         setSaving(true);
         try {
             setActionError(null);
@@ -141,7 +158,10 @@ export default function TaskDetailsPage() {
                 title: form.title.trim(),
                 description: form.description.trim() || null,
                 columnId: form.columnId,
-                priority: form.priority
+                priority: form.priority,
+                dueDate: form.noDueDate || !form.dueDate
+                    ? null
+                    : new Date(form.dueDate).toISOString()
             });
             setTask(updated);
             setIsEditing(false);
@@ -159,7 +179,9 @@ export default function TaskDetailsPage() {
             title: task.title,
             description: task.description || '',
             columnId: task.columnId,
-            priority: task.priority || 'None'
+            priority: task.priority || 'None',
+            dueDate: task.dueDate ? toLocalInputValue(task.dueDate) : '',
+            noDueDate: !task.dueDate
         });
     };
 
@@ -366,6 +388,7 @@ export default function TaskDetailsPage() {
     const isOwnerUser = !!task.isOwner;
 
     const priorityInfo = getPriorityInfo(task.priority);
+    const deadlineStatus = getDeadlineStatus(task.dueDate, !!task.completedAt);
 
     return (
         <div className="task-details-page">
@@ -473,6 +496,17 @@ export default function TaskDetailsPage() {
                             <span>
                                 <b>Приоритет:</b>{' '}
                                 {priorityInfo.icon} {priorityInfo.label}
+                            </span>
+                            <span>
+                                <b>Дедлайн:</b>{' '}
+                                {task.dueDate ? (
+                                    <span className={deadlineStatus}>
+                                        {formatDateTime(task.dueDate)}
+                                        {deadlineStatus === 'overdue' && ' ⚠️'}
+                                    </span>
+                                ) : (
+                                    'Без дедлайна'
+                                )}
                             </span>
                             <span>
                                 <b>Создал:</b>{' '}
@@ -792,6 +826,39 @@ export default function TaskDetailsPage() {
                             ))}
                         </select>
                     </label>
+
+                    <div className="form-group">
+                        <label className="checkbox-label">
+                            <input
+                                type="checkbox"
+                                checked={form.noDueDate}
+                                onChange={e => setForm({
+                                    ...form,
+                                    noDueDate: e.target.checked,
+                                    dueDate: e.target.checked ? '' : form.dueDate
+                                })}
+                            />
+                            Без дедлайна
+                        </label>
+
+                        {!form.noDueDate && (
+                            <label>
+                                Дедлайн задачи
+                                <input
+                                    type="datetime-local"
+                                    value={form.dueDate}
+                                    max={task.projectDeadline ? toLocalInputValue(task.projectDeadline) : ''}
+                                    onChange={e => setForm({ ...form, dueDate: e.target.value })}
+                                    required
+                                />
+                                {task.projectDeadline && (
+                                    <small className="form-hint">
+                                        Не позднее: {formatDateTime(task.projectDeadline)}
+                                    </small>
+                                )}
+                            </label>
+                        )}
+                    </div>
 
                     <div className="modal-actions">
                         <button

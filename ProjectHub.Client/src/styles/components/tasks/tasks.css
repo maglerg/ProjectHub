@@ -1182,3 +1182,74 @@
     .btn-reset-filters:hover {
         background: #4338ca;
     }
+/* ── Форма: общий блок для чекбокса и поля ── */
+.form-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    user-select: none;
+    flex-direction: row;
+}
+
+    .checkbox-label input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+.form-hint {
+    font-size: 11px;
+    color: #6b7280;
+    margin-top: 2px;
+}
+
+.modal-error {
+    background: #fee2e2;
+    color: #991b1b;
+    padding: 8px 12px;
+    border-radius: 8px;
+    font-size: 13px;
+}
+
+/* ── Мета: подсветка просроченного дедлайна на странице задачи ── */
+.task-details-meta .overdue {
+    color: #ef4444;
+    font-weight: 600;
+}
+
+.task-details-meta .soon {
+    color: #f59e0b;
+    font-weight: 600;
+}
+
+/* ── Бейдж дедлайна на карточке ── */
+.task-card-deadline {
+    font-size: 11px;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+
+    .task-card-deadline.soon {
+        background: #fef3c7;
+        color: #92400e;
+        font-weight: 600;
+    }
+
+    .task-card-deadline.overdue {
+        background: #fee2e2;
+        color: #991b1b;
+        font-weight: 600;
+    }

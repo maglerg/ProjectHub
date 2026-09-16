@@ -297,6 +297,7 @@ const ProjectDashboardPage = () => {
                 <section className="tasks-section">
                     <TasksBoard
                         projectCode={project.publicCode}
+                        projectDeadline={project.deadline}
                         currentUserEmail={user.email}
                         isOwner={userStatus === 'Owner'}
                     />

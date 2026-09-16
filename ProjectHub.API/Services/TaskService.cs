@@ -123,6 +123,8 @@ namespace ProjectHub.API.Services
             if (string.IsNullOrWhiteSpace(dto.Title))
                 throw new InvalidOperationException("Название задачи не может быть пустым");
 
+            ValidateDueDate(project, dto.DueDate);
+
             Guid columnId;
             if (dto.ColumnId.HasValue)
             {
@@ -150,6 +152,7 @@ namespace ProjectHub.API.Services
                 Title = dto.Title.Trim(),
                 Description = dto.Description,
                 Priority = dto.Priority,
+                DueDate = dto.DueDate,
                 CreatedById = userId,
                 CreatedAt = DateTime.UtcNow
             };
@@ -281,8 +284,6 @@ namespace ProjectHub.API.Services
             if (IsKey(targetColumn, KeyCompleted))
             {
                 task.CompletedAt = DateTime.UtcNow;
-                // 📌 При перемещении в "Завершено" приоритет сбрасывается
-                task.Priority = TaskPriority.None;
             }
             else
             {
@@ -339,6 +340,8 @@ namespace ProjectHub.API.Services
             if (string.IsNullOrWhiteSpace(dto.Title))
                 throw new InvalidOperationException("Название задачи не может быть пустым");
 
+            ValidateDueDate(project, dto.DueDate);
+
             if (dto.ColumnId != Guid.Empty && dto.ColumnId != task.ColumnId)
             {
                 var column = await _db.TaskColumns
@@ -365,8 +368,6 @@ namespace ProjectHub.API.Services
                 if (IsKey(column, KeyCompleted))
                 {
                     task.CompletedAt = DateTime.UtcNow;
-                    // 📌 При перемещении в "Завершено" приоритет сбрасывается
-                    task.Priority = TaskPriority.None;
                 }
                 else
                 {
@@ -377,6 +378,7 @@ namespace ProjectHub.API.Services
             task.Title = dto.Title.Trim();
             task.Description = dto.Description;
             task.Priority = dto.Priority;
+            task.DueDate = dto.DueDate;
             task.UpdatedAt = DateTime.UtcNow;
 
             await _db.SaveChangesAsync();
@@ -412,6 +414,7 @@ namespace ProjectHub.API.Services
             dto.IsOwner = isOwner;
             dto.CanEdit = isOwner || isAssignee;
             dto.CanUploadAttachments = dto.CanEdit;
+            dto.ProjectDeadline = project.Deadline;
 
             dto.Attachments = task.Attachments
                 .OrderBy(a => a.UploadedAt)
@@ -832,6 +835,15 @@ namespace ProjectHub.API.Services
         //  ВСПОМОГАТЕЛЬНЫЕ
         // ═══════════════════════════════════════════════════════════
 
+        /// <summary>Проверка, что дедлайн задачи не позже дедлайна проекта.</summary>
+        private static void ValidateDueDate(Project project, DateTime? dueDate)
+        {
+            if (dueDate.HasValue && dueDate.Value > project.Deadline)
+                throw new InvalidOperationException(
+                    $"Дедлайн задачи не может быть позже дедлайна проекта " +
+                    $"({project.Deadline:dd.MM.yyyy HH:mm}).");
+        }
+
         private async Task<Project> GetProjectByCodeOrThrowAsync(string code)
         {
             var project = await _db.Projects
@@ -853,6 +865,28 @@ namespace ProjectHub.API.Services
                 ?? throw new KeyNotFoundException("Задача не найдена");
 
             return task;
+        }
+        private static TaskPriority GetEffectivePriority(ProjectTask task)
+        {
+            // Завершённые — без приоритета
+            if (task.CompletedAt.HasValue)
+                return TaskPriority.None;
+
+            if (!task.DueDate.HasValue)
+                return task.Priority;
+
+            var daysLeft = (task.DueDate.Value - DateTime.UtcNow).TotalDays;
+
+            // Просрочено или ≤ 3 дней → Critical
+            if (daysLeft <= 3)
+                return TaskPriority.Critical;
+
+            // ≤ 7 дней → не ниже High
+            if (daysLeft <= 7)
+                return task.Priority < TaskPriority.High ? TaskPriority.High : task.Priority;
+
+            // Иначе — пользовательский приоритет
+            return task.Priority;
         }
 
         private async Task EnsureProjectAccessAsync(Guid projectId, Guid userId)
@@ -888,6 +922,7 @@ namespace ProjectHub.API.Services
             dto.IsOwner = isOwner;
             dto.CanEdit = isOwner || isAssignee;
             dto.CanUploadAttachments = dto.CanEdit;
+            dto.ProjectDeadline = task.Project.Deadline;
 
             dto.Attachments = task.Attachments
                 .OrderBy(a => a.UploadedAt)
@@ -916,9 +951,15 @@ namespace ProjectHub.API.Services
                 Order = c.Order,
                 SystemKey = c.SystemKey,
                 Tasks = c.Tasks
-                    .OrderByDescending(t => t.Priority)   // Critical → High → Medium → Low → None
-                    .ThenBy(t => t.CreatedAt)
-                    .Select(t => MapTaskForBoard(t, projectOwnerId, userId))
+                    .Select(t => new
+                    {
+                        Task = t,
+                        // сортируем по эффективному приоритету, затем по дате создания
+                        EffectivePriority = GetEffectivePriority(t)
+                    })
+                    .OrderByDescending(x => x.EffectivePriority)
+                    .ThenBy(x => x.Task.CreatedAt)
+                    .Select(x => MapTaskForBoard(x.Task, projectOwnerId, userId))
                     .ToList()
             };
         }
@@ -947,7 +988,7 @@ namespace ProjectHub.API.Services
             Id = t.Id,
             Title = t.Title,
             Description = t.Description,
-            Priority = t.Priority.ToString(),
+            Priority = GetEffectivePriority(t).ToString(),
             ColumnId = t.ColumnId,
             ColumnName = t.Column?.Name ?? string.Empty,
             CreatedByEmail = t.CreatedBy?.Email ?? string.Empty,
@@ -955,6 +996,8 @@ namespace ProjectHub.API.Services
             CreatedAt = t.CreatedAt,
             UpdatedAt = t.UpdatedAt,
             CompletedAt = t.CompletedAt,
+            DueDate = t.DueDate,
+            ProjectDeadline = t.Project?.Deadline,
             Assignees = t.Assignees.Select(a => new TaskAssigneeDto
             {
                 Email = a.User?.Email ?? string.Empty,

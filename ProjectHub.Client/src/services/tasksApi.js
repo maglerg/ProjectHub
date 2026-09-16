@@ -40,11 +40,11 @@ export const getProjectProgress = (projectCode) =>
 // ═══════════════════════════════════════════════════════════
 
 // Создать задачу
-export const createTask = (projectCode, { title, description, columnId, priority }) =>
+export const createTask = (projectCode, { title, description, columnId, priority, dueDate }) =>
     fetch(`${API_BASE_URL}/projects/${projectCode}/tasks`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ title, description, columnId, priority })
+        body: JSON.stringify({ title, description, columnId, priority, dueDate })
     }).then(handleResponse);
 
 // Получить задачу по ID

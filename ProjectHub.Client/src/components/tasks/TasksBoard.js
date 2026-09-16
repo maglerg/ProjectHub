@@ -12,7 +12,12 @@ import TaskColumn from './TaskColumn';
 import CreateTaskModal from './CreateTaskModal';
 import '../../styles/components/tasks/tasks.css';
 
-export default function TasksBoard({ projectCode, currentUserEmail, isOwner }) {
+export default function TasksBoard({
+    projectCode,
+    projectDeadline,
+    currentUserEmail,
+    isOwner
+}) {
     const [columns, setColumns] = useState([]);
     const [progress, setProgress] = useState(null);
     const [onlyMyTasks, setOnlyMyTasks] = useState(false);
@@ -236,6 +241,7 @@ export default function TasksBoard({ projectCode, currentUserEmail, isOwner }) {
             {isModalOpen && (
                 <CreateTaskModal
                     columns={columns}
+                    projectDeadline={projectDeadline}
                     onClose={() => setIsModalOpen(false)}
                     onCreate={handleCreate}
                 />

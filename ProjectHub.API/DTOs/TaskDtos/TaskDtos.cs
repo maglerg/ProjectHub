@@ -32,6 +32,8 @@
         public int TotalSubtasksCount { get; set; }
         public int CompletedSubtasksCount { get; set; }
         public string Priority { get; set; } = "None";
+        public DateTime? DueDate { get; set; }
+        public DateTime? ProjectDeadline { get; set; }
     }
     
     

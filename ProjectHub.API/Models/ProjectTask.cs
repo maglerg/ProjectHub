@@ -45,5 +45,7 @@ namespace ProjectHub.API.Models
         public virtual ICollection<TaskSubtask> Subtasks { get; set; } = new List<TaskSubtask>();
 
         public TaskPriority Priority { get; set; } = TaskPriority.None;
+        public DateTime? DueDate { get; set; }
+
     }
 }
