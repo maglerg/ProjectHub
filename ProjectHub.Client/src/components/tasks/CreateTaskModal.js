@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { TASK_PRIORITIES } from '../../utils/constants';
-import { toLocalInputValue } from '../../utils/datetime';
+import { toLocalInputValue, validateDateRange } from '../../utils/datetime';
 
 export default function CreateTaskModal({
     columns, projectDeadline, onClose, onCreate
@@ -9,13 +9,23 @@ export default function CreateTaskModal({
     const [description, setDescription] = useState('');
     const [columnId, setColumnId] = useState(columns[0]?.id || '');
     const [priority, setPriority] = useState('None');
+
+    // ── Дата начала ──
+    const [startDate, setStartDate] = useState('');
+    const [noStartDate, setNoStartDate] = useState(true);
+
+    // ── Дедлайн ──
     const [dueDate, setDueDate] = useState('');
     const [noDueDate, setNoDueDate] = useState(true);
+
     const [submitting, setSubmitting] = useState(false);
     const [localError, setLocalError] = useState(null);
 
-    const maxDueDate = toLocalInputValue(projectDeadline);
-    const minDueDate = toLocalInputValue(new Date());
+    const projectDeadlineDate = projectDeadline ? new Date(projectDeadline) : null;
+    const maxDate =
+        projectDeadlineDate && projectDeadlineDate > new Date()
+            ? toLocalInputValue(projectDeadlineDate)
+            : '';
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -23,11 +33,15 @@ export default function CreateTaskModal({
 
         if (!title.trim()) return;
 
-        if (!noDueDate && dueDate && projectDeadline) {
-            if (new Date(dueDate) > new Date(projectDeadline)) {
-                setLocalError('Дедлайн задачи не может быть позже дедлайна проекта.');
-                return;
-            }
+        // Проверки дат
+        const rangeError = validateDateRange(
+            noStartDate ? null : startDate,
+            noDueDate ? null : dueDate,
+            projectDeadline
+        );
+        if (rangeError) {
+            setLocalError(rangeError);
+            return;
         }
 
         setSubmitting(true);
@@ -37,6 +51,9 @@ export default function CreateTaskModal({
                 description: description.trim() || null,
                 columnId,
                 priority,
+                startDate: noStartDate || !startDate
+                    ? null
+                    : new Date(startDate).toISOString(),
                 dueDate: noDueDate || !dueDate
                     ? null
                     : new Date(dueDate).toISOString()
@@ -93,6 +110,35 @@ export default function CreateTaskModal({
                         </select>
                     </label>
 
+                    {/* ── Дата начала ── */}
+                    <div className="form-group">
+                        <label className="checkbox-label">
+                            <input
+                                type="checkbox"
+                                checked={noStartDate}
+                                onChange={e => {
+                                    setNoStartDate(e.target.checked);
+                                    if (e.target.checked) setStartDate('');
+                                }}
+                            />
+                            Без даты начала
+                        </label>
+
+                        {!noStartDate && (
+                            <label>
+                                Дата начала
+                                <input
+                                    type="datetime-local"
+                                    value={startDate}
+                                    max={maxDate || undefined}
+                                    onChange={e => setStartDate(e.target.value)}
+                                    required
+                                />
+                            </label>
+                        )}
+                    </div>
+
+                    {/* ── Дедлайн ── */}
                     <div className="form-group">
                         <label className="checkbox-label">
                             <input
@@ -112,8 +158,8 @@ export default function CreateTaskModal({
                                 <input
                                     type="datetime-local"
                                     value={dueDate}
-                                    max={maxDueDate || ''}
-                                    min={minDueDate}
+                                    max={maxDate || undefined}
+                                    min={!noStartDate && startDate ? startDate : undefined}
                                     onChange={e => setDueDate(e.target.value)}
                                     required
                                 />
@@ -140,6 +186,7 @@ export default function CreateTaskModal({
                             disabled={
                                 submitting ||
                                 !title.trim() ||
+                                (!noStartDate && !startDate) ||
                                 (!noDueDate && !dueDate)
                             }
                         >

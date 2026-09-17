@@ -10,6 +10,7 @@ namespace ProjectHub.API.DTOs.TaskDtos
         // Опционально: в какую колонку. Если null — первая колонка "Не начато".
         public Guid? ColumnId { get; set; }
         public TaskPriority Priority { get; set; } = TaskPriority.None;
+        public DateTime? StartDate { get; set; }
         public DateTime? DueDate { get; set; }
 
     }

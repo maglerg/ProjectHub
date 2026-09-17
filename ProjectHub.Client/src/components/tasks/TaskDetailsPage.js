@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     TASK_PRIORITIES,
     getPriorityInfo
@@ -7,7 +7,8 @@ import {
 import {
     toLocalInputValue,
     formatDateTime,
-    getDeadlineStatus
+    getDeadlineStatus,
+    validateDateRange
 } from '../../utils/datetime';
 import {
     getTaskById,
@@ -33,6 +34,10 @@ export default function TaskDetailsPage() {
     const { code, taskId } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
+    const [searchParams] = useSearchParams();
+
+    // ?edit=1 открывает форму редактирования сразу
+    const startInEditMode = searchParams.get('edit') === '1';
 
     // ── Основное состояние ──
     const [task, setTask] = useState(null);
@@ -48,6 +53,8 @@ export default function TaskDetailsPage() {
         description: '',
         columnId: '',
         priority: 'None',
+        startDate: '',
+        noStartDate: true,
         dueDate: '',
         noDueDate: true
     });
@@ -91,9 +98,16 @@ export default function TaskDetailsPage() {
                 description: taskData.description || '',
                 columnId: taskData.columnId,
                 priority: taskData.priority || 'None',
+                startDate: taskData.startDate ? toLocalInputValue(taskData.startDate) : '',
+                noStartDate: !taskData.startDate,
                 dueDate: taskData.dueDate ? toLocalInputValue(taskData.dueDate) : '',
                 noDueDate: !taskData.dueDate
             });
+
+            // Открываем форму, если пришли с ?edit=1
+            if (startInEditMode) {
+                setIsEditing(true);
+            }
         } catch (e) {
             console.error('❌ Ошибка загрузки задачи:', e);
             setError(e.message);
@@ -143,12 +157,15 @@ export default function TaskDetailsPage() {
         e.preventDefault();
         if (!form.title.trim() || saving) return;
 
-        // Клиентская проверка дедлайна
-        if (!form.noDueDate && form.dueDate && task.projectDeadline) {
-            if (new Date(form.dueDate) > new Date(task.projectDeadline)) {
-                setActionError('Дедлайн задачи не может быть позже дедлайна проекта.');
-                return;
-            }
+        // Клиентская проверка диапазона дат
+        const rangeError = validateDateRange(
+            form.noStartDate ? null : form.startDate,
+            form.noDueDate ? null : form.dueDate,
+            task.projectDeadline
+        );
+        if (rangeError) {
+            setActionError(rangeError);
+            return;
         }
 
         setSaving(true);
@@ -159,6 +176,9 @@ export default function TaskDetailsPage() {
                 description: form.description.trim() || null,
                 columnId: form.columnId,
                 priority: form.priority,
+                startDate: form.noStartDate || !form.startDate
+                    ? null
+                    : new Date(form.startDate).toISOString(),
                 dueDate: form.noDueDate || !form.dueDate
                     ? null
                     : new Date(form.dueDate).toISOString()
@@ -180,6 +200,8 @@ export default function TaskDetailsPage() {
             description: task.description || '',
             columnId: task.columnId,
             priority: task.priority || 'None',
+            startDate: task.startDate ? toLocalInputValue(task.startDate) : '',
+            noStartDate: !task.startDate,
             dueDate: task.dueDate ? toLocalInputValue(task.dueDate) : '',
             noDueDate: !task.dueDate
         });
@@ -496,6 +518,10 @@ export default function TaskDetailsPage() {
                             <span>
                                 <b>Приоритет:</b>{' '}
                                 {priorityInfo.icon} {priorityInfo.label}
+                            </span>
+                            <span>
+                                <b>Начало:</b>{' '}
+                                {task.startDate ? formatDateTime(task.startDate) : 'Не задано'}
                             </span>
                             <span>
                                 <b>Дедлайн:</b>{' '}
@@ -827,6 +853,46 @@ export default function TaskDetailsPage() {
                         </select>
                     </label>
 
+                    {/* ── Дата начала ── */}
+                    <div className="form-group">
+                        <label className="checkbox-label">
+                            <input
+                                type="checkbox"
+                                checked={form.noStartDate}
+                                onChange={e => setForm({
+                                    ...form,
+                                    noStartDate: e.target.checked,
+                                    startDate: e.target.checked ? '' : form.startDate
+                                })}
+                            />
+                            Без даты начала
+                        </label>
+
+                        {!form.noStartDate && (
+                            <label>
+                                Дата начала
+                                <input
+                                    type="datetime-local"
+                                    value={form.startDate}
+                                    max={
+                                        task.projectDeadline &&
+                                            new Date(task.projectDeadline) > new Date()
+                                            ? toLocalInputValue(task.projectDeadline)
+                                            : undefined
+                                    }
+                                    onChange={e => setForm({ ...form, startDate: e.target.value })}
+                                    required
+                                />
+                                {task.projectDeadline && (
+                                    <small className="form-hint">
+                                        Не позднее: {formatDateTime(task.projectDeadline)}
+                                    </small>
+                                )}
+                            </label>
+                        )}
+                    </div>
+
+                    {/* ── Дедлайн ── */}
                     <div className="form-group">
                         <label className="checkbox-label">
                             <input
@@ -847,7 +913,17 @@ export default function TaskDetailsPage() {
                                 <input
                                     type="datetime-local"
                                     value={form.dueDate}
-                                    max={task.projectDeadline ? toLocalInputValue(task.projectDeadline) : ''}
+                                    max={
+                                        task.projectDeadline &&
+                                            new Date(task.projectDeadline) > new Date()
+                                            ? toLocalInputValue(task.projectDeadline)
+                                            : undefined
+                                    }
+                                    min={
+                                        !form.noStartDate && form.startDate
+                                            ? form.startDate
+                                            : undefined
+                                    }
                                     onChange={e => setForm({ ...form, dueDate: e.target.value })}
                                     required
                                 />

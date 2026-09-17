@@ -123,7 +123,8 @@ namespace ProjectHub.API.Services
             if (string.IsNullOrWhiteSpace(dto.Title))
                 throw new InvalidOperationException("Название задачи не может быть пустым");
 
-            ValidateDueDate(project, dto.DueDate);
+            ValidateStartDate(project, dto.StartDate, dto.DueDate);
+            ValidateDueDate(project, dto.StartDate, dto.DueDate);
 
             Guid columnId;
             if (dto.ColumnId.HasValue)
@@ -152,6 +153,7 @@ namespace ProjectHub.API.Services
                 Title = dto.Title.Trim(),
                 Description = dto.Description,
                 Priority = dto.Priority,
+                StartDate = dto.StartDate,
                 DueDate = dto.DueDate,
                 CreatedById = userId,
                 CreatedAt = DateTime.UtcNow
@@ -284,6 +286,7 @@ namespace ProjectHub.API.Services
             if (IsKey(targetColumn, KeyCompleted))
             {
                 task.CompletedAt = DateTime.UtcNow;
+                // Приоритет НЕ сбрасываем — GetEffectivePriority вернёт None для завершённых
             }
             else
             {
@@ -340,7 +343,8 @@ namespace ProjectHub.API.Services
             if (string.IsNullOrWhiteSpace(dto.Title))
                 throw new InvalidOperationException("Название задачи не может быть пустым");
 
-            ValidateDueDate(project, dto.DueDate);
+            ValidateStartDate(project, dto.StartDate, dto.DueDate);
+            ValidateDueDate(project, dto.StartDate, dto.DueDate);
 
             if (dto.ColumnId != Guid.Empty && dto.ColumnId != task.ColumnId)
             {
@@ -368,6 +372,7 @@ namespace ProjectHub.API.Services
                 if (IsKey(column, KeyCompleted))
                 {
                     task.CompletedAt = DateTime.UtcNow;
+                    // Приоритет не трогаем — см. GetEffectivePriority
                 }
                 else
                 {
@@ -378,6 +383,7 @@ namespace ProjectHub.API.Services
             task.Title = dto.Title.Trim();
             task.Description = dto.Description;
             task.Priority = dto.Priority;
+            task.StartDate = dto.StartDate;
             task.DueDate = dto.DueDate;
             task.UpdatedAt = DateTime.UtcNow;
 
@@ -835,13 +841,68 @@ namespace ProjectHub.API.Services
         //  ВСПОМОГАТЕЛЬНЫЕ
         // ═══════════════════════════════════════════════════════════
 
-        /// <summary>Проверка, что дедлайн задачи не позже дедлайна проекта.</summary>
-        private static void ValidateDueDate(Project project, DateTime? dueDate)
+        /// <summary>
+        /// Проверяет, что дата начала не позже дедлайна задачи и дедлайна проекта.
+        /// </summary>
+        private static void ValidateStartDate(
+            Project project, DateTime? startDate, DateTime? dueDate)
         {
-            if (dueDate.HasValue && dueDate.Value > project.Deadline)
+            if (!startDate.HasValue) return;
+
+            if (startDate.Value > project.Deadline)
+                throw new InvalidOperationException(
+                    $"Дата начала задачи не может быть позже дедлайна проекта " +
+                    $"({project.Deadline:dd.MM.yyyy HH:mm}).");
+
+            if (dueDate.HasValue && startDate.Value > dueDate.Value)
+                throw new InvalidOperationException(
+                    "Дата начала задачи не может быть позже её дедлайна.");
+        }
+
+        /// <summary>
+        /// Проверяет, что дедлайн задачи не позже дедлайна проекта
+        /// и не раньше даты начала.
+        /// </summary>
+        private static void ValidateDueDate(
+            Project project, DateTime? startDate, DateTime? dueDate)
+        {
+            if (!dueDate.HasValue) return;
+
+            if (dueDate.Value > project.Deadline)
                 throw new InvalidOperationException(
                     $"Дедлайн задачи не может быть позже дедлайна проекта " +
                     $"({project.Deadline:dd.MM.yyyy HH:mm}).");
+
+            if (startDate.HasValue && dueDate.Value < startDate.Value)
+                throw new InvalidOperationException(
+                    "Дедлайн задачи не может быть раньше её даты начала.");
+        }
+
+        /// <summary>
+        /// Эффективный приоритет: вычисляется на лету, не сохраняется в БД.
+        ///   • задача завершена → None
+        ///   • нет дедлайна → сохранённый Priority
+        ///   • дедлайн просрочен или ≤ 3 дней → Critical
+        ///   • ≤ 7 дней → не ниже High
+        ///   • иначе → сохранённый Priority
+        /// </summary>
+        private static TaskPriority GetEffectivePriority(ProjectTask task)
+        {
+            if (task.CompletedAt.HasValue)
+                return TaskPriority.None;
+
+            if (!task.DueDate.HasValue)
+                return task.Priority;
+
+            var daysLeft = (task.DueDate.Value - DateTime.UtcNow).TotalDays;
+
+            if (daysLeft <= 3)
+                return TaskPriority.Critical;
+
+            if (daysLeft <= 7)
+                return task.Priority < TaskPriority.High ? TaskPriority.High : task.Priority;
+
+            return task.Priority;
         }
 
         private async Task<Project> GetProjectByCodeOrThrowAsync(string code)
@@ -865,28 +926,6 @@ namespace ProjectHub.API.Services
                 ?? throw new KeyNotFoundException("Задача не найдена");
 
             return task;
-        }
-        private static TaskPriority GetEffectivePriority(ProjectTask task)
-        {
-            // Завершённые — без приоритета
-            if (task.CompletedAt.HasValue)
-                return TaskPriority.None;
-
-            if (!task.DueDate.HasValue)
-                return task.Priority;
-
-            var daysLeft = (task.DueDate.Value - DateTime.UtcNow).TotalDays;
-
-            // Просрочено или ≤ 3 дней → Critical
-            if (daysLeft <= 3)
-                return TaskPriority.Critical;
-
-            // ≤ 7 дней → не ниже High
-            if (daysLeft <= 7)
-                return task.Priority < TaskPriority.High ? TaskPriority.High : task.Priority;
-
-            // Иначе — пользовательский приоритет
-            return task.Priority;
         }
 
         private async Task EnsureProjectAccessAsync(Guid projectId, Guid userId)
@@ -954,7 +993,6 @@ namespace ProjectHub.API.Services
                     .Select(t => new
                     {
                         Task = t,
-                        // сортируем по эффективному приоритету, затем по дате создания
                         EffectivePriority = GetEffectivePriority(t)
                     })
                     .OrderByDescending(x => x.EffectivePriority)
@@ -996,6 +1034,7 @@ namespace ProjectHub.API.Services
             CreatedAt = t.CreatedAt,
             UpdatedAt = t.UpdatedAt,
             CompletedAt = t.CompletedAt,
+            StartDate = t.StartDate,
             DueDate = t.DueDate,
             ProjectDeadline = t.Project?.Deadline,
             Assignees = t.Assignees.Select(a => new TaskAssigneeDto

@@ -1253,3 +1253,446 @@
         color: #991b1b;
         font-weight: 600;
     }
+/* ══════════════════════════════════════════════
+   Контекстное меню
+   ══════════════════════════════════════════════ */
+.task-context-menu {
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    padding: 4px;
+    min-width: 220px;
+    z-index: 2000;
+    font-size: 13px;
+    user-select: none;
+    animation: contextMenuFadeIn 0.12s ease-out;
+}
+
+@keyframes contextMenuFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-4px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.context-menu-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    text-align: left;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #374151;
+    font-size: 13px;
+    font-family: inherit;
+    transition: background 0.1s;
+    position: relative;
+}
+
+    .context-menu-item:hover {
+        background: #eef2ff;
+        color: #4f46e5;
+    }
+
+    .context-menu-item.danger {
+        color: #dc2626;
+    }
+
+        .context-menu-item.danger:hover {
+            background: #fee2e2;
+            color: #991b1b;
+        }
+
+    .context-menu-item.active {
+        font-weight: 600;
+        color: #4f46e5;
+        background: #eef2ff;
+    }
+
+.context-menu-icon {
+    width: 18px;
+    text-align: center;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+.context-menu-arrow {
+    margin-left: auto;
+    color: #9ca3af;
+    font-size: 16px;
+    line-height: 1;
+}
+
+.context-menu-check {
+    margin-left: auto;
+    color: #4f46e5;
+    font-weight: 700;
+}
+
+.context-menu-divider {
+    height: 1px;
+    background: #f3f4f6;
+    margin: 4px 0;
+}
+
+/* ── Подменю ── */
+.context-menu-submenu-wrapper {
+    position: relative;
+}
+
+.context-submenu {
+    position: absolute;
+    top: -4px;
+    min-width: 180px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    padding: 4px;
+    z-index: 2001;
+    animation: contextMenuFadeIn 0.12s ease-out;
+    max-height: 320px;
+    overflow-y: auto;
+}
+
+.context-submenu--left {
+    right: 100%;
+    margin-right: 4px;
+}
+.task-card-startdate {
+    font-size: 11px;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 2px 6px;
+    border-radius: 6px;
+    white-space: nowrap;
+}
+/* ── Кнопка «Только активные» ── */
+.btn-filter-active {
+    background: #ecfdf5;
+    color: #047857;
+    border: 1px solid #a7f3d0;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+    .btn-filter-active:hover {
+        background: #d1fae5;
+        border-color: #6ee7b7;
+    }
+
+    .btn-filter-active.active {
+        background: #10b981;
+        color: #fff;
+        border-color: #10b981;
+    }
+
+        .btn-filter-active.active:hover {
+            background: #059669;
+            border-color: #059669;
+        }
+/* ── Кнопка «Без завершённых» ── */
+.btn-filter-hide-completed {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+    .btn-filter-hide-completed:hover {
+        background: #fee2e2;
+        border-color: #fca5a5;
+    }
+
+    .btn-filter-hide-completed.active {
+        background: #ef4444;/* ── Кнопка «Без завершённых» ── */
+.btn-filter-hide-completed {
+    background: #fef2f2;
+    color: #b91c1c;
+    border: 1px solid #fecaca;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+.btn-filter-hide-completed:hover {
+    background: #fee2e2;
+    border-color: #fca5a5;
+}
+
+.btn-filter-hide-completed.active {
+    background: #ef4444;
+    color: #fff;
+    border-color: #ef4444;
+}
+
+.btn-filter-hide-completed.active:hover {
+    background: #dc2626;
+    border-color: #dc2626;
+}
+        color: #fff;
+        border-color: #ef4444;
+    }
+
+        .btn-filter-hide-completed.active:hover {
+            background: #dc2626;
+            border-color: #dc2626;
+        }
+/* ══════════════════════════════════════════════════════════════
+   Кнопка таймлайна
+   ══════════════════════════════════════════════════════════════ */
+.btn-timeline {
+    background: #f5f3ff;
+    color: #6d28d9;
+    border: 1px solid #ddd6fe;
+    padding: 8px 14px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+    white-space: nowrap;
+}
+
+    .btn-timeline:hover {
+        background: #ede9fe;
+        border-color: #c4b5fd;
+    }
+
+    .btn-timeline.active {
+        background: #7c3aed;
+        color: #fff;
+        border-color: #7c3aed;
+    }
+
+        .btn-timeline.active:hover {
+            background: #6d28d9;
+            border-color: #6d28d9;
+        }
+
+/* ══════════════════════════════════════════════════════════════
+   Секция таймлайна
+   ══════════════════════════════════════════════════════════════ */
+.task-timeline {
+    display: flex;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background: #fafafa;
+    overflow: hidden; /* обрезаем всё за пределами контейнера */
+}
+
+/* ── Левая фиксированная колонка ── */
+.timeline-left {
+    flex-shrink: 0;
+    background: #fff;
+    border-right: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    z-index: 2;
+}
+
+.timeline-header-left {
+    height: 34px;
+    display: flex;
+    align-items: center;
+    padding: 0 10px;
+    font-size: 12px;
+    font-weight: 600;
+    color: #374151;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+    flex-shrink: 0;
+}
+
+.timeline-left-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.timeline-row-label {
+    height: 40px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 10px;
+    font-size: 13px;
+    color: #111827;
+    border-bottom: 1px solid #f3f4f6;
+    cursor: pointer;
+    transition: background 0.1s;
+    overflow: hidden;
+}
+
+    .timeline-row-label:hover {
+        background: #f9fafb;
+    }
+
+    .timeline-row-label:last-child {
+        border-bottom: none;
+    }
+
+.timeline-priority-icon {
+    flex-shrink: 0;
+    font-size: 12px;
+}
+
+.timeline-row-title {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* ── Правая скроллируемая колонка ── */
+.timeline-right {
+    flex: 1;
+    overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.timeline-right-inner {
+    position: relative;
+}
+
+/* ── Шапка со шкалой ── */
+.timeline-header-scale {
+    position: relative;
+    height: 34px;
+    background: #f9fafb;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.timeline-day-label {
+    position: absolute;
+    top: 0;
+    height: 34px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    color: #9ca3af;
+    pointer-events: none;
+}
+
+    .timeline-day-label.month-start {
+        font-size: 11px;
+        font-weight: 600;
+        color: #4f46e5;
+        justify-content: flex-start;
+        padding-left: 2px;
+    }
+
+/* ── Строки задач (только треки) ── */
+.timeline-body {
+    display: flex;
+    flex-direction: column;
+}
+
+.timeline-row-track {
+    position: relative;
+    height: 40px;
+    border-bottom: 1px solid #f3f4f6;
+    cursor: pointer;
+    transition: background 0.1s;
+}
+
+    .timeline-row-track:hover {
+        background: #f9fafb;
+    }
+
+    .timeline-row-track:last-child {
+        border-bottom: none;
+    }
+
+/* ── Сетка дней ── */
+.timeline-day-grid {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    pointer-events: none;
+}
+
+.timeline-day-cell {
+    flex-shrink: 0;
+    height: 100%;
+    border-right: 1px solid #f3f4f6;
+}
+
+    .timeline-day-cell.month-start {
+        border-left: 1px solid #c7d2fe;
+        background: #eef2ff;
+    }
+
+/* ── Полоса задачи ── */
+.timeline-bar {
+    position: absolute;
+    top: 10px;
+    height: 20px;
+    border-radius: 6px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+    transition: opacity 0.15s;
+}
+
+    .timeline-bar:hover {
+        opacity: 0.85;
+    }
+
+    .timeline-bar.overdue {
+        background-image: repeating-linear-gradient( 45deg, rgba(255, 255, 255, 0.35), rgba(255, 255, 255, 0.35) 6px, transparent 6px, transparent 12px );
+    }
+
+    .timeline-bar.completed {
+        opacity: 0.55;
+    }
+
+/* ── Сегодня ── */
+.timeline-today {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: #ef4444;
+    z-index: 1;
+    pointer-events: none;
+}
+
+    .timeline-today::before {
+        content: '';
+        position: absolute;
+        top: -4px;
+        left: -4px;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: #ef4444;
+    }
+
+/* ── Пустое состояние ── */
+.timeline-empty {
+    padding: 24px;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 13px;
+}

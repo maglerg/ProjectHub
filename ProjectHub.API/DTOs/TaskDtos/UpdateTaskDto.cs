@@ -8,6 +8,7 @@ namespace ProjectHub.API.DTOs.TaskDtos
         public string? Description { get; set; }
         public Guid ColumnId { get; set; }
         public TaskPriority Priority { get; set; } = TaskPriority.None;
+        public DateTime? StartDate { get; set; }
         public DateTime? DueDate { get; set; }
 
     }

@@ -28,3 +28,72 @@ export const getDeadlineStatus = (dueDate, isCompleted) => {
     if (diff < 24 * 60 * 60 * 1000) return 'soon';
     return '';
 };
+export const validateDateRange = (startDate, dueDate, projectDeadline) => {
+    const start = startDate ? new Date(startDate) : null;
+    const due = dueDate ? new Date(dueDate) : null;
+    const proj = projectDeadline ? new Date(projectDeadline) : null;
+
+    if (start && proj && start > proj) {
+        return 'Дата начала не может быть позже дедлайна проекта.';
+    }
+    if (due && proj && due > proj) {
+        return 'Дедлайн задачи не может быть позже дедлайна проекта.';
+    }
+    if (start && due && due < start) {
+        return 'Дедлайн задачи не может быть раньше даты начала.';
+    }
+    return null;
+};
+/** Разница в днях между двумя датами */
+export const daysBetween = (a, b) => {
+    const ms = new Date(b) - new Date(a);
+    return ms / (1000 * 60 * 60 * 24);
+};
+
+/** Сдвинуть дату на N дней */
+export const addDays = (date, n) => {
+    const d = new Date(date);
+    d.setDate(d.getDate() + n);
+    return d;
+};
+
+/** Начало дня (без времени) */
+export const startOfDay = (date) => {
+    const d = new Date(date);
+    d.setHours(0, 0, 0, 0);
+    return d;
+};
+
+/** Формат "16 сен" */
+export const formatShortDate = (date) => {
+    if (!date) return '—';
+    return new Date(date).toLocaleDateString('ru-RU', {
+        day: '2-digit', month: 'short'
+    });
+};
+/** Начало месяца (1-е число, 00:00) */
+export const startOfMonth = (date) => {
+    const d = new Date(date);
+    d.setDate(1);
+    d.setHours(0, 0, 0, 0);
+    return d;
+};
+
+/** Конец месяца (последний день, 23:59) */
+export const endOfMonth = (date) => {
+    const d = new Date(date);
+    d.setMonth(d.getMonth() + 1);
+    d.setDate(0);
+    d.setHours(23, 59, 59, 999);
+    return d;
+};
+
+/** Количество дней в месяце */
+export const daysInMonth = (date) => {
+    return endOfMonth(date).getDate();
+};
+
+/** Название месяца коротко: "сен" */
+export const formatMonthShort = (date) => {
+    return new Date(date).toLocaleDateString('ru-RU', { month: 'short' });
+};

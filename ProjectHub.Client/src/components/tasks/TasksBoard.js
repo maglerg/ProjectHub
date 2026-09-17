@@ -11,6 +11,7 @@ import { TASK_PRIORITIES } from '../../utils/constants';
 import TaskColumn from './TaskColumn';
 import CreateTaskModal from './CreateTaskModal';
 import '../../styles/components/tasks/tasks.css';
+import TaskTimeline from './TaskTimeline';
 
 export default function TasksBoard({
     projectCode,
@@ -22,10 +23,13 @@ export default function TasksBoard({
     const [progress, setProgress] = useState(null);
     const [onlyMyTasks, setOnlyMyTasks] = useState(false);
     const [priorityFilter, setPriorityFilter] = useState('All');
+    const [onlyActive, setOnlyActive] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [actionError, setActionError] = useState(null);
+    const [hideCompleted, setHideCompleted] = useState(false);
+    const [showTimeline, setShowTimeline] = useState(false);
 
     // ── Загрузка доски и прогресса ──
     const loadBoard = async () => {
@@ -51,13 +55,34 @@ export default function TasksBoard({
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projectCode]);
 
-    // ── Фильтрация: «Мои» + приоритет ──
+    // ── Проверка: задача "активная"? ──
+    const isTaskActive = (t) => {
+        // Завершённые — активные (уже сделаны)
+        if (t.completedAt) return true;
+
+        // Кто-то взял — активная
+        if ((t.assignees || []).length > 0) return true;
+
+        // Есть дата старта — проверяем, наступила ли она
+        if (t.startDate) {
+            const start = new Date(t.startDate);
+            const now = new Date();
+            if (start <= now) return true;
+        }
+
+        // Иначе — не активная (ждёт старта)
+        return false;
+    };
+
+    // ── Фильтрация: «Мои» + приоритет + «Только активные» ──
     const filterColumns = (cols) => {
         const emailLower = (currentUserEmail || '').toLowerCase();
         const useMy = onlyMyTasks;
         const usePriority = priorityFilter !== 'All';
+        const useActive = onlyActive;
+        const useHideCompleted = hideCompleted;
 
-        if (!useMy && !usePriority) return cols;
+        if (!useMy && !usePriority && !useActive && !useHideCompleted) return cols;
 
         return cols.map(col => ({
             ...col,
@@ -69,6 +94,8 @@ export default function TasksBoard({
                     if (!isMine) return false;
                 }
                 if (usePriority && t.priority !== priorityFilter) return false;
+                if (useActive && !isTaskActive(t)) return false;
+                if (useHideCompleted && t.completedAt) return false;
                 return true;
             })
         }));
@@ -76,7 +103,8 @@ export default function TasksBoard({
 
     const visibleColumns = filterColumns(columns);
     const hasVisibleTasks = visibleColumns.some(c => c.tasks.length > 0);
-    const isFiltering = onlyMyTasks || priorityFilter !== 'All';
+    const isFiltering =
+        onlyMyTasks || priorityFilter !== 'All' || onlyActive || hideCompleted;
 
     // ── Взять задачу ──
     const handleTake = async (taskId) => {
@@ -152,6 +180,31 @@ export default function TasksBoard({
                         {onlyMyTasks ? '📋 Все задачи' : '👤 Мои задачи'}
                     </button>
 
+                    {/* ── Кнопка «Только активные» ── */}
+                    <button
+                        type="button"
+                        className={`btn-filter-active ${onlyActive ? 'active' : ''}`}
+                        onClick={() => setOnlyActive(v => !v)}
+                        title={
+                            onlyActive
+                                ? 'Показать все задачи, включая ещё не начатые'
+                                : 'Скрыть задачи, которые ещё не начались'
+                        }
+                    >
+                        {onlyActive ? '🚀 Только активные' : '🗂 Все задачи'}
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn-filter-hide-completed ${hideCompleted ? 'active' : ''}`}
+                        onClick={() => setHideCompleted(v => !v)}
+                        title={
+                            hideCompleted
+                                ? 'Показать завершённые задачи'
+                                : 'Скрыть завершённые задачи'
+                        }
+                    >
+                        {hideCompleted ? '🙈 Без завершённых' : '✅ Все задачи'}
+                    </button>
                     {/* ── Фильтр по приоритету ── */}
                     <select
                         className={`priority-filter ${priorityFilter !== 'All' ? 'active' : ''}`}
@@ -172,6 +225,14 @@ export default function TasksBoard({
                         onClick={() => setIsModalOpen(true)}
                     >
                         + Создать задачу
+                    </button>
+                    <button
+                        type="button"
+                        className={`btn-timeline ${showTimeline ? 'active' : ''}`}
+                        onClick={() => setShowTimeline(v => !v)}
+                        title={showTimeline ? 'Скрыть таймлайн' : 'Показать таймлайн задач'}
+                    >
+                        📅 {showTimeline ? 'Скрыть таймлайн' : 'Таймлайн'}
                     </button>
                 </div>
             </div>
@@ -216,6 +277,8 @@ export default function TasksBoard({
                         onClick={() => {
                             setOnlyMyTasks(false);
                             setPriorityFilter('All');
+                            setOnlyActive(false);
+                            setHideCompleted(false);
                         }}
                     >
                         Сбросить фильтры
@@ -227,17 +290,25 @@ export default function TasksBoard({
                         <TaskColumn
                             key={col.id}
                             column={col}
+                            columns={columns}
                             projectCode={projectCode}
                             currentUserEmail={currentUserEmail}
                             isOwner={isOwner}
                             onTake={handleTake}
                             onMove={handleMove}
                             onUpload={handleUpload}
+                            onRefresh={loadBoard}
+                            onError={setActionError}
                         />
                     ))}
                 </div>
             )}
-
+            {showTimeline && (
+                <div className="timeline-section">
+                    <h3 className="timeline-section-title">📅 Таймлайн задач</h3>
+                    <TaskTimeline columns={columns} />
+                </div>
+            )}
             {isModalOpen && (
                 <CreateTaskModal
                     columns={columns}
