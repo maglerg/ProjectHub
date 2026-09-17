@@ -22,10 +22,12 @@ export default function TaskTimeline({ columns }) {
 
     const tasks = columns.flatMap(c => c.tasks || []);
 
+    // ── Считаем диапазон дат с учётом эффективного дедлайна ──
     const allDates = [];
     tasks.forEach(t => {
         if (t.startDate) allDates.push(new Date(t.startDate));
-        if (t.dueDate) allDates.push(new Date(t.dueDate));
+        if (t.effectiveDueDate) allDates.push(new Date(t.effectiveDueDate));
+        else if (t.dueDate) allDates.push(new Date(t.dueDate));
         if (t.createdAt) allDates.push(new Date(t.createdAt));
     });
 
@@ -63,12 +65,16 @@ export default function TaskTimeline({ columns }) {
     );
     const todayOffset = todayIndex >= 0 ? todayIndex * DAY_WIDTH : -100;
 
+    // ── Полоса задачи ──
     const getBar = (t) => {
         const start = startOfDay(
             t.startDate ? new Date(t.startDate) : new Date(t.createdAt)
         );
-        let end = t.dueDate
-            ? startOfDay(new Date(t.dueDate))
+
+        // Используем эффективный дедлайн (учитывает дедлайн проекта)
+        const effectiveDue = t.effectiveDueDate || t.dueDate;
+        let end = effectiveDue
+            ? startOfDay(new Date(effectiveDue))
             : addDays(start, 3);
 
         const startIdx = days.findIndex(
@@ -103,14 +109,16 @@ export default function TaskTimeline({ columns }) {
                     {tasks.map(t => {
                         const priorityInfo = getPriorityInfo(t.priority);
                         const assignees = t.assignees || [];
+                        const effectiveDue = t.effectiveDueDate || t.dueDate;
+
                         const tooltip = [
                             t.title,
                             `Приоритет: ${priorityInfo.label}`,
                             t.startDate
                                 ? `Начало: ${formatDateTime(t.startDate)}`
                                 : 'Начало: —',
-                            t.dueDate
-                                ? `Дедлайн: ${formatDateTime(t.dueDate)}`
+                            effectiveDue
+                                ? `${t.isDueDateFixed ? 'Дедлайн' : 'Дедлайн (по проекту)'}: ${formatDateTime(effectiveDue)}`
                                 : 'Без дедлайна',
                             assignees.length
                                 ? `Исполнители: ${assignees.map(a => a.name || a.email).join(', ')}`
@@ -175,10 +183,13 @@ export default function TaskTimeline({ columns }) {
                         {tasks.map(t => {
                             const bar = getBar(t);
                             const color = getPriorityColor(t.priority);
+
+                            // Просрочка — считаем по эффективному дедлайну
+                            const effectiveDue = t.effectiveDueDate || t.dueDate;
                             const overdue =
-                                t.dueDate &&
+                                effectiveDue &&
                                 !t.completedAt &&
-                                new Date(t.dueDate) < new Date();
+                                new Date(effectiveDue) < new Date();
 
                             return (
                                 <div
@@ -193,8 +204,8 @@ export default function TaskTimeline({ columns }) {
                                             <div
                                                 key={idx}
                                                 className={`timeline-day-cell ${d.isFirstOfMonth
-                                                        ? 'month-start'
-                                                        : ''
+                                                    ? 'month-start'
+                                                    : ''
                                                     }`}
                                                 style={{ width: DAY_WIDTH }}
                                             />

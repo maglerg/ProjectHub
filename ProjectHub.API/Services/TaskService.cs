@@ -60,6 +60,7 @@ namespace ProjectHub.API.Services
                 .Include(c => c.Tasks).ThenInclude(t => t.Assignees).ThenInclude(a => a.User)
                 .Include(c => c.Tasks).ThenInclude(t => t.Attachments)
                 .Include(c => c.Tasks).ThenInclude(t => t.Subtasks)
+                .Include(c => c.Tasks).ThenInclude(t => t.Project)
                 .ToListAsync();
 
             return columns.Select(c => MapColumn(c, project.OwnerId, userId)).ToList();
@@ -407,6 +408,7 @@ namespace ProjectHub.API.Services
                 .Include(t => t.Assignees).ThenInclude(a => a.User)
                 .Include(t => t.Attachments).ThenInclude(a => a.UploadedBy)
                 .Include(t => t.Subtasks)
+                .Include(t => t.Project)
                 .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
                 ?? throw new KeyNotFoundException("Задача не найдена");
 
@@ -842,6 +844,20 @@ namespace ProjectHub.API.Services
         // ═══════════════════════════════════════════════════════════
 
         /// <summary>
+        /// Эффективный дедлайн задачи:
+        ///   • если пользователь задал DueDate — используем его;
+        ///   • иначе — дедлайн проекта.
+        /// Вычисляется на лету, не сохраняется в БД.
+        /// </summary>
+        private static DateTime? GetEffectiveDueDate(ProjectTask task)
+        {
+            if (task.DueDate.HasValue)
+                return task.DueDate;
+
+            return task.Project?.Deadline;
+        }
+
+        /// <summary>
         /// Проверяет, что дата начала не позже дедлайна задачи и дедлайна проекта.
         /// </summary>
         private static void ValidateStartDate(
@@ -881,7 +897,7 @@ namespace ProjectHub.API.Services
         /// <summary>
         /// Эффективный приоритет: вычисляется на лету, не сохраняется в БД.
         ///   • задача завершена → None
-        ///   • нет дедлайна → сохранённый Priority
+        ///   • нет эффективного дедлайна → сохранённый Priority
         ///   • дедлайн просрочен или ≤ 3 дней → Critical
         ///   • ≤ 7 дней → не ниже High
         ///   • иначе → сохранённый Priority
@@ -891,10 +907,12 @@ namespace ProjectHub.API.Services
             if (task.CompletedAt.HasValue)
                 return TaskPriority.None;
 
-            if (!task.DueDate.HasValue)
+            var effectiveDue = GetEffectiveDueDate(task);
+
+            if (!effectiveDue.HasValue)
                 return task.Priority;
 
-            var daysLeft = (task.DueDate.Value - DateTime.UtcNow).TotalDays;
+            var daysLeft = (effectiveDue.Value - DateTime.UtcNow).TotalDays;
 
             if (daysLeft <= 3)
                 return TaskPriority.Critical;
@@ -1036,6 +1054,8 @@ namespace ProjectHub.API.Services
             CompletedAt = t.CompletedAt,
             StartDate = t.StartDate,
             DueDate = t.DueDate,
+            EffectiveDueDate = GetEffectiveDueDate(t),
+            IsDueDateFixed = t.DueDate.HasValue,
             ProjectDeadline = t.Project?.Deadline,
             Assignees = t.Assignees.Select(a => new TaskAssigneeDto
             {

@@ -10,6 +10,7 @@ import {
     deleteTask
 } from '../../services/tasksApi';
 import { getPriorityInfo, getPriorityColor } from '../../utils/constants';
+import { formatDateTime, getDeadlineStatus } from '../../utils/datetime';
 import TaskContextMenu from './TaskContextMenu';
 
 export default function TaskCard({
@@ -49,6 +50,11 @@ export default function TaskCard({
 
     const priorityInfo = getPriorityInfo(task.priority);
     const priorityColor = getPriorityColor(task.priority);
+
+    // ── Эффективный дедлайн ──
+    const effectiveDue = task.effectiveDueDate;
+    const isDueFixed = !!task.isDueDateFixed;
+    const deadlineStatus = getDeadlineStatus(effectiveDue, !!task.completedAt);
 
     // ── Drag-n-drop ──
     const handleDragStart = (e) => {
@@ -162,6 +168,7 @@ export default function TaskCard({
                 description: task.description,
                 columnId: task.columnId,
                 priority,
+                startDate: task.startDate || null,
                 dueDate: task.dueDate || null
             });
             onRefresh?.();
@@ -327,6 +334,24 @@ export default function TaskCard({
                                     📎
                                 </button>
                             </>
+                        )}
+
+                        {/* ── Эффективный дедлайн ── */}
+                        {effectiveDue && (
+                            <span
+                                className={`task-card-deadline ${deadlineStatus}`}
+                                title={
+                                    isDueFixed
+                                        ? `Дедлайн: ${formatDateTime(effectiveDue)}`
+                                        : `Дедлайн по проекту: ${formatDateTime(effectiveDue)}`
+                                }
+                            >
+                                {isDueFixed ? '🕒' : '🏁'}{' '}
+                                {new Date(effectiveDue).toLocaleDateString('ru-RU', {
+                                    day: '2-digit',
+                                    month: '2-digit'
+                                })}
+                            </span>
                         )}
                     </div>
                 </div>

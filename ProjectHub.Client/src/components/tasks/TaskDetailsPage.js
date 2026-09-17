@@ -410,7 +410,7 @@ export default function TaskDetailsPage() {
     const isOwnerUser = !!task.isOwner;
 
     const priorityInfo = getPriorityInfo(task.priority);
-    const deadlineStatus = getDeadlineStatus(task.dueDate, !!task.completedAt);
+    const deadlineStatus = getDeadlineStatus(task.effectiveDueDate, !!task.completedAt);
 
     return (
         <div className="task-details-page">
@@ -525,9 +525,10 @@ export default function TaskDetailsPage() {
                             </span>
                             <span>
                                 <b>Дедлайн:</b>{' '}
-                                {task.dueDate ? (
+                                {task.effectiveDueDate ? (
                                     <span className={deadlineStatus}>
-                                        {formatDateTime(task.dueDate)}
+                                        {formatDateTime(task.effectiveDueDate)}
+                                        {!task.isDueDateFixed && ' (по проекту)'}
                                         {deadlineStatus === 'overdue' && ' ⚠️'}
                                     </span>
                                 ) : (
@@ -904,7 +905,7 @@ export default function TaskDetailsPage() {
                                     dueDate: e.target.checked ? '' : form.dueDate
                                 })}
                             />
-                            Без дедлайна
+                            Без дедлайна (до конца проекта)
                         </label>
 
                         {!form.noDueDate && (

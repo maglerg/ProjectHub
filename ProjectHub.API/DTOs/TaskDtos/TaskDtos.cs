@@ -35,6 +35,8 @@
         public DateTime? StartDate { get; set; }
         public DateTime? DueDate { get; set; }
         public DateTime? ProjectDeadline { get; set; }
+        public DateTime? EffectiveDueDate { get; set; }    // ← новое
+        public bool IsDueDateFixed { get; set; }            // ← новое
     }
     
     
