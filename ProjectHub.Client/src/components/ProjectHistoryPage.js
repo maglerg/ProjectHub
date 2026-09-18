@@ -1,16 +1,18 @@
+// projecthub.client/src/components/ProjectHistoryPage.js
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getProjectHistory } from '../services/projectsApi';           // было ../../services/...
+import { getProjectHistory } from '../services/projectsApi';
 import {
     ACTIVITY_FILTERS,
     getActivityInfo
-} from '../utils/activityConstants';                                    // было ../../utils/...
-import { formatRelativeTime } from '../utils/datetime';                // было ../../utils/...
-import '../styles/components/ProjectHistoryPage.css';     
+} from '../utils/activityConstants';
+import { formatRelativeTime } from '../utils/datetime';
+import '../styles/components/ProjectHistoryPage.css';
 
 const PAGE_SIZE = 30;
 
-export default function ProjectHistoryPage() {
+export default function ProjectHistoryPage({ embedded = false }) {
     const { code } = useParams();
     const navigate = useNavigate();
 
@@ -83,14 +85,24 @@ export default function ProjectHistoryPage() {
     }
 
     return (
-        <div className="project-history-page">
-            <header className="history-header">
-                <button className="btn-back" onClick={() => navigate(-1)}>
-                    ← Назад
-                </button>
-                <h1>📜 История проекта</h1>
-                <span className="history-total">{total} событий</span>
-            </header>
+        <div className={embedded ? 'project-history-page project-history-page--embedded' : 'project-history-page'}>
+            {/* ── Шапка (только в standalone-режиме) ── */}
+            {!embedded && (
+                <header className="history-header">
+                    <button className="btn-back" onClick={() => navigate(-1)}>
+                        ← Назад
+                    </button>
+                    <h1>📜 История проекта</h1>
+                    <span className="history-total">{total} событий</span>
+                </header>
+            )}
+
+            {/* ── В embedded показываем только счётчик ── */}
+            {embedded && (
+                <div className="history-embedded-meta">
+                    <span className="history-total">{total} событий</span>
+                </div>
+            )}
 
             {/* ── Фильтры ── */}
             <div className="history-filters">
@@ -98,8 +110,7 @@ export default function ProjectHistoryPage() {
                     <button
                         key={f.value}
                         type="button"
-                        className={`history-filter-btn ${activeGroup === f.value ? 'active' : ''
-                            }`}
+                        className={`history-filter-btn ${activeGroup === f.value ? 'active' : ''}`}
                         onClick={() => setActiveGroup(f.value)}
                     >
                         <span className="history-filter-icon">{f.icon}</span>

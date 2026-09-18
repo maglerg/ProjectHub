@@ -7,7 +7,7 @@ import { getProjectVotings, deleteVoting } from '../services/votingsApi';
 import { searchMyProjectByCode } from '../services/projectsApi';
 import '../styles/components/VotingsListPage.css';
 
-const VotingsListPage = () => {
+const VotingsListPage = ({ embedded = false }) => {
     const { code } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -80,7 +80,7 @@ const VotingsListPage = () => {
 
     // 📌 Удалить голосование
     const handleDelete = async (e, voting) => {
-        e.stopPropagation();   // чтобы не открывать страницу голосования
+        e.stopPropagation();
 
         if (!window.confirm(`Удалить голосование «${voting.title}»? Это действие необратимо.`)) {
             return;
@@ -99,6 +99,23 @@ const VotingsListPage = () => {
         }
     };
 
+    // 📌 Открыть голосование
+    // Передаём state, чтобы VotingPage знал, откуда пришёл пользователь
+    // и куда возвращать по кнопке «Назад».
+    const handleOpenVoting = (votingId) => {
+        navigate(`/projects/${code}/votings/${votingId}`, {
+            state: { fromDashboard: embedded, section: 'votings' }
+        });
+    };
+
+    // 📌 Создать голосование
+    // Аналогично — чтобы CreateVotingPage вернул на дашборд с активным разделом.
+    const handleCreateVoting = () => {
+        navigate(`/projects/${code}/votings/new`, {
+            state: { fromDashboard: embedded, section: 'votings' }
+        });
+    };
+
     if (loading) {
         return (
             <div className="votings-page-loading">
@@ -114,33 +131,38 @@ const VotingsListPage = () => {
                 <div className="error-icon">❌</div>
                 <h3>Ошибка</h3>
                 <p>{error}</p>
-                <button className="btn-back" onClick={() => navigate(`/projects/${code}/dashboard`)}>
-                    ← К проекту
-                </button>
+                {!embedded && (
+                    <button className="btn-back" onClick={() => navigate(`/projects/${code}/dashboard`)}>
+                        ← К проекту
+                    </button>
+                )}
             </div>
         );
     }
 
     return (
-        <div className="votings-page">
-            <header className="votings-page-header">
-                <button
-                    className="btn-back"
-                    onClick={() => navigate(`/projects/${code}/dashboard`)}
-                >
-                    ← К проекту
-                </button>
-                <div className="votings-page-title">
-                    <h1>🗳️ Голосования</h1>
-                    {project && <p className="votings-page-subtitle">{project.name}</p>}
-                </div>
-                <button
-                    className="btn-primary btn-create-voting-page"
-                    onClick={() => navigate(`/projects/${code}/votings/new`)}
-                >
-                    ➕ Создать голосование
-                </button>
-            </header>
+        <div className={embedded ? 'votings-page votings-page--embedded' : 'votings-page'}>
+            {/* ── Шапка (только в standalone-режиме) ── */}
+            {!embedded && (
+                <header className="votings-page-header">
+                    <button
+                        className="btn-back"
+                        onClick={() => navigate(`/projects/${code}/dashboard`)}
+                    >
+                        ← К проекту
+                    </button>
+                    <div className="votings-page-title">
+                        <h1>🗳️ Голосования</h1>
+                        {project && <p className="votings-page-subtitle">{project.name}</p>}
+                    </div>
+                    <button
+                        className="btn-primary btn-create-voting-page"
+                        onClick={handleCreateVoting}
+                    >
+                        ➕ Создать голосование
+                    </button>
+                </header>
+            )}
 
             <div className="votings-page-content">
                 {error && votings.length > 0 && (
@@ -156,7 +178,7 @@ const VotingsListPage = () => {
                         <p>Создайте первое голосование для участников проекта</p>
                         <button
                             className="btn-primary"
-                            onClick={() => navigate(`/projects/${code}/votings/new`)}
+                            onClick={handleCreateVoting}
                         >
                             ➕ Создать голосование
                         </button>
@@ -172,7 +194,7 @@ const VotingsListPage = () => {
                                 <div
                                     key={v.id}
                                     className="voting-card-page"
-                                    onClick={() => !isDeleting && navigate(`/projects/${code}/votings/${v.id}`)}
+                                    onClick={() => !isDeleting && handleOpenVoting(v.id)}
                                 >
                                     <div className="voting-card-header">
                                         <div className="voting-title">{v.title}</div>

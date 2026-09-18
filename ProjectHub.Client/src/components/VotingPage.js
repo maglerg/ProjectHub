@@ -1,7 +1,7 @@
 // projecthub.client/src/components/VotingPage.js
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getVotingById, vote, closeVoting, deleteVoting } from '../services/votingsApi';
 import { searchMyProjectByCode } from '../services/projectsApi';
@@ -10,7 +10,11 @@ import '../styles/components/VotingPage.css';
 const VotingPage = () => {
     const { code, votingId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
     const { user } = useAuth();
+
+    // 📌 Пришли ли мы с дашборда (чтобы вернуться на нужный раздел)
+    const fromDashboard = location.state?.fromDashboard === true;
 
     const [project, setProject] = useState(null);
     const [voting, setVoting] = useState(null);
@@ -19,8 +23,21 @@ const VotingPage = () => {
     const [selectedIds, setSelectedIds] = useState([]);
     const [submitting, setSubmitting] = useState(false);
 
-    // 📌 НОВОЕ: показать, кто голосовал
+    // 📌 Показать, кто голосовал
     const [showVoters, setShowVoters] = useState(false);
+
+    // 📌 Универсальный возврат:
+    //   — если пришли с дашборда → возвращаемся на дашборд с активным разделом "votings"
+    //   — иначе → на страницу списка голосований
+    const goBack = () => {
+        if (fromDashboard) {
+            navigate(`/projects/${code}/dashboard`, {
+                state: { section: 'votings' }
+            });
+        } else {
+            navigate(`/projects/${code}/votings`);
+        }
+    };
 
     const loadVoting = useCallback(async () => {
         setLoading(true);
@@ -48,6 +65,7 @@ const VotingPage = () => {
     useEffect(() => {
         if (voting?.isAnonymous) setShowVoters(false);
     }, [voting?.isAnonymous]);
+
     const isActive = voting && !voting.isClosed && !voting.isExpired;
     const canSeeResults = voting && (
         voting.hasVoted ||
@@ -103,7 +121,7 @@ const VotingPage = () => {
         setSubmitting(true);
         try {
             await deleteVoting(voting.id);
-            navigate(`/projects/${code}/votings`);
+            goBack();
         } catch (err) {
             setError(err.message || 'Не удалось удалить');
         } finally {
@@ -141,10 +159,7 @@ const VotingPage = () => {
                 <div className="error-icon">❌</div>
                 <h3>Ошибка</h3>
                 <p>{error}</p>
-                <button
-                    className="btn-back"
-                    onClick={() => navigate(`/projects/${code}/votings`)}
-                >
+                <button className="btn-back" onClick={goBack}>
                     ← К голосованиям
                 </button>
             </div>
@@ -156,10 +171,7 @@ const VotingPage = () => {
     return (
         <div className="voting-page">
             <header className="voting-page-header">
-                <button
-                    className="btn-back"
-                    onClick={() => navigate(`/projects/${code}/votings`)}
-                >
+                <button className="btn-back" onClick={goBack}>
                     ← К голосованиям
                 </button>
                 <div className="voting-page-title">
@@ -223,7 +235,6 @@ const VotingPage = () => {
                                         </div>
                                     )}
 
-                                    { }
                                     {showVoters && canSeeResults && !voting.isAnonymous && voters.length > 0 && (
                                         <div className="option-voters">
                                             {voters.map(voter => (

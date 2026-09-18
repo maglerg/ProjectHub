@@ -167,3 +167,65 @@
     border-radius: 8px;
     font-size: 14px;
 }
+/* ── Модальная версия создания голосования ── */
+.modal-content--voting {
+    max-width: 640px;
+    max-height: 90vh;
+    overflow-y: auto;
+    padding: 24px 28px;
+}
+
+    .modal-content--voting h3 {
+        margin: 0 0 16px;
+        font-size: 18px;
+        color: #222;
+    }
+
+    .modal-content--voting .create-voting-form {
+        max-width: none;
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+    }
+
+    .modal-content--voting .modal-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 10px;
+        margin-top: 8px;
+        padding-top: 16px;
+        border-top: 1px solid #eef1f5;
+    }
+
+        .modal-content--voting .modal-actions button {
+            padding: 9px 18px;
+            border-radius: 8px;
+            border: none;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            font-family: inherit;
+        }
+
+            .modal-content--voting .modal-actions button[type="button"] {
+                background: #e5e7eb;
+                color: #374151;
+            }
+
+                .modal-content--voting .modal-actions button[type="button"]:hover:not(:disabled) {
+                    background: #d1d5db;
+                }
+
+            .modal-content--voting .modal-actions button[type="submit"] {
+                background: #4a90e2;
+                color: #fff;
+            }
+
+                .modal-content--voting .modal-actions button[type="submit"]:hover:not(:disabled) {
+                    background: #357abd;
+                }
+
+            .modal-content--voting .modal-actions button:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }

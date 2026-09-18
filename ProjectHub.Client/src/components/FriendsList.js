@@ -34,7 +34,6 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
             const user = await getUserProfileByEmail(searchEmail);
             if (user) {
                 setFoundUser(user);
-                // Проверяем статус дружбы
                 try {
                     const status = await getFriendStatus(user.email);
                     setFriendStatus(status);
@@ -89,119 +88,141 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
         setSearchEmail('');
         setSearchError('');
         setFriendStatus(null);
+        setNotification(null);
     };
 
-    if (loading) {
-        return <div className="friends-loading">⏳ Загрузка...</div>;
-    }
+    // 📌 Перейти к заявкам в друзья
+    const handleGoToRequests = () => {
+        navigate('/friends/requests');
+    };
 
     return (
-        <div className="friends-container">
-            <div className="friends-header">
-                <h2>👥 Друзья</h2>
-                <span className="friends-count">{friends.length} чел.</span>
-            </div>
-
-            {/* 📌 ПОИСК ПОЛЬЗОВАТЕЛЯ */}
-            <form className="search-user-form" onSubmit={handleSearch}>
-                <div className="search-user-input-group">
-                    <input
-                        type="email"
-                        placeholder="Введите email для поиска"
-                        value={searchEmail}
-                        onChange={(e) => setSearchEmail(e.target.value)}
-                        disabled={isSearching}
-                    />
-                    <button type="submit" disabled={isSearching || !searchEmail.trim()}>
-                        {isSearching ? '⏳' : '🔍 Найти'}
-                    </button>
+        <div className="friends-page">
+            {/* ── Поиск пользователя ── */}
+            <section className="friends-search-section">
+                <div className="friends-search-header">
+                    <h2>👥 Друзья</h2>
+                    <span className="friends-count-badge">
+                        {friends.length} чел.
+                    </span>
                 </div>
-                {searchError && <div className="search-error">❌ {searchError}</div>}
-            </form>
 
-            {/* 📌 РЕЗУЛЬТАТ ПОИСКА */}
-            {foundUser && (
-                <div className="search-result">
-                    <div className="search-result-header">
-                        <span>Результат поиска</span>
-                        <button className="clear-search-btn" onClick={clearSearch}>
-                            ✕
-                        </button>
-                    </div>
-                    <div className="search-result-card">
-                        <div className="search-result-avatar">
-                            {foundUser.name ? foundUser.name[0].toUpperCase() : '👤'}
-                        </div>
-                        <div className="search-result-info">
-                            <div className="search-result-name">{foundUser.name}</div>
-                            <div className="search-result-email">{foundUser.email}</div>
-                            <div className="search-result-specialization">
-                                {foundUser.specialization || '—'}
-                            </div>
-                            <div className="search-result-status">
-                                {foundUser.isOnline ? '🟢 Онлайн' : '⚫ Оффлайн'}
-                            </div>
-                        </div>
-                    </div>
-
-                    {/* 📌 КНОПКИ ДЕЙСТВИЙ */}
-                    <div className="search-result-actions">
-                        {friendStatus?.isFriend ? (
-                            <div className="already-friend">
-                                ✅ Уже в друзьях
-                            </div>
-                        ) : friendStatus?.status === 'Pending' ? (
-                            <div className="request-pending">
-                                ⏳ Заявка отправлена
-                            </div>
-                        ) : friendStatus?.status === 'Received' ? (
-                            <div className="request-received">
-                                📩 Вам отправлена заявка
-                            </div>
-                        ) : (
-                            <button
-                                className="btn-send-request"
-                                onClick={handleSendRequest}
-                                disabled={isProcessing}
-                            >
-                                {isProcessing ? '⏳' : '📩 Отправить заявку'}
-                            </button>
-                        )}
-
-                        <button
-                            className="btn-view-profile"
-                            onClick={handleGoToProfile}
-                        >
-                            👤 Профиль
-                        </button>
-                    </div>
-
-                    {notification && (
-                        <div className={`search-notification ${notification.type}`}>
-                            {notification.text}
-                        </div>
-                    )}
-                </div>
-            )}
-
-            {/* 📌 СПИСОК ДРУЗЕЙ */}
-            {friends.length === 0 ? (
-                <div className="no-friends">
-                    <div className="no-friends-icon">👤</div>
-                    <h3>Нет друзей</h3>
-                    <p>Найдите пользователей по email и отправьте заявку</p>
-                </div>
-            ) : (
-                <div className="friends-grid">
-                    {friends.map((friend) => (
-                        <MemberCard
-                            key={friend.id}
-                            member={friend}
-                            onRemove={() => onFriendRemoved && onFriendRemoved(friend.id)}
+                <form className="search-user-form" onSubmit={handleSearch}>
+                    <div className="search-user-input-group">
+                        <input
+                            type="email"
+                            placeholder="Введите email пользователя"
+                            value={searchEmail}
+                            onChange={(e) => setSearchEmail(e.target.value)}
+                            disabled={isSearching}
                         />
-                    ))}
-                </div>
-            )}
+                        <button
+                            type="submit"
+                            disabled={isSearching || !searchEmail.trim()}
+                        >
+                            {isSearching ? '⏳' : '🔍 Найти'}
+                        </button>
+                    </div>
+                    {searchError && (
+                        <div className="search-error">❌ {searchError}</div>
+                    )}
+                </form>
+
+                {/* ── Кнопка перехода к заявкам ── */}
+                <button
+                    type="button"
+                    className="btn-go-to-requests"
+                    onClick={handleGoToRequests}
+                >
+                    📩 Заявки в друзья
+                </button>
+
+                {/* ── Результат поиска ── */}
+                {foundUser && (
+                    <div className="search-result">
+                        <div className="search-result-header">
+                            <span>Результат поиска</span>
+                            <button
+                                className="clear-search-btn"
+                                onClick={clearSearch}
+                                title="Очистить"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className="search-result-card">
+                            <div className="search-result-avatar">
+                                {foundUser.name ? foundUser.name[0].toUpperCase() : '👤'}
+                            </div>
+                            <div className="search-result-info">
+                                <div className="search-result-name">{foundUser.name}</div>
+                                <div className="search-result-email">{foundUser.email}</div>
+                                <div className="search-result-specialization">
+                                    {foundUser.specialization || '—'}
+                                </div>
+                                <div className="search-result-status">
+                                    {foundUser.isOnline ? '🟢 Онлайн' : '⚫ Оффлайн'}
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="search-result-actions">
+                            {friendStatus?.isFriend ? (
+                                <div className="already-friend">✅ Уже в друзьях</div>
+                            ) : friendStatus?.status === 'Pending' ? (
+                                <div className="request-pending">⏳ Заявка отправлена</div>
+                            ) : friendStatus?.status === 'Received' ? (
+                                <div className="request-received">📩 Вам отправлена заявка</div>
+                            ) : (
+                                <button
+                                    className="btn-send-request"
+                                    onClick={handleSendRequest}
+                                    disabled={isProcessing}
+                                >
+                                    {isProcessing ? '⏳' : '📩 Отправить заявку'}
+                                </button>
+                            )}
+
+                            <button
+                                className="btn-view-profile"
+                                onClick={handleGoToProfile}
+                            >
+                                👤 Профиль
+                            </button>
+                        </div>
+
+                        {notification && (
+                            <div className={`search-notification ${notification.type}`}>
+                                {notification.text}
+                            </div>
+                        )}
+                    </div>
+                )}
+            </section>
+
+            {/* ── Список друзей ── */}
+            <section className="friends-list-section">
+                {loading ? (
+                    <div className="friends-loading">⏳ Загрузка друзей…</div>
+                ) : friends.length === 0 ? (
+                    <div className="no-friends">
+                        <div className="no-friends-icon">👤</div>
+                        <h3>Нет друзей</h3>
+                        <p>Найдите пользователей по email и отправьте заявку</p>
+                    </div>
+                ) : (
+                    <div className="friends-grid">
+                        {friends.map((friend) => (
+                            <MemberCard
+                                key={friend.id}
+                                member={friend}
+                                onRemove={() => onFriendRemoved && onFriendRemoved(friend.id)}
+                            />
+                        ))}
+                    </div>
+                )}
+            </section>
         </div>
     );
 };

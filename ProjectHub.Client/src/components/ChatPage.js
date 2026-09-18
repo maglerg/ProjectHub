@@ -6,10 +6,13 @@ import { useAuth } from '../context/AuthContext';
 import { getChatById, getChatMessages, sendMessage } from '../services/chatsApi';
 import '../styles/components/ChatPage.css';
 
-const ChatPage = () => {
-    const { chatId } = useParams();
+const ChatPage = ({ chatId: chatIdProp = null, embedded = false }) => {
+    const params = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
+
+    // 📌 chatId: из пропса (embedded-режим) или из URL (обычная страница)
+    const chatId = chatIdProp || params.chatId;
 
     const [chat, setChat] = useState(null);
     const [messages, setMessages] = useState([]);
@@ -27,6 +30,8 @@ const ChatPage = () => {
 
     // 📌 Загрузка чата
     const loadChat = useCallback(async () => {
+        if (!chatId) return;
+
         setLoading(true);
         setError(null);
 
@@ -50,8 +55,10 @@ const ChatPage = () => {
         loadChat();
     }, [loadChat]);
 
-    // 📌 Периодическое обновление — учитываем isReadByAll
+    // 📌 Периодическое обновление
     useEffect(() => {
+        if (!chatId) return;
+
         const interval = setInterval(async () => {
             try {
                 const messagesData = await getChatMessages(chatId);
@@ -158,34 +165,48 @@ const ChatPage = () => {
         return chat?.name || 'Чат';
     };
 
+    // 📌 Возврат для standalone-режима
+    const goBackToChats = () => {
+        navigate('/chats');
+    };
+
     if (loading) {
         return (
-            <div className="chat-loading">
-                <div className="spinner">⏳</div>
-                <p>Загрузка чата...</p>
+            <div className={embedded ? 'chat-page chat-page--embedded' : 'chat-page'}>
+                <div className="chat-loading">
+                    <div className="spinner">⏳</div>
+                    <p>Загрузка чата...</p>
+                </div>
             </div>
         );
     }
 
     if (error && !chat) {
         return (
-            <div className="chat-error">
-                <div className="error-icon">❌</div>
-                <h3>Ошибка</h3>
-                <p>{error}</p>
-                <button className="btn-back" onClick={() => navigate('/chats')}>
-                    ← Вернуться к чатам
-                </button>
+            <div className={embedded ? 'chat-page chat-page--embedded' : 'chat-page'}>
+                <div className="chat-error">
+                    <div className="error-icon">❌</div>
+                    <h3>Ошибка</h3>
+                    <p>{error}</p>
+                    {!embedded && (
+                        <button className="btn-back" onClick={goBackToChats}>
+                            ← Вернуться к чатам
+                        </button>
+                    )}
+                </div>
             </div>
         );
     }
 
     return (
-        <div className="chat-page">
+        <div className={embedded ? 'chat-page chat-page--embedded' : 'chat-page'}>
+            {/* ── Шапка: в embedded-режиме — компактная, без кнопки "Назад" ── */}
             <header className="chat-header">
-                <button className="btn-back" onClick={() => navigate('/chats')}>
-                    ← Назад
-                </button>
+                {!embedded && (
+                    <button className="btn-back" onClick={goBackToChats}>
+                        ← Назад
+                    </button>
+                )}
 
                 <div className="chat-header-user">
                     {/* Личный чат */}
@@ -251,7 +272,6 @@ const ChatPage = () => {
                             messages[index - 1]?.senderId !== message.senderId
                         );
 
-                        // 📌 Для группового — «прочитали все»; для личного — isRead
                         const isReadAll = isProjectChat
                             ? message.isReadByAll
                             : message.isRead;
@@ -261,7 +281,6 @@ const ChatPage = () => {
                                 key={message.id || index}
                                 className={`chat-message ${isOwn ? 'own' : 'other'}`}
                             >
-                                {/* 📌 Ник + роль над сообщением */}
                                 {!isOwn && showSenderName && (
                                     <div className="message-sender-name">
                                         <span className="sender-name-text">
@@ -278,13 +297,11 @@ const ChatPage = () => {
                                 <div className="message-bubble-wrapper">
                                     <div className="message-bubble">
                                         <div className="message-text">{message.text}</div>
-                                        {/* 📌 Время под текстом */}
                                         <div className="message-time">
                                             {formatTime(message.createdAt)}
                                         </div>
                                     </div>
 
-                                    {/* 📌 Точка — пока не прочитали все */}
                                     {isOwn && !isReadAll && (
                                         <span
                                             className="message-unread-dot"
@@ -296,7 +313,6 @@ const ChatPage = () => {
                                         />
                                     )}
 
-                                    {/* 📌 Галочка — когда прочитали все */}
                                     {isOwn && isReadAll && (
                                         <span
                                             className="message-read-check"

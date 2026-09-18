@@ -1,6 +1,6 @@
 // projecthub.client/src/components/ProjectsPage.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/components/ProjectsPage.css';
 import { useNavigate } from 'react-router-dom';
@@ -24,6 +24,9 @@ const ProjectsPage = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
+    // 📌 Какое представление сейчас открыто: 'projects' | 'friends'
+    const [view, setView] = useState('projects');
+
     const [projects, setProjects] = useState([]);
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
@@ -35,6 +38,28 @@ const ProjectsPage = () => {
     const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(false);
     const [friends, setFriends] = useState([]);
     const [friendsLoading, setFriendsLoading] = useState(false);
+
+    // 📌 Меню пользователя
+    const [userMenuOpen, setUserMenuOpen] = useState(false);
+    const userMenuRef = useRef(null);
+
+    // 📌 Закрытие меню по клику вне / Escape
+    useEffect(() => {
+        const handleClickOutside = (e) => {
+            if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
+                setUserMenuOpen(false);
+            }
+        };
+        const handleKey = (e) => {
+            if (e.key === 'Escape') setUserMenuOpen(false);
+        };
+        document.addEventListener('mousedown', handleClickOutside);
+        document.addEventListener('keydown', handleKey);
+        return () => {
+            document.removeEventListener('mousedown', handleClickOutside);
+            document.removeEventListener('keydown', handleKey);
+        };
+    }, []);
 
     // 📌 Загрузка проектов
     const loadProjects = async (favoritesOnly = false, myProjectsOnly = false) => {
@@ -114,8 +139,7 @@ const ProjectsPage = () => {
         }
     };
 
-    // 📌 Обработчик изменения избранного — синхронизирует стейт projects,
-    //     чтобы UI сразу перерисовался (звезда, счётчик)
+    // 📌 Обработчик изменения избранного
     const handleFavoriteToggle = (publicCode, isFavorite) => {
         setProjects(prev =>
             prev.map(p => {
@@ -133,7 +157,6 @@ const ProjectsPage = () => {
         );
     };
 
-    // 📌 Обёртка для передачи в ProjectList
     const projectListProps = {
         projects,
         loading,
@@ -198,6 +221,7 @@ const ProjectsPage = () => {
         loadProjects(false, false);
     };
 
+    // 📌 Обработка табов проектов
     const handleTabClick = (tab) => {
         if (activeTab === tab) {
             setActiveTab(null);
@@ -215,31 +239,53 @@ const ProjectsPage = () => {
             return;
         }
 
-        if (tab === 'list') {
+        if (tab === 'search') {
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(false);
             loadProjects(false, false);
-        } else if (tab === 'favorites') {
-            setShowFavoritesOnly(true);
-            setShowMyProjectsOnly(false);
-            loadProjects(true, false);
         } else if (tab === 'my') {
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(true);
             loadProjects(false, true);
-        } else if (tab === 'friends') {
-            loadFriends();
-        } else if (tab === 'search') {
-            setShowFavoritesOnly(false);
+        } else if (tab === 'favorites') {
+            setShowFavoritesOnly(true);
             setShowMyProjectsOnly(false);
-            loadProjects(false, false);
+            loadProjects(true, false);
         }
+    };
+
+    // 📌 Открыть секцию друзей (из меню пользователя)
+    const openFriendsSection = () => {
+        setView('friends');
+        setActiveTab(null);
+        setMessage('');
+        setShowFavoritesOnly(false);
+        setShowMyProjectsOnly(false);
+        loadFriends();
+    };
+
+    // 📌 Вернуться к представлению «проекты»
+    const backToProjects = () => {
+        setView('projects');
+        setActiveTab(null);
+        setMessage('');
     };
 
     const handleCopyCode = (code) => {
         navigator.clipboard.writeText(code);
         setMessage('✅ Код скопирован в буфер обмена!');
         setTimeout(() => setMessage(''), 3000);
+    };
+
+    // 📌 Меню пользователя
+    const handleMenuNavigate = (path) => {
+        setUserMenuOpen(false);
+        navigate(path);
+    };
+
+    const handleLogout = () => {
+        setUserMenuOpen(false);
+        logout();
     };
 
     useEffect(() => {
@@ -251,201 +297,241 @@ const ProjectsPage = () => {
             <header className="page-header">
                 <div className="header-left">
                     <h1>📁 ProjectHub</h1>
-                    <span className="user-greeting">Привет, {user?.name}!</span>
                 </div>
                 <div className="header-right">
-                    <div className="user-info">
-                        <span className="user-specialization">
-                            {user?.specialization}
-                        </span>
-                        <span className={`user-status ${user?.isOnline ? 'online' : 'offline'}`}>
-                            {user?.isOnline ? '🟢 Онлайн' : '⚫ Оффлайн'}
-                        </span>
-                    </div>
                     <NotificationsDropdown />
-                    <button
-                        className="btn-profile"
-                        onClick={() => navigate('/profile')}
-                        title="Профиль"
-                    >
-                        👤 Профиль
-                    </button>
-                    <button className="btn-logout" onClick={logout}>
-                        🚪 Выйти
-                    </button>
+
+                    {/* 📌 Меню пользователя */}
+                    <div className="user-menu-wrapper" ref={userMenuRef}>
+                        <button
+                            className={`user-menu-trigger ${userMenuOpen ? 'open' : ''}`}
+                            onClick={() => setUserMenuOpen(v => !v)}
+                            title="Меню пользователя"
+                        >
+                            <span className="user-menu-avatar">
+                                {user?.name ? user.name[0].toUpperCase() : '👤'}
+                            </span>
+                            <span className="user-menu-caret">▾</span>
+                        </button>
+
+                        {userMenuOpen && (
+                            <div className="user-menu-dropdown">
+                                <div className="user-menu-header">
+                                    <div className="user-menu-name">
+                                        {user?.name || 'Пользователь'}
+                                    </div>
+                                    <div className="user-menu-email">
+                                        {user?.email || ''}
+                                    </div>
+                                </div>
+
+                                <div className="user-menu-divider" />
+
+                                <button
+                                    className="user-menu-item"
+                                    onClick={() => handleMenuNavigate('/profile')}
+                                >
+                                    <span className="user-menu-icon">👤</span>
+                                    Профиль
+                                </button>
+
+                                <button
+                                    className="user-menu-item"
+                                    onClick={() => {
+                                        setUserMenuOpen(false);
+                                        openFriendsSection();
+                                    }}
+                                >
+                                    <span className="user-menu-icon">👥</span>
+                                    Друзья
+                                </button>
+
+                                <button
+                                    className="user-menu-item"
+                                    onClick={() => handleMenuNavigate('/settings')}
+                                    title="Скоро"
+                                >
+                                    <span className="user-menu-icon">⚙️</span>
+                                    Настройки
+                                </button>
+
+                                <div className="user-menu-divider" />
+
+                                <button
+                                    className="user-menu-item danger"
+                                    onClick={handleLogout}
+                                >
+                                    <span className="user-menu-icon">🚪</span>
+                                    Выйти
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
             </header>
 
             <main className="page-main">
-                <div className="tabs-container">
-                    <button
-                        className={`tab-btn ${activeTab === 'create' ? 'active' : ''}`}
-                        onClick={() => handleTabClick('create')}
-                    >
-                        ➕ Создать проект
-                    </button>
-                    <button
-                        className={`tab-btn ${activeTab === 'search' ? 'active' : ''}`}
-                        onClick={() => handleTabClick('search')}
-                    >
-                        🔍 Найти проект
-                    </button>
-                    <button
-                        className={`tab-btn ${activeTab === 'list' ? 'active' : ''}`}
-                        onClick={() => handleTabClick('list')}
-                    >
-                        📋 Все проекты
-                    </button>
-                    <button
-                        className={`tab-btn ${activeTab === 'my' ? 'active' : ''}`}
-                        onClick={() => handleTabClick('my')}
-                    >
-                        👤 Мои проекты
-                    </button>
-                    <button
-                        className={`tab-btn ${activeTab === 'favorites' ? 'active' : ''}`}
-                        onClick={() => handleTabClick('favorites')}
-                    >
-                        ⭐ Избранное
-                    </button>
-                    <button
-                        className={`tab-btn ${activeTab === 'friends' ? 'active' : ''}`}
-                        onClick={() => handleTabClick('friends')}
-                    >
-                        👥 Друзья
-                    </button>
-                    <button
-                        className="btn-chats"
-                        onClick={() => navigate('/chats')}
-                        title="Чаты"
-                    >
-                        💬 Чаты
-                    </button>
-                </div>
+                {/* ═══════════════════════════════════════════
+                    РЕЖИМ: ДРУЗЬЯ
+                    Кнопки-табы скрыты, сразу секция друзей
+                   ═══════════════════════════════════════════ */}
+                {view === 'friends' && (
+                    <>
+                        <div className="view-header">
+                            <button
+                                className="btn-back-to-projects"
+                                onClick={backToProjects}
+                            >
+                                ← Назад
+                            </button>
+                            <h2 className="view-title"> </h2>
+                        </div>
 
-                {message && (
-                    <div className={`message ${message.includes('❌') || message.includes('Ошибка') ? 'error' : 'success'}`}>
-                        {message}
-                    </div>
+                        <FriendsList
+                            friends={friends}
+                            loading={friendsLoading}
+                            onFriendAdded={handleFriendAdded}
+                            onFriendRemoved={handleFriendRemoved}
+                        />
+                    </>
                 )}
 
-                <div className="tab-content">
-                    {activeTab === 'create' && (
-                        <CreateProjectForm
-                            onSubmit={handleCreateProject}
-                            loading={loading}
-                            onCancel={() => setActiveTab(null)}
-                            resetForm={shouldResetForm}
-                        />
-                    )}
+                {/* ═══════════════════════════════════════════
+                    РЕЖИМ: ПРОЕКТЫ
+                    Кнопки-табы + соответствующие секции
+                   ═══════════════════════════════════════════ */}
+                {view === 'projects' && (
+                    <>
+                        <div className="tabs-container">
+                            <button
+                                className={`tab-btn ${activeTab === 'create' ? 'active' : ''}`}
+                                onClick={() => handleTabClick('create')}
+                            >
+                                ➕ Создать проект
+                            </button>
+                            <button
+                                className={`tab-btn ${activeTab === 'search' ? 'active' : ''}`}
+                                onClick={() => handleTabClick('search')}
+                            >
+                                🔍 Найти проект
+                            </button>
+                            <button
+                                className={`tab-btn ${activeTab === 'my' ? 'active' : ''}`}
+                                onClick={() => handleTabClick('my')}
+                            >
+                                👤 Мои проекты
+                            </button>
+                            <button
+                                className={`tab-btn ${activeTab === 'favorites' ? 'active' : ''}`}
+                                onClick={() => handleTabClick('favorites')}
+                            >
+                                ⭐ Избранное
+                            </button>
+                            <button
+                                className="tab-btn"
+                                onClick={() => navigate('/chats')}
+                                title="Чаты"
+                            >
+                                💬 Чаты
+                            </button>
+                        </div>
 
-                    {activeTab === 'search' && (
-                        <div className="search-tab-content">
-                            <SearchSection
-                                onProjectFound={(project) => {
-                                    if (project) {
-                                        setMessage(`✅ Найден проект: ${project.name}`);
-                                    }
-                                }}
-                            />
+                        {message && (
+                            <div className={`message ${message.includes('❌') || message.includes('Ошибка') ? 'error' : 'success'}`}>
+                                {message}
+                            </div>
+                        )}
 
-                            <div className="search-filters">
-                                <h4>Или ищите по категории:</h4>
-                                <FilterSection
-                                    selectedCategory={selectedCategory}
-                                    selectedStatus={selectedStatus}
-                                    onFilterChange={handleFilterChange}
-                                    onReset={resetFilters}
+                        <div className="tab-content">
+                            {activeTab === 'create' && (
+                                <CreateProjectForm
+                                    onSubmit={handleCreateProject}
                                     loading={loading}
+                                    onCancel={() => setActiveTab(null)}
+                                    resetForm={shouldResetForm}
                                 />
-                            </div>
-
-                            {projects.length > 0 && (
-                                <div className="search-results">
-                                    <h4>Результаты поиска:</h4>
-                                    <ProjectList {...projectListProps} />
-                                </div>
                             )}
-                        </div>
-                    )}
 
-                    {activeTab === 'list' && (
-                        <div className="list-tab-content">
-                            <ProjectList {...projectListProps} />
-                        </div>
-                    )}
+                            {activeTab === 'search' && (
+                                <div className="search-tab-content">
+                                    <SearchSection
+                                        onProjectFound={(project) => {
+                                            if (project) {
+                                                setMessage(`✅ Найден проект: ${project.name}`);
+                                            }
+                                        }}
+                                    />
 
-                    {activeTab === 'my' && (
-                        <div className="list-tab-content">
-                            {projects.length === 0 ? (
-                                <div className="empty-state-my">
-                                    <div className="empty-state-icon">👤</div>
-                                    <h3>Нет проектов</h3>
-                                    <p>Вы пока не участвуете ни в одном проекте</p>
-                                    <button
-                                        className="btn-primary"
-                                        onClick={() => handleTabClick('list')}
-                                    >
-                                        📋 Посмотреть все проекты
-                                    </button>
-                                </div>
-                            ) : (
-                                <ProjectList {...projectListProps} />
-                            )}
-                        </div>
-                    )}
-
-                    {activeTab === 'friends' && (
-                        <div className="friends-tab-content">
-                            <FriendsList
-                                friends={friends}
-                                loading={friendsLoading}
-                                onFriendAdded={handleFriendAdded}
-                                onFriendRemoved={handleFriendRemoved}
-                            />
-                        </div>
-                    )}
-
-                    {activeTab === 'favorites' && (
-                        <div className="list-tab-content">
-                            {projects.length === 0 ? (
-                                <div className="empty-state-favorites">
-                                    <div className="empty-state-icon">⭐</div>
-                                    <h3>Нет избранных проектов</h3>
-                                    <p>Добавляйте проекты в избранное, чтобы быстро находить их здесь</p>
-                                    <button
-                                        className="btn-primary"
-                                        onClick={() => handleTabClick('list')}
-                                    >
-                                        📋 Перейти к проектам
-                                    </button>
-                                </div>
-                            ) : (
-                                <ProjectList {...projectListProps} />
-                            )}
-                        </div>
-                    )}
-
-                    {!activeTab && (
-                        <div className="empty-state">
-                            <div className="empty-state-icon">🚀</div>
-                            <h3>Добро пожаловать в ProjectHub!</h3>
-                            <p>Выберите действие в меню выше, чтобы начать работу</p>
-                            <div className="quick-stats">
-                                {user && (
-                                    <div className="stat-item">
-                                        <span className="stat-label">👤 Пользователь:</span>
-                                        <span className="stat-value">{user.name}</span>
+                                    <div className="search-filters">
+                                        <h4>Или ищите по категории:</h4>
+                                        <FilterSection
+                                            selectedCategory={selectedCategory}
+                                            selectedStatus={selectedStatus}
+                                            onFilterChange={handleFilterChange}
+                                            onReset={resetFilters}
+                                            loading={loading}
+                                        />
                                     </div>
-                                )}
-                                <div className="stat-item">
-                                    <span className="stat-label">📊 Специализация:</span>
-                                    <span className="stat-value">{user?.specialization || 'Не указана'}</span>
+
+                                    {projects.length > 0 && (
+                                        <div className="search-results">
+                                            <h4>Результаты поиска:</h4>
+                                            <ProjectList {...projectListProps} />
+                                        </div>
+                                    )}
                                 </div>
-                            </div>
+                            )}
+
+                            {activeTab === 'my' && (
+                                <div className="list-tab-content">
+                                    {projects.length === 0 ? (
+                                        <div className="empty-state-my">
+                                            <div className="empty-state-icon">👤</div>
+                                            <h3>Нет проектов</h3>
+                                            <p>Вы пока не участвуете ни в одном проекте</p>
+                                            <button
+                                                className="btn-primary"
+                                                onClick={() => handleTabClick('search')}
+                                            >
+                                                🔍 Найти проект
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <ProjectList {...projectListProps} />
+                                    )}
+                                </div>
+                            )}
+
+                            {activeTab === 'favorites' && (
+                                <div className="list-tab-content">
+                                    {projects.length === 0 ? (
+                                        <div className="empty-state-favorites">
+                                            <div className="empty-state-icon">⭐</div>
+                                            <h3>Нет избранных проектов</h3>
+                                            <p>Добавляйте проекты в избранное, чтобы быстро находить их здесь</p>
+                                            <button
+                                                className="btn-primary"
+                                                onClick={() => handleTabClick('my')}
+                                            >
+                                                👤 Перейти к моим проектам
+                                            </button>
+                                        </div>
+                                    ) : (
+                                        <ProjectList {...projectListProps} />
+                                    )}
+                                </div>
+                            )}
+
+                            {!activeTab && (
+                                <div className="empty-state">
+                                    <div className="empty-state-icon">🚀</div>
+                                    <h3>Добро пожаловать в ProjectHub!</h3>
+                                    <p>Выберите действие в меню выше, чтобы начать работу</p>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
+                    </>
+                )}
             </main>
         </div>
     );

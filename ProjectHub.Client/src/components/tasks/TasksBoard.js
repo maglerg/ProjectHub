@@ -1,3 +1,5 @@
+// projecthub.client/src/components/tasks/TasksBoard.js
+
 import React, { useEffect, useState } from 'react';
 import {
     getTasksBoard,
@@ -13,7 +15,6 @@ import {
 import { TASK_PRIORITIES } from '../../utils/constants';
 import TaskColumn from './TaskColumn';
 import CreateTaskModal from './CreateTaskModal';
-import TaskTimeline from './TaskTimeline';
 import '../../styles/components/tasks/tasks.css';
 
 export default function TasksBoard({
@@ -32,7 +33,6 @@ export default function TasksBoard({
     const [priorityFilter, setPriorityFilter] = useState('All');
     const [onlyActive, setOnlyActive] = useState(false);
     const [hideCompleted, setHideCompleted] = useState(false);
-    const [showTimeline, setShowTimeline] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -379,15 +379,6 @@ export default function TasksBoard({
                     >
                         + Создать задачу
                     </button>
-
-                    <button
-                        type="button"
-                        className={`btn-timeline ${showTimeline ? 'active' : ''}`}
-                        onClick={() => setShowTimeline(v => !v)}
-                        title={showTimeline ? 'Скрыть таймлайн' : 'Показать таймлайн задач'}
-                    >
-                        📅 {showTimeline ? 'Скрыть таймлайн' : 'Таймлайн'}
-                    </button>
                 </div>
             </div>
 
@@ -447,14 +438,6 @@ export default function TasksBoard({
                             onError={setActionError}
                         />
                     ))}
-                </div>
-            )}
-
-            {/* ── Таймлайн ── */}
-            {showTimeline && (
-                <div className="timeline-section">
-                    <h3 className="timeline-section-title">📅 Таймлайн задач</h3>
-                    <TaskTimeline columns={columns} />
                 </div>
             )}
 

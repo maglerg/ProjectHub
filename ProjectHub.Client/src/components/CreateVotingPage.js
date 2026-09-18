@@ -1,52 +1,27 @@
-// projecthub.client/src/components/CreateVotingPage.js
+// projecthub.client/src/components/CreateVotingModal.js
 
-import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react';
 import { createVoting } from '../services/votingsApi';
-import { searchMyProjectByCode } from '../services/projectsApi';
 import '../styles/components/CreateVotingPage.css';
 
 const MIN_OPTIONS = 2;
 const MAX_OPTIONS = 10;
 
-const CreateVotingPage = () => {
-    const { code } = useParams();
-    const navigate = useNavigate();
-
-    const [project, setProject] = useState(null);
-    const [loadingProject, setLoadingProject] = useState(true);
-
+export default function CreateVotingModal({
+    projectCode,
+    onClose,
+    onCreated        // колбэк: (createdVoting) => void
+}) {
     const [title, setTitle] = useState('');
     const [options, setOptions] = useState(['', '']);
     const [isMultipleChoice, setIsMultipleChoice] = useState(false);
     const [allowRevote, setAllowRevote] = useState(false);
     const [showResultsBeforeVote, setShowResultsBeforeVote] = useState(false);
     const [endsAt, setEndsAt] = useState('');
-    const [creating, setCreating] = useState(false);
-    const [error, setError] = useState(null);
     const [isAnonymous, setIsAnonymous] = useState(false);
 
-    // 📌 Загружаем проект
-    useEffect(() => {
-        let mounted = true;
-        (async () => {
-            try {
-                const data = await searchMyProjectByCode(code);
-                if (!mounted) return;
-                if (!data) {
-                    setError('Проект не найден или у вас нет доступа');
-                } else {
-                    setProject(data);
-                }
-            } catch (err) {
-                if (!mounted) return;
-                setError(err.message || 'Не удалось загрузить проект');
-            } finally {
-                if (mounted) setLoadingProject(false);
-            }
-        })();
-        return () => { mounted = false; };
-    }, [code]);
+    const [creating, setCreating] = useState(false);
+    const [error, setError] = useState(null);
 
     const handleOptionChange = (index, value) => {
         setOptions(prev => prev.map((o, i) => i === index ? value : o));
@@ -94,8 +69,10 @@ const CreateVotingPage = () => {
                 endsAt: endsAt ? new Date(endsAt).toISOString() : null
             };
 
-            const voting = await createVoting(code, payload);
-            navigate(`/projects/${code}/votings/${voting.id}`);
+            const voting = await createVoting(projectCode, payload);
+
+            if (onCreated) onCreated(voting);
+            onClose();
         } catch (err) {
             setError(err.message || 'Не удалось создать голосование');
         } finally {
@@ -103,31 +80,14 @@ const CreateVotingPage = () => {
         }
     };
 
-    if (loadingProject) {
-        return (
-            <div className="votings-page-loading">
-                <div className="spinner">⏳</div>
-                <p>Загрузка...</p>
-            </div>
-        );
-    }
-
     return (
-        <div className="create-voting-page">
-            <header className="create-voting-page-header">
-                <button
-                    className="btn-back"
-                    onClick={() => navigate(`/projects/${code}/votings`)}
-                >
-                    ← К голосованиям
-                </button>
-                <div className="create-voting-page-title">
-                    <h1>🗳️ Новое голосование</h1>
-                    {project && <p className="votings-page-subtitle">{project.name}</p>}
-                </div>
-            </header>
+        <div className="modal-overlay" onClick={onClose}>
+            <div
+                className="modal-content modal-content--voting"
+                onClick={e => e.stopPropagation()}
+            >
+                <h3>🗳️ Новое голосование</h3>
 
-            <div className="create-voting-page-content">
                 <form onSubmit={handleSubmit} className="create-voting-form">
                     {error && <div className="form-error">❌ {error}</div>}
 
@@ -212,6 +172,7 @@ const CreateVotingPage = () => {
                             />
                             <span>Показывать результаты до голосования</span>
                         </label>
+
                         <label className="checkbox-label">
                             <input
                                 type="checkbox"
@@ -231,23 +192,20 @@ const CreateVotingPage = () => {
                         />
                     </div>
 
-                    <div className="form-actions">
+                    <div className="modal-actions">
                         <button
                             type="button"
-                            className="btn-cancel"
-                            onClick={() => navigate(`/projects/${code}/votings`)}
+                            onClick={onClose}
                             disabled={creating}
                         >
                             Отмена
                         </button>
-                        <button type="submit" className="btn-primary" disabled={creating}>
-                            {creating ? '⏳ Создание...' : '🗳️ Создать голосование'}
+                        <button type="submit" disabled={creating}>
+                            {creating ? '⏳ Создание…' : '🗳️ Создать голосование'}
                         </button>
                     </div>
                 </form>
             </div>
         </div>
     );
-};
-
-export default CreateVotingPage;
+}
