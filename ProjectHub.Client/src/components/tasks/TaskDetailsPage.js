@@ -25,7 +25,11 @@ import {
     addTaskSubtask,
     updateTaskSubtask,
     toggleTaskSubtask,
-    deleteTaskSubtask
+    deleteTaskSubtask,
+    getProjectTags,
+    createTag,
+    deleteTag,
+    setTaskTags
 } from '../../services/tasksApi';
 import { useAuth } from '../../context/AuthContext';
 import '../../styles/components/tasks/tasks.css';
@@ -77,6 +81,13 @@ export default function TaskDetailsPage() {
     const [editingSubtaskTitle, setEditingSubtaskTitle] = useState('');
     const [subtaskBusyId, setSubtaskBusyId] = useState(null);
 
+    // ── Теги ──
+    const [allTags, setAllTags] = useState([]);
+    const [newTagName, setNewTagName] = useState('');
+    const [newTagColor, setNewTagColor] = useState('#4f46e5');
+    const [tagSubmitting, setTagSubmitting] = useState(false);
+    const [showTagPicker, setShowTagPicker] = useState(false);
+
     // ═══════════════════════════════════════════════════════════
     //  ЗАГРУЗКА
     // ═══════════════════════════════════════════════════════════
@@ -85,14 +96,16 @@ export default function TaskDetailsPage() {
         setLoading(true);
         setError(null);
         try {
-            const [taskData, board, commentsData] = await Promise.all([
+            const [taskData, board, commentsData, tagsData] = await Promise.all([
                 getTaskById(code, taskId),
                 getTasksBoard(code),
-                getTaskComments(code, taskId)
+                getTaskComments(code, taskId),
+                getProjectTags(code)
             ]);
             setTask(taskData);
             setColumns(board);
             setComments(commentsData);
+            setAllTags(tagsData);
             setForm({
                 title: taskData.title,
                 description: taskData.description || '',
@@ -393,6 +406,84 @@ export default function TaskDetailsPage() {
     };
 
     // ═══════════════════════════════════════════════════════════
+    //  ТЕГИ
+    // ═══════════════════════════════════════════════════════════
+
+    const handleToggleTag = async (tagId) => {
+        if (!task.canEdit) return;
+
+        const current = (task.tags || []).map(t => t.id);
+        const next = current.includes(tagId)
+            ? current.filter(id => id !== tagId)
+            : [...current, tagId];
+
+        if (next.length > 10) {
+            setActionError('Нельзя привязать больше 10 тегов');
+            return;
+        }
+
+        try {
+            setActionError(null);
+            const updated = await setTaskTags(code, taskId, next);
+            setTask(updated);
+        } catch (e) {
+            console.error('❌ Ошибка установки тегов:', e);
+            setActionError(e.message);
+        }
+    };
+
+    const handleCreateTag = async (e) => {
+        e.preventDefault();
+        const name = newTagName.trim();
+        if (!name || tagSubmitting) return;
+
+        setTagSubmitting(true);
+        try {
+            setActionError(null);
+            const newTag = await createTag(code, {
+                name,
+                color: newTagColor || null
+            });
+
+            setAllTags(prev =>
+                [...prev, newTag].sort((a, b) => a.name.localeCompare(b.name))
+            );
+
+            // Сразу вешаем на задачу
+            const current = (task.tags || []).map(t => t.id);
+            if (current.length < 10) {
+                const updated = await setTaskTags(code, taskId, [...current, newTag.id]);
+                setTask(updated);
+            }
+
+            setNewTagName('');
+            setNewTagColor('#4f46e5');
+        } catch (e) {
+            console.error('❌ Ошибка создания тега:', e);
+            setActionError(e.message);
+        } finally {
+            setTagSubmitting(false);
+        }
+    };
+
+    const handleDeleteTag = async (tag) => {
+        if (!task.isOwner) return;
+        if (!window.confirm(`Удалить тег "${tag.name}" из проекта?`)) return;
+        try {
+            setActionError(null);
+            await deleteTag(code, tag.id);
+            setAllTags(prev => prev.filter(t => t.id !== tag.id));
+            setTask(prev => ({
+                ...prev,
+                tags: (prev.tags || []).filter(t => t.id !== tag.id)
+            }));
+        } catch (e) {
+            console.error('❌ Ошибка удаления тега:', e);
+            setActionError(e.message);
+        }
+    };
+
+    // ═══════════════════════════════════════════════════════════
     //  RENDER
     // ═══════════════════════════════════════════════════════════
 
@@ -402,6 +493,7 @@ export default function TaskDetailsPage() {
 
     const assignees = task.assignees || [];
     const attachments = task.attachments || [];
+    const taskTags = task.tags || [];
     const emailLower = (user?.email || '').toLowerCase();
     const isMine = assignees.some(
         a => (a.email || '').toLowerCase() === emailLower
@@ -602,6 +694,125 @@ export default function TaskDetailsPage() {
                                         );
                                     })}
                                 </ul>
+                            )}
+                        </div>
+
+                        {/* ── Теги ── */}
+                        <div className="task-details-tags">
+                            <div className="tags-header">
+                                <h3>Теги ({taskTags.length}/10)</h3>
+
+                                {task.canEdit && (
+                                    <button
+                                        type="button"
+                                        className="btn-toggle-tags"
+                                        onClick={() => setShowTagPicker(v => !v)}
+                                    >
+                                        {showTagPicker ? 'Скрыть' : '🏷 Управлять тегами'}
+                                    </button>
+                                )}
+                            </div>
+
+                            {taskTags.length === 0 ? (
+                                <p className="no-tags">Тегов пока нет</p>
+                            ) : (
+                                <div className="task-tags-list">
+                                    {taskTags.map(t => (
+                                        <span
+                                            key={t.id}
+                                            className="task-tag-chip"
+                                            style={{
+                                                backgroundColor: t.color ? `${t.color}22` : '#eef2ff',
+                                                color: t.color || '#4f46e5',
+                                                borderColor: t.color || '#c7d2fe'
+                                            }}
+                                        >
+                                            {t.name}
+                                            {task.canEdit && (
+                                                <button
+                                                    type="button"
+                                                    className="task-tag-remove"
+                                                    title="Снять тег"
+                                                    onClick={() => handleToggleTag(t.id)}
+                                                >
+                                                    ×
+                                                </button>
+                                            )}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+
+                            {showTagPicker && task.canEdit && (
+                                <div className="tags-picker">
+                                    <div className="tags-picker-list">
+                                        {allTags.length === 0 ? (
+                                            <p className="no-tags-available">
+                                                В проекте ещё нет тегов
+                                            </p>
+                                        ) : (
+                                            allTags.map(t => {
+                                                const isChecked = taskTags.some(tt => tt.id === t.id);
+                                                return (
+                                                    <label
+                                                        key={t.id}
+                                                        className={`tag-picker-item ${isChecked ? 'checked' : ''}`}
+                                                    >
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isChecked}
+                                                            onChange={() => handleToggleTag(t.id)}
+                                                        />
+                                                        <span
+                                                            className="tag-picker-dot"
+                                                            style={{ backgroundColor: t.color || '#9ca3af' }}
+                                                        />
+                                                        <span className="tag-picker-name">{t.name}</span>
+                                                        <span className="tag-picker-count">
+                                                            {t.tasksCount} задач
+                                                        </span>
+                                                        {task.isOwner && (
+                                                            <button
+                                                                type="button"
+                                                                className="tag-picker-delete"
+                                                                title="Удалить тег из проекта"
+                                                                onClick={(e) => {
+                                                                    e.preventDefault();
+                                                                    handleDeleteTag(t);
+                                                                }}
+                                                            >
+                                                                🗑
+                                                            </button>
+                                                        )}
+                                                    </label>
+                                                );
+                                            })
+                                        )}
+                                    </div>
+
+                                    <form className="tag-create-form" onSubmit={handleCreateTag}>
+                                        <input
+                                            type="color"
+                                            value={newTagColor}
+                                            onChange={e => setNewTagColor(e.target.value)}
+                                            title="Цвет тега"
+                                        />
+                                        <input
+                                            type="text"
+                                            placeholder="Новый тег…"
+                                            value={newTagName}
+                                            onChange={e => setNewTagName(e.target.value)}
+                                            maxLength={50}
+                                            disabled={tagSubmitting}
+                                        />
+                                        <button
+                                            type="submit"
+                                            disabled={tagSubmitting || !newTagName.trim()}
+                                        >
+                                            {tagSubmitting ? '…' : '+ Создать'}
+                                        </button>
+                                    </form>
+                                </div>
                             )}
                         </div>
 

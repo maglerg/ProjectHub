@@ -706,6 +706,62 @@ namespace ProjectHub.API.Migrations
                     b.ToTable("TaskSubtasks");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.TaskTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(9)
+                        .HasColumnType("character varying(9)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("ProjectId", "Name")
+                        .IsUnique();
+
+                    b.ToTable("TaskTags");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.TaskTagLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AddedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("TagId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TaskId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TagId");
+
+                    b.HasIndex("TaskId", "TagId")
+                        .IsUnique();
+
+                    b.ToTable("TaskTagLinks");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1190,6 +1246,36 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("Task");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.TaskTag", b =>
+                {
+                    b.HasOne("ProjectHub.API.Models.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.TaskTagLink", b =>
+                {
+                    b.HasOne("ProjectHub.API.Models.TaskTag", "Tag")
+                        .WithMany("TaskLinks")
+                        .HasForeignKey("TagId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.API.Models.ProjectTask", "Task")
+                        .WithMany("TagLinks")
+                        .HasForeignKey("TaskId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Tag");
+
+                    b.Navigation("Task");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>
                 {
                     b.HasOne("ProjectHub.Models.User", "CreatedBy")
@@ -1275,6 +1361,8 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("Comments");
 
                     b.Navigation("Subtasks");
+
+                    b.Navigation("TagLinks");
                 });
 
             modelBuilder.Entity("ProjectHub.API.Models.TaskColumn", b =>
@@ -1285,6 +1373,11 @@ namespace ProjectHub.API.Migrations
             modelBuilder.Entity("ProjectHub.API.Models.TaskComment", b =>
                 {
                     b.Navigation("Reads");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.TaskTag", b =>
+                {
+                    b.Navigation("TaskLinks");
                 });
 
             modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>

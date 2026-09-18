@@ -37,6 +37,7 @@
         public DateTime? ProjectDeadline { get; set; }
         public DateTime? EffectiveDueDate { get; set; }    // ← новое
         public bool IsDueDateFixed { get; set; }            // ← новое
+        public List<TaskTagDto> Tags { get; set; } = new();
     }
     
     

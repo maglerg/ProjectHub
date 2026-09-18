@@ -1696,3 +1696,434 @@
     color: #9ca3af;
     font-size: 13px;
 }
+/* ═══════════════════════════════════════════════════════════
+   Теги на странице задачи
+   ═══════════════════════════════════════════════════════════ */
+.task-details-tags {
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid #f3f4f6;
+}
+
+.tags-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+}
+
+    .tags-header h3 {
+        margin: 0;
+        font-size: 15px;
+        color: #111827;
+    }
+
+.btn-toggle-tags {
+    background: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background 0.15s;
+}
+
+    .btn-toggle-tags:hover {
+        background: #e0e7ff;
+    }
+
+.no-tags {
+    color: #9ca3af;
+    font-size: 13px;
+    margin: 0 0 8px 0;
+}
+
+.task-tags-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 8px;
+}
+
+.task-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 8px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    font-size: 12px;
+    font-weight: 500;
+    line-height: 1.4;
+}
+
+.task-tag-remove {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 1;
+    color: inherit;
+    opacity: 0.6;
+    padding: 0 2px;
+}
+
+    .task-tag-remove:hover {
+        opacity: 1;
+    }
+
+/* ── Раскрывающийся picker тегов ── */
+.tags-picker {
+    margin-top: 10px;
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 10px;
+}
+
+.tags-picker-list {
+    max-height: 240px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 10px;
+}
+
+.no-tags-available {
+    margin: 0;
+    color: #9ca3af;
+    font-size: 12px;
+    text-align: center;
+    padding: 10px 0;
+}
+
+.tag-picker-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background 0.1s;
+    font-size: 13px;
+}
+
+    .tag-picker-item:hover {
+        background: #eef2ff;
+    }
+
+    .tag-picker-item.checked {
+        background: #e0e7ff;
+    }
+
+    .tag-picker-item.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .tag-picker-item input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+.tag-picker-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tag-picker-name {
+    flex: 1;
+    color: #111827;
+}
+
+.tag-picker-count {
+    font-size: 11px;
+    color: #9ca3af;
+}
+
+.tag-picker-delete {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #ef4444;
+    font-size: 14px;
+    padding: 0 4px;
+    opacity: 0.5;
+    transition: opacity 0.15s;
+}
+
+    .tag-picker-delete:hover {
+        opacity: 1;
+    }
+
+.tag-picker-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.tag-picker-label {
+    font-size: 13px;
+    color: #374151;
+    font-weight: 500;
+}
+
+.btn-toggle-tag-picker {
+    background: #eef2ff;
+    color: #4f46e5;
+    border: 1px solid #c7d2fe;
+    padding: 6px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    transition: background 0.15s;
+}
+
+    .btn-toggle-tag-picker:hover {
+        background: #e0e7ff;
+    }
+
+/* ── Форма создания тега ── */
+.tag-create-form {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+}
+
+    .tag-create-form input[type="color"] {
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        cursor: pointer;
+        background: none;
+    }
+
+    .tag-create-form input[type="text"] {
+        flex: 1;
+        padding: 6px 10px;
+        border: 1px solid #d1d5db;
+        border-radius: 8px;
+        font-size: 13px;
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+        .tag-create-form input[type="text"]:focus {
+            border-color: #6366f1;
+            box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.1);
+        }
+
+    .tag-create-form button {
+        padding: 6px 12px;
+        border: none;
+        background: #4f46e5;
+        color: #fff;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 13px;
+        font-weight: 500;
+    }
+
+        .tag-create-form button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+/* ═══════════════════════════════════════════════════════════
+   Теги на карточке задачи
+   ═══════════════════════════════════════════════════════════ */
+.task-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    margin-top: 6px;
+}
+
+.task-card-tag {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    border: 1px solid transparent;
+    font-weight: 500;
+    white-space: nowrap;
+    max-width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.task-card-tag-more {
+    font-size: 10px;
+    padding: 2px 6px;
+    border-radius: 5px;
+    background: #f3f4f6;
+    color: #6b7280;
+    font-weight: 600;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   Поиск по тегам на доске
+   ═══════════════════════════════════════════════════════════ */
+.tag-search-wrapper {
+    position: relative;
+    min-width: 220px;
+}
+
+.tag-search-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 0 10px;
+    height: 36px;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+    .tag-search-input-wrap:hover {
+        border-color: #a5b4fc;
+    }
+
+    .tag-search-input-wrap:focus-within {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .tag-search-input-wrap.active {
+        border-color: #4f46e5;
+        background: #eef2ff;
+    }
+
+.tag-search-icon {
+    font-size: 13px;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+.tag-search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 13px;
+    color: #111827;
+    font-family: inherit;
+    min-width: 0;
+    height: 100%;
+}
+
+    .tag-search-input::placeholder {
+        color: #9ca3af;
+    }
+
+.tag-search-input-wrap.active .tag-search-input::placeholder {
+    color: #4f46e5;
+    font-weight: 500;
+}
+
+.tag-search-clear {
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    color: #6b7280;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 2px;
+    border-radius: 4px;
+    transition: background 0.1s, color 0.1s;
+}
+
+    .tag-search-clear:hover {
+        background: #e5e7eb;
+        color: #ef4444;
+    }
+
+/* ── Выпадающий список ── */
+.tag-search-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 300px;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    padding: 4px;
+    z-index: 200;
+}
+
+.tag-search-empty {
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #9ca3af;
+    text-align: center;
+}
+
+.tag-search-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.1s;
+    user-select: none;
+}
+
+    .tag-search-item:hover {
+        background: #eef2ff;
+    }
+
+    .tag-search-item.checked {
+        background: #e0e7ff;
+        font-weight: 500;
+    }
+
+    .tag-search-item input[type="checkbox"] {
+        width: 15px;
+        height: 15px;
+        cursor: pointer;
+        flex-shrink: 0;
+    }
+
+.tag-search-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.tag-search-name {
+    flex: 1;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.tag-search-count {
+    font-size: 11px;
+    color: #9ca3af;
+    background: #f3f4f6;
+    padding: 1px 6px;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+.tag-search-item.checked .tag-search-count {
+    background: #c7d2fe;
+    color: #4f46e5;
+}

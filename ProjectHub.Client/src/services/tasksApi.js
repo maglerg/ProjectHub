@@ -202,3 +202,53 @@ export const deleteTaskSubtask = (projectCode, taskId, subtaskId) =>
         method: 'DELETE',
         headers: authHeaders()
     }).then(handleResponse);
+
+// ═══════════════════════════════════════════════════════════
+//  ТЕГИ ПРОЕКТА
+// ═══════════════════════════════════════════════════════════
+
+// Получить все теги проекта
+export const getProjectTags = (projectCode) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/tags`, {
+        method: 'GET',
+        headers: authHeaders()
+    }).then(handleResponse);
+
+// Создать тег
+export const createTag = (projectCode, { name, color }) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/tags`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ name, color })
+    }).then(handleResponse);
+
+// Удалить тег
+export const deleteTag = (projectCode, tagId) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/tags/${tagId}`, {
+        method: 'DELETE',
+        headers: authHeaders()
+    }).then(async (resp) => {
+        if (!resp.ok) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error || 'Ошибка удаления тега');
+        }
+        return null;
+    });
+
+// Установить набор тегов на задачу (заменяет текущий)
+export const setTaskTags = (projectCode, taskId, tagIds) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/tags`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({ tagIds })
+    }).then(handleResponse);
+
+// Поиск задач по тегам (задача должна содержать ВСЕ переданные)
+export const searchTasksByTags = (projectCode, tagIds) => {
+    const params = new URLSearchParams();
+    tagIds.forEach(id => params.append('tagIds', id));
+    return fetch(
+        `${API_BASE_URL}/projects/${projectCode}/tasks/search-by-tags?${params.toString()}`,
+        { method: 'GET', headers: authHeaders() }
+    ).then(handleResponse);
+};

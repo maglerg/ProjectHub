@@ -47,6 +47,8 @@ namespace ProjectHub.API.Models
         public TaskPriority Priority { get; set; } = TaskPriority.None;
         public DateTime? StartDate { get; set; }
         public DateTime? DueDate { get; set; }
+        public virtual ICollection<TaskTagLink> TagLinks { get; set; }
+    = new List<TaskTagLink>();
 
     }
 }

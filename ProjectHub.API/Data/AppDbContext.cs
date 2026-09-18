@@ -38,6 +38,9 @@ namespace ProjectHub.API.Data
         public DbSet<TaskAttachment> TaskAttachments { get; set; }
         public DbSet<TaskSubtask> TaskSubtasks { get; set; }
 
+        public DbSet<TaskTag> TaskTags { get; set; }
+        public DbSet<TaskTagLink> TaskTagLinks { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -271,6 +274,41 @@ namespace ProjectHub.API.Data
                       .OnDelete(DeleteBehavior.Cascade);
 
                 entity.HasIndex(s => new { s.TaskId, s.Order });
+            });
+            // ───── Теги проекта ─────
+            modelBuilder.Entity<TaskTag>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(t => t.Project)
+                      .WithMany()
+                      .HasForeignKey(t => t.ProjectId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Уникальное имя тега в рамках проекта (без учёта регистра)
+                entity.HasIndex(t => new { t.ProjectId, t.Name }).IsUnique();
+
+                // Уникальный цвет не нужен, но индекс по проекту — полезен
+                entity.HasIndex(t => t.ProjectId);
+            });
+
+            // ───── Связь задача ↔ тег ─────
+            modelBuilder.Entity<TaskTagLink>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(l => l.Task)
+                      .WithMany(t => t.TagLinks)
+                      .HasForeignKey(l => l.TaskId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(l => l.Tag)
+                      .WithMany(t => t.TaskLinks)
+                      .HasForeignKey(l => l.TagId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // Один и тот же тег нельзя повесить на задачу дважды
+                entity.HasIndex(l => new { l.TaskId, l.TagId }).IsUnique();
             });
         }
     }

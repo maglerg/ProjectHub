@@ -353,7 +353,117 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+        // GET /api/projects/{projectCode}/tasks/tags
+        [HttpGet("tags")]
+        public async Task<IActionResult> GetProjectTags(string projectCode)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
 
+            try
+            {
+                var tags = await _taskService.GetProjectTagsAsync(projectCode, userId);
+                return Ok(tags);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка получения тегов");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // POST /api/projects/{projectCode}/tasks/tags
+        [HttpPost("tags")]
+        public async Task<IActionResult> CreateTag(
+            string projectCode, [FromBody] CreateTagDto dto)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var tag = await _taskService.CreateTagAsync(projectCode, userId, dto);
+                return Ok(tag);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка создания тега");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // DELETE /api/projects/{projectCode}/tasks/tags/{tagId}
+        [HttpDelete("tags/{tagId}")]
+        public async Task<IActionResult> DeleteTag(string projectCode, Guid tagId)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                await _taskService.DeleteTagAsync(projectCode, tagId, userId);
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка удаления тега");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // PUT /api/projects/{projectCode}/tasks/{taskId}/tags
+        [HttpPut("{taskId}/tags")]
+        public async Task<IActionResult> SetTaskTags(
+            string projectCode, Guid taskId, [FromBody] SetTaskTagsDto dto)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var task = await _taskService.SetTaskTagsAsync(
+                    projectCode, taskId, userId, dto);
+                return Ok(task);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка установки тегов задачи");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // GET /api/projects/{projectCode}/tasks/search-by-tags?tagIds=...
+        [HttpGet("search-by-tags")]
+        public async Task<IActionResult> SearchByTags(
+            string projectCode, [FromQuery] List<Guid> tagIds)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var tasks = await _taskService.SearchTasksByTagsAsync(
+                    projectCode, userId, tagIds);
+                return Ok(tasks);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка поиска по тегам");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
         // PATCH /api/projects/{projectCode}/tasks/{taskId}/subtasks/{subtaskId}/toggle
         [HttpPatch("{taskId}/subtasks/{subtaskId}/toggle")]
         public async Task<IActionResult> ToggleSubtask(

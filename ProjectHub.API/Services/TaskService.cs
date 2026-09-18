@@ -20,6 +20,7 @@ namespace ProjectHub.API.Services
         public const string KeyCompleted = "Completed";
 
         private const int MaxSubtasksPerTask = 50;
+        private const int MaxTagsPerTask = 10;
 
         private static readonly string[] AllowedExtensions =
         {
@@ -61,6 +62,7 @@ namespace ProjectHub.API.Services
                 .Include(c => c.Tasks).ThenInclude(t => t.Attachments)
                 .Include(c => c.Tasks).ThenInclude(t => t.Subtasks)
                 .Include(c => c.Tasks).ThenInclude(t => t.Project)
+                .Include(c => c.Tasks).ThenInclude(t => t.TagLinks).ThenInclude(l => l.Tag)
                 .ToListAsync();
 
             return columns.Select(c => MapColumn(c, project.OwnerId, userId)).ToList();
@@ -409,6 +411,7 @@ namespace ProjectHub.API.Services
                 .Include(t => t.Attachments).ThenInclude(a => a.UploadedBy)
                 .Include(t => t.Subtasks)
                 .Include(t => t.Project)
+                .Include(t => t.TagLinks).ThenInclude(l => l.Tag)
                 .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
                 ?? throw new KeyNotFoundException("Задача не найдена");
 
@@ -840,6 +843,175 @@ namespace ProjectHub.API.Services
         }
 
         // ═══════════════════════════════════════════════════════════
+        //  ТЕГИ ПРОЕКТА
+        // ═══════════════════════════════════════════════════════════
+
+        public async Task<List<TaskTagDto>> GetProjectTagsAsync(
+            string projectCode, Guid userId)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            var tags = await _db.TaskTags
+                .Where(t => t.ProjectId == project.Id)
+                .Include(t => t.TaskLinks)
+                .OrderBy(t => t.Name)
+                .ToListAsync();
+
+            return tags.Select(MapTag).ToList();
+        }
+
+        public async Task<TaskTagDto> CreateTagAsync(
+            string projectCode, Guid userId, CreateTagDto dto)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            if (string.IsNullOrWhiteSpace(dto.Name))
+                throw new InvalidOperationException("Название тега не может быть пустым");
+
+            var name = dto.Name.Trim();
+            if (name.Length > 50)
+                throw new InvalidOperationException("Название тега не длиннее 50 символов");
+
+            var exists = await _db.TaskTags
+                .AnyAsync(t => t.ProjectId == project.Id && t.Name == name);
+
+            if (exists)
+                throw new InvalidOperationException(
+                    $"Тег \"{name}\" уже существует в этом проекте");
+
+            var tag = new TaskTag
+            {
+                Id = Guid.NewGuid(),
+                ProjectId = project.Id,
+                Name = name,
+                Color = string.IsNullOrWhiteSpace(dto.Color) ? null : dto.Color.Trim(),
+                CreatedAt = DateTime.UtcNow
+            };
+
+            _db.TaskTags.Add(tag);
+            await _db.SaveChangesAsync();
+
+            return MapTag(tag);
+        }
+
+        public async Task DeleteTagAsync(
+            string projectCode, Guid tagId, Guid userId)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            if (project.OwnerId != userId)
+                throw new UnauthorizedAccessException(
+                    "Удалять теги может только владелец проекта");
+
+            var tag = await _db.TaskTags
+                .FirstOrDefaultAsync(t => t.Id == tagId && t.ProjectId == project.Id)
+                ?? throw new KeyNotFoundException("Тег не найден");
+
+            _db.TaskTags.Remove(tag);
+            await _db.SaveChangesAsync();
+        }
+
+        public async Task<TaskDto> SetTaskTagsAsync(
+            string projectCode, Guid taskId, Guid userId, SetTaskTagsDto dto)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            var task = await _db.ProjectTasks
+                .Include(t => t.Assignees)
+                .Include(t => t.TagLinks)
+                .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
+                ?? throw new KeyNotFoundException("Задача не найдена");
+
+            var isOwner = project.OwnerId == userId;
+            var isAssignee = task.Assignees.Any(a => a.UserId == userId);
+
+            if (!isOwner && !isAssignee)
+                throw new UnauthorizedAccessException(
+                    "Управлять тегами задачи может только исполнитель или владелец проекта");
+
+            // Уникализируем
+            var tagIds = (dto.TagIds ?? new List<Guid>()).Distinct().ToList();
+
+            if (tagIds.Count > MaxTagsPerTask)
+                throw new InvalidOperationException(
+                    $"К задаче можно привязать не более {MaxTagsPerTask} тегов");
+
+            // Проверяем, что все теги принадлежат проекту
+            if (tagIds.Count > 0)
+            {
+                var validIds = await _db.TaskTags
+                    .Where(t => t.ProjectId == project.Id && tagIds.Contains(t.Id))
+                    .Select(t => t.Id)
+                    .ToListAsync();
+
+                if (validIds.Count != tagIds.Count)
+                    throw new InvalidOperationException(
+                        "Некоторые теги не найдены в этом проекте");
+
+                tagIds = validIds;
+            }
+
+            // Удаляем старые связи
+            _db.TaskTagLinks.RemoveRange(task.TagLinks);
+
+            // Добавляем новые
+            foreach (var tid in tagIds)
+            {
+                _db.TaskTagLinks.Add(new TaskTagLink
+                {
+                    Id = Guid.NewGuid(),
+                    TaskId = task.Id,
+                    TagId = tid,
+                    AddedAt = DateTime.UtcNow
+                });
+            }
+
+            task.UpdatedAt = DateTime.UtcNow;
+            await _db.SaveChangesAsync();
+
+            return await BuildTaskDtoAsync(task.Id, userId);
+        }
+
+        public async Task<List<TaskDto>> SearchTasksByTagsAsync(
+            string projectCode, Guid userId, List<Guid> tagIds)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+
+            tagIds = (tagIds ?? new List<Guid>()).Distinct().ToList();
+
+            if (tagIds.Count == 0)
+                return new List<TaskDto>();
+
+            var query = _db.ProjectTasks
+                .Where(t => t.ProjectId == project.Id)
+                .Include(t => t.Column)
+                .Include(t => t.CreatedBy)
+                .Include(t => t.Assignees).ThenInclude(a => a.User)
+                .Include(t => t.TagLinks).ThenInclude(l => l.Tag)
+                .Include(t => t.Subtasks)
+                .Include(t => t.Attachments)
+                .Include(t => t.Project)
+                .AsQueryable();
+
+            // Задача должна содержать ВСЕ переданные теги
+            foreach (var tagId in tagIds)
+            {
+                query = query.Where(t => t.TagLinks.Any(l => l.TagId == tagId));
+            }
+
+            var tasks = await query
+                .OrderByDescending(t => t.UpdatedAt ?? t.CreatedAt)
+                .ToListAsync();
+
+            return tasks.Select(t => MapTaskForBoard(t, project.OwnerId, userId)).ToList();
+        }
+
+        // ═══════════════════════════════════════════════════════════
         //  ВСПОМОГАТЕЛЬНЫЕ
         // ═══════════════════════════════════════════════════════════
 
@@ -969,6 +1141,7 @@ namespace ProjectHub.API.Services
                 .Include(t => t.Project)
                 .Include(t => t.Attachments).ThenInclude(a => a.UploadedBy)
                 .Include(t => t.Subtasks)
+                .Include(t => t.TagLinks).ThenInclude(l => l.Tag)
                 .FirstAsync(t => t.Id == taskId);
 
             var dto = MapTask(task);
@@ -1036,6 +1209,11 @@ namespace ProjectHub.API.Services
             dto.TotalSubtasksCount = t.Subtasks?.Count ?? 0;
             dto.CompletedSubtasksCount = t.Subtasks?.Count(s => s.IsCompleted) ?? 0;
 
+            // Теги для карточки
+            dto.Tags = t.TagLinks?
+                .Select(l => MapTag(l.Tag))
+                .ToList() ?? new List<TaskTagDto>();
+
             return dto;
         }
 
@@ -1063,7 +1241,10 @@ namespace ProjectHub.API.Services
                 Name = a.User?.Name ?? string.Empty,
                 Specialization = a.User?.Specialization.ToString(),
                 AssignedAt = a.AssignedAt
-            }).ToList()
+            }).ToList(),
+            Tags = t.TagLinks?
+                .Select(l => MapTag(l.Tag))
+                .ToList() ?? new List<TaskTagDto>()
         };
 
         private static TaskSubtaskDto MapSubtask(TaskSubtask s) => new()
@@ -1074,6 +1255,15 @@ namespace ProjectHub.API.Services
             Order = s.Order,
             CreatedAt = s.CreatedAt,
             CompletedAt = s.CompletedAt
+        };
+
+        private static TaskTagDto MapTag(TaskTag t) => new()
+        {
+            Id = t.Id,
+            Name = t.Name,
+            Color = t.Color,
+            TasksCount = t.TaskLinks?.Count ?? 0,
+            CreatedAt = t.CreatedAt
         };
 
         private static TaskAttachmentDto MapAttachment(TaskAttachment a, bool canDelete) => new()

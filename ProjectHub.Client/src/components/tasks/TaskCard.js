@@ -38,6 +38,7 @@ export default function TaskCard({
     const [contextMenu, setContextMenu] = useState(null); // { x, y }
 
     const assignees = task.assignees || [];
+    const tags = task.tags || [];
     const isTaken = assignees.length > 0;
     const emailLower = (currentUserEmail || '').toLowerCase();
     const isMine = assignees.some(
@@ -283,6 +284,34 @@ export default function TaskCard({
                                     </li>
                                 ))}
                             </ul>
+                        )}
+                    </div>
+                )}
+
+                {/* ── Теги ── */}
+                {tags.length > 0 && (
+                    <div className="task-card-tags">
+                        {tags.slice(0, 5).map(t => (
+                            <span
+                                key={t.id}
+                                className="task-card-tag"
+                                style={{
+                                    backgroundColor: t.color ? `${t.color}22` : '#eef2ff',
+                                    color: t.color || '#4f46e5',
+                                    borderColor: t.color || '#c7d2fe'
+                                }}
+                                title={t.name}
+                            >
+                                {t.name}
+                            </span>
+                        ))}
+                        {tags.length > 5 && (
+                            <span
+                                className="task-card-tag-more"
+                                title={tags.slice(5).map(t => t.name).join(', ')}
+                            >
+                                +{tags.length - 5}
+                            </span>
                         )}
                     </div>
                 )}
