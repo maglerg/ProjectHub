@@ -97,3 +97,24 @@ export const daysInMonth = (date) => {
 export const formatMonthShort = (date) => {
     return new Date(date).toLocaleDateString('ru-RU', { month: 'short' });
 };
+/** «5 минут назад», «вчера в 15:30» */
+export const formatRelativeTime = (date) => {
+    if (!date) return '';
+    const now = new Date();
+    const d = new Date(date);
+    const diffMs = now - d;
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+
+    if (diffSec < 60) return 'только что';
+    if (diffMin < 60) return `${diffMin} мин назад`;
+    if (diffHour < 24) return `${diffHour} ч назад`;
+    if (diffDay === 1) return 'вчера';
+    if (diffDay < 7) return `${diffDay} дн назад`;
+
+    return d.toLocaleDateString('ru-RU', {
+        day: '2-digit', month: 'short', year: 'numeric'
+    });
+};

@@ -96,6 +96,8 @@ builder.Services.AddScoped<ChatService>();
 builder.Services.AddScoped<VotingsService>();
 builder.Services.AddScoped<TaskService>();
 builder.Services.AddSingleton<FileStorageService>();
+builder.Services.AddScoped<ActivityService>();
+builder.Services.AddScoped<ProjectHistoryService>();
 
 // JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "your-super-secret-key-min-32-characters-long!";

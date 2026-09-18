@@ -24,7 +24,7 @@ import CreateVotingPage from './components/CreateVotingPage';
 import VotingPage from './components/VotingPage';
 
 import TaskDetailsPage from './components/tasks/TaskDetailsPage';
-
+import ProjectHistoryPage from './components/ProjectHistoryPage';
 import './index.css';
 
 function App() {
@@ -124,7 +124,11 @@ function App() {
                             <InvitationsPage />
                         </ProtectedRoute>
                     } />
-
+                    <Route path="/projects/:code/history" element={
+                        <ProtectedRoute>
+                            <ProjectHistoryPage />
+                        </ProtectedRoute>
+                    } />
                     {/* ─── Fallback ─── */}
                     <Route path="*" element={<Navigate to="/projects" replace />} />
                 </Routes>

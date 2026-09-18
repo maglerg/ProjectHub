@@ -14,15 +14,18 @@ public class ChatService
     private readonly AppDbContext _dbContext;
     private readonly ILogger<ChatService> _logger;
     private readonly NotificationService _notificationService;
+    private readonly ActivityService _activity;
 
     public ChatService(
         AppDbContext dbContext,
         ILogger<ChatService> logger,
-        NotificationService notificationService)
+        NotificationService notificationService,
+        ActivityService activity)
     {
         _dbContext = dbContext;
         _logger = logger;
         _notificationService = notificationService;
+        _activity = activity;
     }
 
     // 📌 Получить все чаты пользователя
@@ -30,10 +33,8 @@ public class ChatService
     {
         var chats = await _dbContext.Chats
             .Where(c => c.Participants.Any(p => p.UserId == userId))
-            .Include(c => c.Participants)
-                .ThenInclude(p => p.User)
-            .Include(c => c.Messages)
-                .ThenInclude(m => m.Sender)
+            .Include(c => c.Participants).ThenInclude(p => p.User)
+            .Include(c => c.Messages).ThenInclude(m => m.Sender)
             .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
             .ToListAsync();
 
@@ -54,11 +55,14 @@ public class ChatService
             if (participant?.LastReadAt != null)
             {
                 unreadCount = chat.Messages
-                    .Count(m => m.CreatedAt > participant.LastReadAt && m.SenderId != userId && !m.IsDeleted);
+                    .Count(m => m.CreatedAt > participant.LastReadAt
+                                && m.SenderId != userId
+                                && !m.IsDeleted);
             }
             else
             {
-                unreadCount = chat.Messages.Count(m => m.SenderId != userId && !m.IsDeleted);
+                unreadCount = chat.Messages
+                    .Count(m => m.SenderId != userId && !m.IsDeleted);
             }
 
             result.Add(new ChatListDto
@@ -76,119 +80,105 @@ public class ChatService
         return result;
     }
 
-    // 📌 Получить или создать личный чат с пользователем
+    // 📌 Получить или создать личный чат
     public async Task<ChatDto> GetOrCreatePersonalChatAsync(Guid userId, string otherEmail)
     {
         var otherUser = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email == otherEmail);
-
-        if (otherUser == null)
-            throw new KeyNotFoundException("Пользователь не найден");
+            .FirstOrDefaultAsync(u => u.Email == otherEmail)
+            ?? throw new KeyNotFoundException("Пользователь не найден");
 
         if (otherUser.Id == userId)
             throw new InvalidOperationException("Нельзя создать чат с самим собой");
 
         var existingChat = await _dbContext.Chats
             .Where(c => c.Type == ChatType.Personal)
-            .Include(c => c.Participants)
-                .ThenInclude(p => p.User)
-            .Include(c => c.Messages)
-                .ThenInclude(m => m.Sender)
+            .Include(c => c.Participants).ThenInclude(p => p.User)
+            .Include(c => c.Messages).ThenInclude(m => m.Sender)
             .FirstOrDefaultAsync(c =>
                 c.Participants.Any(p => p.UserId == userId) &&
                 c.Participants.Any(p => p.UserId == otherUser.Id));
 
-        if (existingChat == null)
+        if (existingChat != null)
+            return await MapChatToDtoAsync(existingChat, userId);
+
+        // Проверка приватности
+        if (otherUser.ChatPrivacy == ChatPrivacy.FriendsOnly)
         {
-            if (otherUser.ChatPrivacy == ChatPrivacy.FriendsOnly)
-            {
-                var isFriend = await _dbContext.Friends
-                    .AnyAsync(f => f.UserId == otherUser.Id &&
-                                   f.FriendId == userId &&
-                                   f.Status == FriendStatus.Accepted);
+            var isFriend = await _dbContext.Friends
+                .AnyAsync(f => f.UserId == otherUser.Id &&
+                               f.FriendId == userId &&
+                               f.Status == FriendStatus.Accepted);
 
-                if (!isFriend)
-                {
-                    throw new InvalidOperationException(
-                        "Этот пользователь принимает сообщения только от друзей. " +
-                        "Отправьте ему заявку в друзья.");
-                }
-            }
-
-            var chat = new Chat
-            {
-                Id = Guid.NewGuid(),
-                Type = ChatType.Personal,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _dbContext.Chats.AddAsync(chat);
-            await _dbContext.SaveChangesAsync();
-
-            var participants = new List<ChatParticipant>
-            {
-                new ChatParticipant
-                {
-                    Id = Guid.NewGuid(),
-                    ChatId = chat.Id,
-                    UserId = userId,
-                    JoinedAt = DateTime.UtcNow
-                },
-                new ChatParticipant
-                {
-                    Id = Guid.NewGuid(),
-                    ChatId = chat.Id,
-                    UserId = otherUser.Id,
-                    JoinedAt = DateTime.UtcNow
-                }
-            };
-
-            await _dbContext.ChatParticipants.AddRangeAsync(participants);
-            await _dbContext.SaveChangesAsync();
-
-            _logger.LogInformation($"Создан личный чат {chat.Id} между {userId} и {otherUser.Id}");
-
-            var createdChat = await _dbContext.Chats
-                .Include(c => c.Participants)
-                    .ThenInclude(p => p.User)
-                .Include(c => c.Messages)
-                    .ThenInclude(m => m.Sender)
-                .FirstAsync(c => c.Id == chat.Id);
-
-            return await MapChatToDtoAsync(createdChat, userId);
+            if (!isFriend)
+                throw new InvalidOperationException(
+                    "Этот пользователь принимает сообщения только от друзей. " +
+                    "Отправьте ему заявку в друзья.");
         }
 
-        return await MapChatToDtoAsync(existingChat, userId);
+        var chat = new Chat
+        {
+            Id = Guid.NewGuid(),
+            Type = ChatType.Personal,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.Chats.Add(chat);
+        await _dbContext.SaveChangesAsync();
+
+        var participants = new List<ChatParticipant>
+        {
+            new()
+            {
+                Id = Guid.NewGuid(),
+                ChatId = chat.Id,
+                UserId = userId,
+                JoinedAt = DateTime.UtcNow
+            },
+            new()
+            {
+                Id = Guid.NewGuid(),
+                ChatId = chat.Id,
+                UserId = otherUser.Id,
+                JoinedAt = DateTime.UtcNow
+            }
+        };
+
+        _dbContext.ChatParticipants.AddRange(participants);
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation($"Создан личный чат {chat.Id} между {userId} и {otherUser.Id}");
+
+        var createdChat = await _dbContext.Chats
+            .Include(c => c.Participants).ThenInclude(p => p.User)
+            .Include(c => c.Messages).ThenInclude(m => m.Sender)
+            .FirstAsync(c => c.Id == chat.Id);
+
+        return await MapChatToDtoAsync(createdChat, userId);
     }
 
-    // 📌 Получить или создать чат проекта по публичному коду
+    // 📌 Получить или создать чат проекта
     public async Task<ChatDto> GetOrCreateProjectChatByCodeAsync(string publicCode, Guid userId)
     {
         var project = await _dbContext.Projects
             .Include(p => p.Members)
-            .FirstOrDefaultAsync(p => p.PublicCode == publicCode);
+            .FirstOrDefaultAsync(p => p.PublicCode == publicCode)
+            ?? throw new KeyNotFoundException("Проект не найден");
 
-        if (project == null)
-            throw new KeyNotFoundException("Проект не найден");
-
-        var isMember = project.OwnerId == userId ||
-                       project.Members.Any(m => m.UserId == userId);
+        var isMember = project.OwnerId == userId
+                       || project.Members.Any(m => m.UserId == userId);
 
         if (!isMember)
             throw new UnauthorizedAccessException("Вы не участник этого проекта");
 
         var existingChat = await _dbContext.Chats
             .Where(c => c.Type == ChatType.Project && c.ProjectId == project.Id)
-            .Include(c => c.Participants)
-                .ThenInclude(p => p.User)
-            .Include(c => c.Messages)
-                .ThenInclude(m => m.Sender)
+            .Include(c => c.Participants).ThenInclude(p => p.User)
+            .Include(c => c.Messages).ThenInclude(m => m.Sender)
             .FirstOrDefaultAsync();
 
         if (existingChat != null)
             return await MapChatToDtoAsync(existingChat, userId);
 
-        // Создаём чат
         var chat = new Chat
         {
             Id = Guid.NewGuid(),
@@ -198,10 +188,9 @@ public class ChatService
             CreatedAt = DateTime.UtcNow
         };
 
-        await _dbContext.Chats.AddAsync(chat);
+        _dbContext.Chats.Add(chat);
         await _dbContext.SaveChangesAsync();
 
-        // Все участники проекта + владелец
         var participantIds = new HashSet<Guid> { project.OwnerId };
         foreach (var m in project.Members)
             participantIds.Add(m.UserId);
@@ -214,16 +203,14 @@ public class ChatService
             JoinedAt = DateTime.UtcNow
         }).ToList();
 
-        await _dbContext.ChatParticipants.AddRangeAsync(participants);
+        _dbContext.ChatParticipants.AddRange(participants);
         await _dbContext.SaveChangesAsync();
 
         _logger.LogInformation($"Создан чат проекта {chat.Id} для проекта {project.Id} ({publicCode})");
 
         var createdChat = await _dbContext.Chats
-            .Include(c => c.Participants)
-                .ThenInclude(p => p.User)
-            .Include(c => c.Messages)
-                .ThenInclude(m => m.Sender)
+            .Include(c => c.Participants).ThenInclude(p => p.User)
+            .Include(c => c.Messages).ThenInclude(m => m.Sender)
             .FirstAsync(c => c.Id == chat.Id);
 
         return await MapChatToDtoAsync(createdChat, userId);
@@ -233,14 +220,10 @@ public class ChatService
     public async Task<ChatDto> GetChatByIdAsync(Guid chatId, Guid userId)
     {
         var chat = await _dbContext.Chats
-            .Include(c => c.Participants)
-                .ThenInclude(p => p.User)
-            .Include(c => c.Messages)
-                .ThenInclude(m => m.Sender)
-            .FirstOrDefaultAsync(c => c.Id == chatId);
-
-        if (chat == null)
-            throw new KeyNotFoundException("Чат не найден");
+            .Include(c => c.Participants).ThenInclude(p => p.User)
+            .Include(c => c.Messages).ThenInclude(m => m.Sender)
+            .FirstOrDefaultAsync(c => c.Id == chatId)
+            ?? throw new KeyNotFoundException("Чат не найден");
 
         if (!chat.Participants.Any(p => p.UserId == userId))
             throw new UnauthorizedAccessException("У вас нет доступа к этому чату");
@@ -249,19 +232,17 @@ public class ChatService
     }
 
     // 📌 Получить сообщения чата
-    public async Task<List<ChatMessageDto>> GetChatMessagesAsync(Guid chatId, Guid userId, int skip = 0, int take = 50)
+    public async Task<List<ChatMessageDto>> GetChatMessagesAsync(
+        Guid chatId, Guid userId, int skip = 0, int take = 50)
     {
         var chat = await _dbContext.Chats
             .Include(c => c.Participants)
-            .FirstOrDefaultAsync(c => c.Id == chatId);
-
-        if (chat == null)
-            throw new KeyNotFoundException("Чат не найден");
+            .FirstOrDefaultAsync(c => c.Id == chatId)
+            ?? throw new KeyNotFoundException("Чат не найден");
 
         if (!chat.Participants.Any(p => p.UserId == userId))
             throw new UnauthorizedAccessException("У вас нет доступа к этому чату");
 
-        // 📌 Загружаем сообщения с прочтениями
         var messages = await _dbContext.ChatMessages
             .Where(m => m.ChatId == chatId && !m.IsDeleted)
             .Include(m => m.Sender)
@@ -271,7 +252,7 @@ public class ChatService
             .Take(take)
             .ToListAsync();
 
-        // 📌 Помечаем непрочитанные как прочитанные текущим пользователем
+        // Помечаем непрочитанные
         var unreadMessages = await _dbContext.ChatMessages
             .Where(m => m.ChatId == chatId && m.SenderId != userId && !m.IsDeleted)
             .Where(m => !m.Reads.Any(r => r.UserId == userId))
@@ -288,9 +269,8 @@ public class ChatService
                 ReadAt = now
             }).ToList();
 
-            await _dbContext.ChatMessageReads.AddRangeAsync(reads);
+            _dbContext.ChatMessageReads.AddRange(reads);
 
-            // Для личных чатов — поддерживаем старые поля
             if (chat.Type == ChatType.Personal)
             {
                 foreach (var msg in unreadMessages)
@@ -309,7 +289,6 @@ public class ChatService
 
         await _notificationService.DeleteChatMessageNotificationsAsync(userId, chatId);
 
-        // 📌 Роли отправителей (для группового чата)
         var senderRoles = await GetSenderRolesForChatAsync(chat);
         var totalParticipants = chat.Participants.Count;
 
@@ -320,22 +299,21 @@ public class ChatService
     }
 
     // 📌 Отправить сообщение
-    public async Task<ChatMessageDto> SendMessageAsync(Guid chatId, Guid senderId, SendMessageDto dto)
+    public async Task<ChatMessageDto> SendMessageAsync(
+        Guid chatId, Guid senderId, SendMessageDto dto)
     {
         if (string.IsNullOrWhiteSpace(dto.Text))
             throw new InvalidOperationException("Сообщение не может быть пустым");
 
         var chat = await _dbContext.Chats
-            .Include(c => c.Participants)
-                .ThenInclude(p => p.User)
-            .FirstOrDefaultAsync(c => c.Id == chatId);
-
-        if (chat == null)
-            throw new KeyNotFoundException("Чат не найден");
+            .Include(c => c.Participants).ThenInclude(p => p.User)
+            .FirstOrDefaultAsync(c => c.Id == chatId)
+            ?? throw new KeyNotFoundException("Чат не найден");
 
         if (!chat.Participants.Any(p => p.UserId == senderId))
             throw new UnauthorizedAccessException("У вас нет доступа к этому чату");
 
+        // Проверка приватности для личных чатов
         if (chat.Type == ChatType.Personal)
         {
             var otherParticipant = chat.Participants.FirstOrDefault(p => p.UserId != senderId);
@@ -372,8 +350,22 @@ public class ChatService
             ReadAt = null
         };
 
-        await _dbContext.ChatMessages.AddAsync(message);
+        _dbContext.ChatMessages.Add(message);
         chat.LastMessageAt = message.CreatedAt;
+
+        // Логируем только в проектном чате
+        if (chat.Type == ChatType.Project && chat.ProjectId.HasValue)
+        {
+            await _activity.LogAsync(
+                chat.ProjectId.Value,
+                senderId,
+                ActivityType.ProjectChatMessageSent,
+                summary: "Отправлено сообщение в чат проекта",
+                link: $"/chats/{chatId}",
+                relatedEntityId: chatId
+            );
+        }
+
         await _dbContext.SaveChangesAsync();
 
         var sender = await _dbContext.Users.FindAsync(senderId);
@@ -381,35 +373,40 @@ public class ChatService
 
         _logger.LogInformation($"Сообщение отправлено в чат {chatId} от {senderId}");
 
-        // 📌 Уведомления
+        // Уведомления активным участникам
         var activeThreshold = DateTime.UtcNow.AddSeconds(-10);
+        var preview = message.Text?.Length > 50
+            ? message.Text.Substring(0, 50) + "..."
+            : message.Text;
 
         foreach (var participant in chat.Participants.Where(p => p.UserId != senderId))
         {
-            if (participant.LastReadAt.HasValue && participant.LastReadAt.Value >= activeThreshold)
+            if (participant.LastReadAt.HasValue
+                && participant.LastReadAt.Value >= activeThreshold)
             {
-                _logger.LogInformation($"Пользователь {participant.UserId} активен в чате — уведомление не отправлено");
                 continue;
             }
 
             await _notificationService.CreateNotificationAsync(
                 participant.UserId,
-                $"💬 Новое сообщение",
-                $"{sender?.Name}: {(message.Text?.Length > 50 ? message.Text.Substring(0, 50) + "..." : message.Text)}",
+                "💬 Новое сообщение",
+                $"{sender?.Name}: {preview}",
                 NotificationType.NewMessage,
                 $"/chats/{chatId}",
                 chatId
             );
         }
 
-        // 📌 Роли и количество участников
         var senderRoles = await GetSenderRolesForChatAsync(chat);
         var totalParticipants = chat.Participants.Count;
 
         return MapMessageToDto(message, senderRoles, totalParticipants);
     }
 
-    // 📌 Вспомогательные методы
+    // ═══════════════════════════════════════════════════════════
+    //  ВСПОМОГАТЕЛЬНЫЕ
+    // ═══════════════════════════════════════════════════════════
+
     private ChatMessageDto MapMessageToDto(
         ChatMessage message,
         Dictionary<Guid, string>? senderRoles = null,
@@ -419,13 +416,14 @@ public class ChatService
         if (senderRoles != null && senderRoles.TryGetValue(message.SenderId, out var r))
             role = r;
 
-        var readUserIds = message.Reads?.Select(r => r.UserId).ToHashSet() ?? new HashSet<Guid>();
+        var readUserIds = message.Reads?.Select(r => r.UserId).ToHashSet()
+                          ?? new HashSet<Guid>();
+
         int readCount = readUserIds.Count;
 
         bool isReadByAll;
         if (totalParticipants > 1)
         {
-            // Считаем, что отправитель тоже "прочитал" своё сообщение
             readUserIds.Add(message.SenderId);
             isReadByAll = readUserIds.Count >= totalParticipants;
         }
@@ -482,11 +480,14 @@ public class ChatService
         if (participant?.LastReadAt != null)
         {
             unreadCount = chat.Messages
-                .Count(m => m.CreatedAt > participant.LastReadAt && m.SenderId != currentUserId && !m.IsDeleted);
+                .Count(m => m.CreatedAt > participant.LastReadAt
+                            && m.SenderId != currentUserId
+                            && !m.IsDeleted);
         }
         else
         {
-            unreadCount = chat.Messages.Count(m => m.SenderId != currentUserId && !m.IsDeleted);
+            unreadCount = chat.Messages
+                .Count(m => m.SenderId != currentUserId && !m.IsDeleted);
         }
 
         return new ChatDto
@@ -504,7 +505,6 @@ public class ChatService
         };
     }
 
-    // 📌 Роли участников в проекте
     private async Task<Dictionary<Guid, string>> GetSenderRolesForChatAsync(Chat chat)
     {
         if (chat.Type != ChatType.Project || chat.ProjectId == null)
@@ -517,9 +517,10 @@ public class ChatService
         if (project == null)
             return new Dictionary<Guid, string>();
 
-        var roles = new Dictionary<Guid, string>();
-
-        roles[project.OwnerId] = "Owner";
+        var roles = new Dictionary<Guid, string>
+        {
+            [project.OwnerId] = "Owner"
+        };
 
         foreach (var m in project.Members)
         {

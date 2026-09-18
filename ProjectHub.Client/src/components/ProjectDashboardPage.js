@@ -329,7 +329,13 @@ const ProjectDashboardPage = () => {
                     >
                         {openingChat ? '⏳' : '💬 Чат проекта'}
                     </button>
-
+                    <button
+                        className="btn-history"
+                        onClick={() => navigate(`/projects/${code}/history`)}
+                        title="История изменений проекта"
+                    >
+                        📜 История
+                    </button>
                     {/* 📌 Кнопка голосований с бейджем */}
                     <button
                         className="btn-votings"

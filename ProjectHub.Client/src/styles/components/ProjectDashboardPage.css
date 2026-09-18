@@ -350,3 +350,18 @@
         font-size: 18px;
         color: #333;
     }
+.btn-history {
+    background: #f5f3ff;
+    color: #6d28d9;
+    border: 1px solid #ddd6fe;
+    padding: 10px 16px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.15s;
+}
+
+    .btn-history:hover {
+        background: #ede9fe;
+        border-color: #c4b5fd;
+    }

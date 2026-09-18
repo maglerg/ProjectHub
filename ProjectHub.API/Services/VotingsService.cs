@@ -13,6 +13,7 @@ public class VotingsService
     private readonly AppDbContext _dbContext;
     private readonly ILogger<VotingsService> _logger;
     private readonly NotificationService _notificationService;
+    private readonly ActivityService _activity;
 
     private const int MinOptions = 2;
     private const int MaxOptions = 10;
@@ -20,15 +21,18 @@ public class VotingsService
     public VotingsService(
         AppDbContext dbContext,
         ILogger<VotingsService> logger,
-        NotificationService notificationService)
+        NotificationService notificationService,
+        ActivityService activity)
     {
         _dbContext = dbContext;
         _logger = logger;
         _notificationService = notificationService;
+        _activity = activity;
     }
 
     // 📌 Создать голосование
-    public async Task<VotingDto> CreateVotingAsync(string projectCode, Guid userId, CreateVotingDto dto)
+    public async Task<VotingDto> CreateVotingAsync(
+        string projectCode, Guid userId, CreateVotingDto dto)
     {
         // 1. Валидация
         if (string.IsNullOrWhiteSpace(dto.Title))
@@ -54,12 +58,10 @@ public class VotingsService
         // 2. Проект
         var project = await _dbContext.Projects
             .Include(p => p.Members)
-            .FirstOrDefaultAsync(p => p.PublicCode == projectCode);
+            .FirstOrDefaultAsync(p => p.PublicCode == projectCode)
+            ?? throw new KeyNotFoundException("Проект не найден");
 
-        if (project == null)
-            throw new KeyNotFoundException("Проект не найден");
-
-        // 3. Проверка, что пользователь участник или владелец
+        // 3. Проверка участника
         var isOwner = project.OwnerId == userId;
         var isMember = project.Members.Any(m => m.UserId == userId);
 
@@ -81,7 +83,7 @@ public class VotingsService
             CreatedAt = DateTime.UtcNow
         };
 
-        await _dbContext.Votings.AddAsync(voting);
+        _dbContext.Votings.Add(voting);
         await _dbContext.SaveChangesAsync();
 
         // 5. Создаём опции
@@ -93,7 +95,17 @@ public class VotingsService
             Order = index
         }).ToList();
 
-        await _dbContext.VotingOptions.AddRangeAsync(votingOptions);
+        _dbContext.VotingOptions.AddRange(votingOptions);
+
+        await _activity.LogAsync(
+            project.Id,
+            userId,
+            ActivityType.VotingCreated,
+            summary: $"Создано голосование: {voting.Title}",
+            link: $"/projects/{project.PublicCode}/votings/{voting.Id}",
+            relatedEntityId: voting.Id
+        );
+
         await _dbContext.SaveChangesAsync();
 
         _logger.LogInformation($"Создано голосование {voting.Id} в проекте {projectCode}");
@@ -119,19 +131,16 @@ public class VotingsService
             );
         }
 
-        // 7. Возвращаем DTO
         return await BuildVotingDtoAsync(voting.Id, userId);
     }
 
-    // 📌 Получить список голосований проекта
+    // 📌 Список голосований проекта
     public async Task<List<VotingDto>> GetProjectVotingsAsync(string projectCode, Guid userId)
     {
         var project = await _dbContext.Projects
             .Include(p => p.Members)
-            .FirstOrDefaultAsync(p => p.PublicCode == projectCode);
-
-        if (project == null)
-            throw new KeyNotFoundException("Проект не найден");
+            .FirstOrDefaultAsync(p => p.PublicCode == projectCode)
+            ?? throw new KeyNotFoundException("Проект не найден");
 
         var isOwner = project.OwnerId == userId;
         var isMember = project.Members.Any(m => m.UserId == userId);
@@ -164,29 +173,23 @@ public class VotingsService
     public async Task<VotingDto> VoteAsync(Guid votingId, Guid userId, VoteDto dto)
     {
         var voting = await _dbContext.Votings
-            .Include(v => v.Project)
-                .ThenInclude(p => p.Members)
+            .Include(v => v.Project).ThenInclude(p => p.Members)
             .Include(v => v.Options)
-            .FirstOrDefaultAsync(v => v.Id == votingId);
+            .FirstOrDefaultAsync(v => v.Id == votingId)
+            ?? throw new KeyNotFoundException("Голосование не найдено");
 
-        if (voting == null)
-            throw new KeyNotFoundException("Голосование не найдено");
-
-        // Проверка участника
         var isOwner = voting.Project.OwnerId == userId;
         var isMember = voting.Project.Members.Any(m => m.UserId == userId);
 
         if (!isOwner && !isMember)
             throw new UnauthorizedAccessException("Вы не участник этого проекта");
 
-        // Проверка, закрыто ли
         if (voting.IsClosed)
             throw new InvalidOperationException("Голосование закрыто");
 
         if (voting.EndsAt.HasValue && voting.EndsAt.Value <= DateTime.UtcNow)
             throw new InvalidOperationException("Время голосования истекло");
 
-        // Валидация выбора
         if (dto.OptionIds == null || dto.OptionIds.Count == 0)
             throw new InvalidOperationException("Выберите хотя бы один вариант");
 
@@ -197,7 +200,6 @@ public class VotingsService
         if (dto.OptionIds.Any(id => !validOptionIds.Contains(id)))
             throw new InvalidOperationException("Некорректный вариант");
 
-        // Существующие голоса пользователя
         var existingVotes = await _dbContext.VotingVotes
             .Where(v => v.VotingId == votingId && v.UserId == userId)
             .ToListAsync();
@@ -205,13 +207,9 @@ public class VotingsService
         if (existingVotes.Any() && !voting.AllowRevote)
             throw new InvalidOperationException("Переголосовать нельзя");
 
-        // Удаляем старые голоса
         if (existingVotes.Any())
-        {
             _dbContext.VotingVotes.RemoveRange(existingVotes);
-        }
 
-        // Добавляем новые
         var newVotes = dto.OptionIds.Distinct().Select(optionId => new VotingVote
         {
             Id = Guid.NewGuid(),
@@ -221,7 +219,17 @@ public class VotingsService
             VotedAt = DateTime.UtcNow
         }).ToList();
 
-        await _dbContext.VotingVotes.AddRangeAsync(newVotes);
+        _dbContext.VotingVotes.AddRange(newVotes);
+
+        await _activity.LogAsync(
+            voting.ProjectId,
+            userId,
+            ActivityType.VotingVoted,
+            summary: $"Проголосовал(а) в «{voting.Title}»",
+            link: $"/projects/{voting.Project.PublicCode}/votings/{voting.Id}",
+            relatedEntityId: voting.Id
+        );
+
         await _dbContext.SaveChangesAsync();
 
         await _notificationService.DeleteVotingNotificationAsync(userId, votingId);
@@ -231,16 +239,13 @@ public class VotingsService
         return await BuildVotingDtoAsync(votingId, userId);
     }
 
-    // 📌 Закрыть голосование (автор, владелец или админ проекта)
+    // 📌 Закрыть голосование
     public async Task<VotingDto> CloseVotingAsync(Guid votingId, Guid userId)
     {
         var voting = await _dbContext.Votings
-            .Include(v => v.Project)
-                .ThenInclude(p => p.Members)
-            .FirstOrDefaultAsync(v => v.Id == votingId);
-
-        if (voting == null)
-            throw new KeyNotFoundException("Голосование не найдено");
+            .Include(v => v.Project).ThenInclude(p => p.Members)
+            .FirstOrDefaultAsync(v => v.Id == votingId)
+            ?? throw new KeyNotFoundException("Голосование не найдено");
 
         var isAuthor = voting.CreatedById == userId;
         var isProjectOwner = voting.Project.OwnerId == userId;
@@ -254,6 +259,16 @@ public class VotingsService
                 "Только автор голосования, владелец или админ проекта может закрыть его");
 
         voting.IsClosed = true;
+
+        await _activity.LogAsync(
+            voting.ProjectId,
+            userId,
+            ActivityType.VotingClosed,
+            summary: $"Закрыто голосование: {voting.Title}",
+            link: $"/projects/{voting.Project.PublicCode}/votings/{voting.Id}",
+            relatedEntityId: voting.Id
+        );
+
         await _dbContext.SaveChangesAsync();
 
         _logger.LogInformation($"Голосование {votingId} закрыто пользователем {userId}");
@@ -261,16 +276,13 @@ public class VotingsService
         return await BuildVotingDtoAsync(votingId, userId);
     }
 
-    // 📌 Удалить голосование (автор, владелец или админ проекта)
+    // 📌 Удалить голосование
     public async Task DeleteVotingAsync(Guid votingId, Guid userId)
     {
         var voting = await _dbContext.Votings
-            .Include(v => v.Project)
-                .ThenInclude(p => p.Members)
-            .FirstOrDefaultAsync(v => v.Id == votingId);
-
-        if (voting == null)
-            throw new KeyNotFoundException("Голосование не найдено");
+            .Include(v => v.Project).ThenInclude(p => p.Members)
+            .FirstOrDefaultAsync(v => v.Id == votingId)
+            ?? throw new KeyNotFoundException("Голосование не найдено");
 
         var isAuthor = voting.CreatedById == userId;
         var isProjectOwner = voting.Project.OwnerId == userId;
@@ -286,22 +298,20 @@ public class VotingsService
         _dbContext.Votings.Remove(voting);
         await _dbContext.SaveChangesAsync();
 
-        // Удаляем связанные уведомления
         await _notificationService.DeleteNotificationsByRelatedIdAsync(votingId);
 
         _logger.LogInformation(
             $"Голосование {votingId} удалено пользователем {userId}");
     }
 
-    // 📌 Краткая сводка для бейджа (счётчик новых)
-    public async Task<List<VotingSummaryDto>> GetVotingsSummaryAsync(string projectCode, Guid userId)
+    // 📌 Краткая сводка
+    public async Task<List<VotingSummaryDto>> GetVotingsSummaryAsync(
+        string projectCode, Guid userId)
     {
         var project = await _dbContext.Projects
             .Include(p => p.Members)
-            .FirstOrDefaultAsync(p => p.PublicCode == projectCode);
-
-        if (project == null)
-            throw new KeyNotFoundException("Проект не найден");
+            .FirstOrDefaultAsync(p => p.PublicCode == projectCode)
+            ?? throw new KeyNotFoundException("Проект не найден");
 
         var votingIds = await _dbContext.Votings
             .Where(v => v.ProjectId == project.Id)
@@ -339,19 +349,13 @@ public class VotingsService
     private async Task<VotingDto> BuildVotingDtoAsync(Guid votingId, Guid userId)
     {
         var voting = await _dbContext.Votings
-            .Include(v => v.Project)
-                .ThenInclude(p => p.Members)
+            .Include(v => v.Project).ThenInclude(p => p.Members)
             .Include(v => v.CreatedBy)
-            .Include(v => v.Options)
-                .ThenInclude(o => o.Votes)
-                    .ThenInclude(vote => vote.User)
+            .Include(v => v.Options).ThenInclude(o => o.Votes).ThenInclude(vote => vote.User)
             .Include(v => v.Votes)
-            .FirstOrDefaultAsync(v => v.Id == votingId);
+            .FirstOrDefaultAsync(v => v.Id == votingId)
+            ?? throw new KeyNotFoundException("Голосование не найдено");
 
-        if (voting == null)
-            throw new KeyNotFoundException("Голосование не найдено");
-
-        // Проверка доступа
         var isOwner = voting.Project.OwnerId == userId;
         var isMember = voting.Project.Members.Any(m => m.UserId == userId);
 
@@ -373,10 +377,6 @@ public class VotingsService
             .Distinct()
             .Count();
 
-        // 📌 Можем ли показывать, кто голосовал:
-        //    — для анонимных голосований — никогда;
-        //    — для обычных — если пользователь проголосовал, голосование завершено
-        //      или автор разрешил показывать результаты до голосования
         var canSeeVoters = !voting.IsAnonymous && (
             hasVoted || !isActive || voting.ShowResultsBeforeVote
         );
@@ -390,8 +390,6 @@ public class VotingsService
                 Order = o.Order,
                 VotesCount = o.Votes.Count,
                 IsSelectedByCurrentUser = userVotes.Contains(o.Id),
-
-                // 📌 Список проголосовавших — только если можно показывать
                 Voters = canSeeVoters
                     ? o.Votes
                         .OrderBy(v => v.VotedAt)
@@ -416,9 +414,9 @@ public class VotingsService
         }
 
         var participantIds = new HashSet<Guid>(voting.Project.Members.Select(m => m.UserId))
-    {
-        voting.Project.OwnerId
-    };
+        {
+            voting.Project.OwnerId
+        };
 
         return new VotingDto
         {
@@ -431,10 +429,7 @@ public class VotingsService
             IsMultipleChoice = voting.IsMultipleChoice,
             AllowRevote = voting.AllowRevote,
             ShowResultsBeforeVote = voting.ShowResultsBeforeVote,
-
-            // 📌 NEW: флаг анонимности
             IsAnonymous = voting.IsAnonymous,
-
             IsClosed = voting.IsClosed,
             IsExpired = isExpired,
             CreatedAt = voting.CreatedAt,

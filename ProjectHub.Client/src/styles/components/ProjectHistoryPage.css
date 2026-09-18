@@ -1,0 +1,227 @@
+.project-history-page {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 24px;
+}
+
+.history-header {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+    .history-header h1 {
+        margin: 0;
+        font-size: 22px;
+        color: #111827;
+    }
+
+.history-total {
+    margin-left: auto;
+    font-size: 13px;
+    color: #6b7280;
+    background: #f3f4f6;
+    padding: 4px 10px;
+    border-radius: 6px;
+}
+
+/* ── Фильтры ── */
+.history-filters {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.history-filter-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    color: #374151;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.15s;
+}
+
+    .history-filter-btn:hover {
+        background: #f9fafb;
+        border-color: #d1d5db;
+    }
+
+    .history-filter-btn.active {
+        background: #4f46e5;
+        color: #fff;
+        border-color: #4f46e5;
+    }
+
+.history-filter-icon {
+    font-size: 13px;
+}
+
+/* ── Лента ── */
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.history-item {
+    display: flex;
+    gap: 12px;
+    padding: 12px 14px;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
+    transition: box-shadow 0.15s, transform 0.1s;
+}
+
+    .history-item[role="button"] {
+        cursor: pointer;
+    }
+
+        .history-item[role="button"]:hover {
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            transform: translateY(-1px);
+        }
+
+.history-icon {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f3f4f6;
+    border-radius: 8px;
+    font-size: 18px;
+}
+
+.history-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.history-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    margin-bottom: 4px;
+}
+
+.history-user {
+    font-weight: 600;
+    color: #111827;
+}
+
+.history-label {
+    color: #4b5563;
+}
+
+.history-date {
+    margin-left: auto;
+    color: #9ca3af;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.history-summary {
+    font-size: 13px;
+    color: #6b7280;
+    word-break: break-word;
+}
+
+/* Цветные подложки иконок по группам */
+.history-item-tasks .history-icon {
+    background: #eef2ff;
+}
+
+.history-item-members .history-icon {
+    background: #ecfdf5;
+}
+
+.history-item-invitations .history-icon {
+    background: #fef3c7;
+}
+
+.history-item-applications .history-icon {
+    background: #fef3c7;
+}
+
+.history-item-comments .history-icon {
+    background: #fdf2f8;
+}
+
+.history-item-attachments .history-icon {
+    background: #f3f4f6;
+}
+
+.history-item-tags .history-icon {
+    background: #fce7f3;
+}
+
+.history-item-votings .history-icon {
+    background: #e0f2fe;
+}
+
+.history-item-project .history-icon {
+    background: #eef2ff;
+}
+
+.history-item-chat .history-icon {
+    background: #f0fdf4;
+}
+
+/* ── Пустое состояние ── */
+.history-empty {
+    padding: 40px 20px;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 14px;
+    background: #f9fafb;
+    border: 1px dashed #e5e7eb;
+    border-radius: 10px;
+}
+
+/* ── Пагинация ── */
+.btn-load-more {
+    display: block;
+    margin: 20px auto 0;
+    padding: 10px 24px;
+    background: #4f46e5;
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 500;
+    font-size: 13px;
+}
+
+    .btn-load-more:hover:not(:disabled) {
+        background: #4338ca;
+    }
+
+    .btn-load-more:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+/* ── Загрузка / ошибка ── */
+.history-loading,
+.history-error {
+    padding: 40px 20px;
+    text-align: center;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+.history-error {
+    color: #dc2626;
+}

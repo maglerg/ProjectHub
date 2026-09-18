@@ -13,179 +13,153 @@ public class ApplicationService
     private readonly AppDbContext _dbContext;
     private readonly ILogger<ApplicationService> _logger;
     private readonly NotificationService _notificationService;
+    private readonly ActivityService _activity;
 
-    public ApplicationService(AppDbContext dbContext, ILogger<ApplicationService> logger, NotificationService notificationService)
+    public ApplicationService(
+        AppDbContext dbContext,
+        ILogger<ApplicationService> logger,
+        NotificationService notificationService,
+        ActivityService activity)
     {
         _dbContext = dbContext;
         _logger = logger;
         _notificationService = notificationService;
+        _activity = activity;
     }
+
     public async Task<Project?> GetProjectByCodeAsync(string code)
     {
         return await _dbContext.Projects
             .FirstOrDefaultAsync(p => p.PublicCode == code);
     }
+
     // 📌 Подать заявку на вступление
-    public async Task<ApplicationResponseDto> CreateApplicationAsync(Guid projectId, Guid userId, CreateApplicationDto dto)
+    public async Task<ApplicationResponseDto> CreateApplicationAsync(
+        Guid projectId, Guid userId, CreateApplicationDto dto)
     {
         _logger.LogInformation($"🔵 Пользователь {userId} подает заявку на проект {projectId}");
 
+        var project = await _dbContext.Projects
+            .FirstOrDefaultAsync(p => p.Id == projectId)
+            ?? throw new KeyNotFoundException("Проект не найден");
+
+        var user = await _dbContext.Users
+            .FirstOrDefaultAsync(u => u.Id == userId)
+            ?? throw new KeyNotFoundException("Пользователь не найден");
+
+        if (project.OwnerId == userId)
+            throw new InvalidOperationException("Вы являетесь владельцем проекта");
+
+        var existingMember = await _dbContext.ProjectMembers
+            .FirstOrDefaultAsync(pm => pm.ProjectId == projectId && pm.UserId == userId);
+
+        if (existingMember != null)
+            throw new InvalidOperationException("Вы уже являетесь участником проекта");
+
+        var existingApplication = await _dbContext.Applications
+            .FirstOrDefaultAsync(a => a.ProjectId == projectId
+                                      && a.UserId == userId
+                                      && a.Status == ApplicationStatus.Pending);
+
+        if (existingApplication != null)
+            throw new InvalidOperationException("Вы уже подали заявку на этот проект");
+
+        var application = new Application
+        {
+            Id = Guid.NewGuid(),
+            ProjectId = projectId,
+            UserId = userId,
+            Status = ApplicationStatus.Pending,
+            Message = dto?.Message,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        _dbContext.Applications.Add(application);
+
+        await _activity.LogAsync(
+            project.Id,
+            userId,
+            ActivityType.ApplicationSubmitted,
+            summary: $"{user.Name} подал(а) заявку на вступление",
+            link: $"/projects/{project.PublicCode}/applications",
+            relatedEntityId: application.Id
+        );
+
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation($"✅ Заявка {application.Id} создана");
+
+        // 📌 Уведомления владельцу и админам
         try
         {
-            var project = await _dbContext.Projects
-                .FirstOrDefaultAsync(p => p.Id == projectId);
+            await _notificationService.CreateNotificationAsync(
+                project.OwnerId,
+                "📨 Новая заявка на вступление",
+                $"Пользователь {user.Name} хочет присоединиться к проекту '{project.Name}'",
+                NotificationType.ApplicationReceived,
+                $"/projects/{project.PublicCode}/applications",
+                application.Id
+            );
 
-            if (project == null)
+            var admins = await _dbContext.ProjectMembers
+                .Where(pm => pm.ProjectId == projectId && pm.Role == ProjectMemberRole.Admin)
+                .ToListAsync();
+
+            foreach (var admin in admins)
             {
-                _logger.LogWarning($"❌ Проект {projectId} не найден");
-                throw new KeyNotFoundException("Проект не найден");
-            }
+                if (admin.UserId == project.OwnerId) continue;
 
-            _logger.LogInformation($"📦 Проект найден: {project.Name}");
-
-            var user = await _dbContext.Users
-                .FirstOrDefaultAsync(u => u.Id == userId);
-
-            if (user == null)
-            {
-                _logger.LogWarning($"❌ Пользователь {userId} не найден");
-                throw new KeyNotFoundException("Пользователь не найден");
-            }
-
-            _logger.LogInformation($"👤 Пользователь: {user.Name}");
-
-            if (project.OwnerId == userId)
-            {
-                _logger.LogWarning($"⚠️ Пользователь {userId} является владельцем проекта");
-                throw new InvalidOperationException("Вы являетесь владельцем проекта");
-            }
-
-            var existingMember = await _dbContext.ProjectMembers
-                .FirstOrDefaultAsync(pm => pm.ProjectId == projectId && pm.UserId == userId);
-
-            if (existingMember != null)
-            {
-                _logger.LogWarning($"⚠️ Пользователь {userId} уже является участником проекта");
-                throw new InvalidOperationException("Вы уже являетесь участником проекта");
-            }
-
-            var existingApplication = await _dbContext.Applications
-                .FirstOrDefaultAsync(a => a.ProjectId == projectId && a.UserId == userId && a.Status == ApplicationStatus.Pending);
-
-            if (existingApplication != null)
-            {
-                _logger.LogWarning($"⚠️ Пользователь {userId} уже подал заявку на этот проект");
-                throw new InvalidOperationException("Вы уже подали заявку на этот проект");
-            }
-
-            var application = new Application
-            {
-                Id = Guid.NewGuid(),
-                ProjectId = projectId,
-                UserId = userId,
-                Status = ApplicationStatus.Pending,
-                Message = dto?.Message,
-                CreatedAt = DateTime.UtcNow
-            };
-
-            await _dbContext.Applications.AddAsync(application);
-            await _dbContext.SaveChangesAsync();
-
-            _logger.LogInformation($"✅ Заявка {application.Id} создана");
-
-            // 📌 ОТПРАВЛЯЕМ УВЕДОМЛЕНИЕ ВСЕМ, КТО МОЖЕТ ПРИНЯТЬ ЗАЯВКУ (Owner + Admins)
-            try
-            {
-                // Отправляем владельцу
                 await _notificationService.CreateNotificationAsync(
-                    project.OwnerId,
-                    $"📨 Новая заявка на вступление",
+                    admin.UserId,
+                    "📨 Новая заявка на вступление",
                     $"Пользователь {user.Name} хочет присоединиться к проекту '{project.Name}'",
                     NotificationType.ApplicationReceived,
                     $"/projects/{project.PublicCode}/applications",
                     application.Id
                 );
-                _logger.LogInformation($"📨 Уведомление отправлено владельцу {project.OwnerId}");
-
-                // 📌 Находим всех администраторов проекта
-                var admins = await _dbContext.ProjectMembers
-                    .Where(pm => pm.ProjectId == projectId && pm.Role == ProjectMemberRole.Admin)
-                    .ToListAsync();
-
-                foreach (var admin in admins)
-                {
-                    // Не отправляем админу, если он же и владелец (уже отправили)
-                    if (admin.UserId == project.OwnerId)
-                        continue;
-
-                    await _notificationService.CreateNotificationAsync(
-                        admin.UserId,
-                        $"📨 Новая заявка на вступление",
-                        $"Пользователь {user.Name} хочет присоединиться к проекту '{project.Name}'",
-                        NotificationType.ApplicationReceived,
-                        $"/projects/{project.PublicCode}/applications",
-                        application.Id
-                    );
-                    _logger.LogInformation($"📨 Уведомление отправлено администратору {admin.UserId}");
-                }
             }
-            catch (Exception ex)
-            {
-                _logger.LogError($"❌ Ошибка при отправке уведомлений: {ex.Message}");
-            }
-
-            return MapToResponse(application);
         }
         catch (Exception ex)
         {
-            _logger.LogError($"❌ Ошибка в CreateApplicationAsync: {ex.Message}");
-            _logger.LogError($"📚 StackTrace: {ex.StackTrace}");
-            throw;
+            _logger.LogError($"❌ Ошибка при отправке уведомлений: {ex.Message}");
         }
+
+        return MapToResponse(application);
     }
 
     // 📌 Принять или отклонить заявку
-    public async Task<ApplicationResponseDto> ProcessApplicationAsync(Guid applicationId, Guid processedBy, bool approve, string? message = null)
+    public async Task<ApplicationResponseDto> ProcessApplicationAsync(
+        Guid applicationId, Guid processedBy, bool approve, string? message = null)
     {
         _logger.LogInformation($"Обработка заявки {applicationId} пользователем {processedBy}. Одобрить: {approve}");
 
         var application = await _dbContext.Applications
-            .Include(a => a.Project)
-                .ThenInclude(p => p.Members)
+            .Include(a => a.Project).ThenInclude(p => p.Members)
             .Include(a => a.User)
-            .FirstOrDefaultAsync(a => a.Id == applicationId);
-
-        if (application == null)
-        {
-            throw new KeyNotFoundException("Заявка не найдена");
-        }
+            .FirstOrDefaultAsync(a => a.Id == applicationId)
+            ?? throw new KeyNotFoundException("Заявка не найдена");
 
         if (application.Status != ApplicationStatus.Pending)
-        {
             throw new InvalidOperationException($"Заявка уже обработана. Статус: {application.Status}");
-        }
 
-        // 📌 Проверяем права (владелец или админ)
+        // Проверяем права
         var isOwner = application.Project.OwnerId == processedBy;
         var isAdmin = await _dbContext.ProjectMembers
-            .AnyAsync(pm => pm.ProjectId == application.ProjectId &&
-                           pm.UserId == processedBy &&
-                           pm.Role == ProjectMemberRole.Admin);
+            .AnyAsync(pm => pm.ProjectId == application.ProjectId
+                            && pm.UserId == processedBy
+                            && pm.Role == ProjectMemberRole.Admin);
 
         if (!isOwner && !isAdmin)
-        {
-            throw new UnauthorizedAccessException("У вас нет прав для обработки заявок в этом проекте");
-        }
+            throw new UnauthorizedAccessException(
+                "У вас нет прав для обработки заявок в этом проекте");
 
         if (approve)
         {
-            // ✅ ОДОБРЯЕМ
             application.Status = ApplicationStatus.Approved;
             application.ProcessedAt = DateTime.UtcNow;
             application.ProcessedBy = processedBy;
             application.UpdatedAt = DateTime.UtcNow;
 
-            // Добавляем пользователя в участники
             var member = new ProjectMember
             {
                 Id = Guid.NewGuid(),
@@ -195,12 +169,23 @@ public class ApplicationService
                 JoinedAt = DateTime.UtcNow
             };
 
-            await _dbContext.ProjectMembers.AddAsync(member);
+            _dbContext.ProjectMembers.Add(member);
+
+            await _activity.LogAsync(
+                application.ProjectId,
+                processedBy,
+                ActivityType.ApplicationApproved,
+                summary: $"Одобрена заявка: {application.User?.Name ?? "пользователь"}",
+                link: $"/projects/{application.Project.PublicCode}/applications",
+                relatedEntityId: application.Id
+            );
+
             await _dbContext.SaveChangesAsync();
 
-            _logger.LogInformation($"✅ Пользователь {application.UserId} добавлен в участники проекта {application.ProjectId}");
+            _logger.LogInformation(
+                $"✅ Пользователь {application.UserId} добавлен в участники проекта {application.ProjectId}");
 
-            // 📨 Уведомление пользователю, чья заявка одобрена
+            // Уведомление новому участнику
             await _notificationService.CreateNotificationAsync(
                 application.UserId,
                 "✅ Ваша заявка одобрена!",
@@ -210,7 +195,7 @@ public class ApplicationService
                 application.ProjectId
             );
 
-            // 📨 Уведомление ВСЕМ участникам проекта о новом участнике
+            // Уведомление всем участникам
             var projectMembers = await _dbContext.ProjectMembers
                 .Where(pm => pm.ProjectId == application.ProjectId)
                 .Include(pm => pm.User)
@@ -220,15 +205,12 @@ public class ApplicationService
 
             foreach (var pm in projectMembers)
             {
-                // 📌 НЕ отправляем уведомление:
-                // 1. Самому новому участнику (он уже получил выше)
-                // 2. Тому, кто принял заявку (он и так знает)
                 if (pm.UserId == application.UserId || pm.UserId == processedBy)
                     continue;
 
                 await _notificationService.CreateNotificationAsync(
                     pm.UserId,
-                    $"👋 Новый участник в проекте",
+                    "👋 Новый участник в проекте",
                     $"{newMemberName} присоединился к проекту '{application.Project.Name}'",
                     NotificationType.NewMember,
                     $"/projects/{application.Project.PublicCode}/dashboard",
@@ -236,14 +218,13 @@ public class ApplicationService
                 );
             }
 
-            _logger.LogInformation($"📨 Уведомления о новом участнике отправлены всем участникам проекта");
+            _logger.LogInformation("📨 Уведомления о новом участнике отправлены");
         }
         else
         {
-            // ❌ ОТКЛОНЯЕМ — УДАЛЯЕМ ЗАЯВКУ ИЗ БД
+            // ❌ Отклоняем — удаляем заявку
             var projectName = application.Project?.Name ?? "проект";
 
-            // 📨 Уведомление об отклонении
             await _notificationService.CreateNotificationAsync(
                 application.UserId,
                 "❌ Ваша заявка отклонена",
@@ -253,10 +234,17 @@ public class ApplicationService
                 application.ProjectId
             );
 
-            // 🗑️ Удаляем уведомления, связанные с этой заявкой
             await _notificationService.DeleteNotificationsByRelatedIdAsync(applicationId);
 
-            // 🗑️ Удаляем саму заявку
+            await _activity.LogAsync(
+                application.ProjectId,
+                processedBy,
+                ActivityType.ApplicationRejected,
+                summary: $"Отклонена заявка: {application.User?.Name ?? "пользователь"}",
+                link: $"/projects/{application.Project.PublicCode}/applications",
+                relatedEntityId: applicationId
+            );
+
             _dbContext.Applications.Remove(application);
             await _dbContext.SaveChangesAsync();
 
@@ -266,9 +254,9 @@ public class ApplicationService
         return MapToResponse(application);
     }
 
-
-    // 📌 Получить все заявки для проекта
-    public async Task<List<ApplicationResponseDto>> GetApplicationsForProjectAsync(Guid projectId, ApplicationStatus? status = null)
+    // 📌 Заявки проекта
+    public async Task<List<ApplicationResponseDto>> GetApplicationsForProjectAsync(
+        Guid projectId, ApplicationStatus? status = null)
     {
         var query = _dbContext.Applications
             .Include(a => a.User)
@@ -276,9 +264,7 @@ public class ApplicationService
             .Where(a => a.ProjectId == projectId);
 
         if (status.HasValue)
-        {
             query = query.Where(a => a.Status == status.Value);
-        }
 
         var applications = await query
             .OrderByDescending(a => a.CreatedAt)
@@ -287,7 +273,7 @@ public class ApplicationService
         return applications.Select(MapToResponse).ToList();
     }
 
-    // 📌 Получить заявки пользователя
+    // 📌 Заявки пользователя
     public async Task<List<ApplicationResponseDto>> GetApplicationsForUserAsync(Guid userId)
     {
         var applications = await _dbContext.Applications
@@ -299,28 +285,22 @@ public class ApplicationService
 
         return applications.Select(MapToResponse).ToList();
     }
-    // 📌 Получить заявки проекта по публичному коду
-    public async Task<List<ApplicationResponseDto>> GetApplicationsByCodeAsync(string code, ApplicationStatus? status = null)
+
+    // 📌 Заявки проекта по коду
+    public async Task<List<ApplicationResponseDto>> GetApplicationsByCodeAsync(
+        string code, ApplicationStatus? status = null)
     {
-        // Сначала находим проект по коду
         var project = await _dbContext.Projects
-            .FirstOrDefaultAsync(p => p.PublicCode == code);
+            .FirstOrDefaultAsync(p => p.PublicCode == code)
+            ?? throw new KeyNotFoundException("Проект с таким кодом не найден");
 
-        if (project == null)
-        {
-            throw new KeyNotFoundException("Проект с таким кодом не найден");
-        }
-
-        // Затем получаем заявки для этого проекта
         var query = _dbContext.Applications
             .Include(a => a.User)
             .Include(a => a.Project)
             .Where(a => a.ProjectId == project.Id);
 
         if (status.HasValue)
-        {
             query = query.Where(a => a.Status == status.Value);
-        }
 
         var applications = await query
             .OrderByDescending(a => a.CreatedAt)
@@ -328,23 +308,19 @@ public class ApplicationService
 
         return applications.Select(MapToResponse).ToList();
     }
-    
+
     // 📌 Очистить уведомления по коду проекта
     public async Task CleanupNotificationsByCodeAsync(string code)
     {
         var project = await _dbContext.Projects
             .FirstOrDefaultAsync(p => p.PublicCode == code);
 
-        if (project == null)
-            return;
+        if (project == null) return;
 
         await _notificationService.CleanupNotificationsForProjectAsync(project.Id);
     }
 
-
-    
-
-    // 📌 Проверка, является ли пользователь владельцем проекта
+    // 📌 Проверки
     public async Task<bool> IsUserProjectOwner(Guid projectId, Guid userId)
     {
         var project = await _dbContext.Projects
@@ -353,16 +329,15 @@ public class ApplicationService
         return project != null && project.OwnerId == userId;
     }
 
-    // 📌 Проверка, является ли пользователь админом проекта
     public async Task<bool> IsUserProjectAdmin(Guid projectId, Guid userId)
     {
         return await _dbContext.ProjectMembers
-            .AnyAsync(pm => pm.ProjectId == projectId &&
-                            pm.UserId == userId &&
-                            pm.Role == ProjectMemberRole.Admin);
+            .AnyAsync(pm => pm.ProjectId == projectId
+                            && pm.UserId == userId
+                            && pm.Role == ProjectMemberRole.Admin);
     }
 
-    // 📌 Маппинг в DTO (СИНХРОННЫЙ)
+    // 📌 Маппер
     private ApplicationResponseDto MapToResponse(Application application)
     {
         return new ApplicationResponseDto

@@ -13,16 +13,20 @@ public class InvitationService
     private readonly AppDbContext _dbContext;
     private readonly ILogger<InvitationService> _logger;
     private readonly NotificationService _notificationService;
+    private readonly ActivityService _activity;
 
     public InvitationService(
         AppDbContext dbContext,
         ILogger<InvitationService> logger,
-        NotificationService notificationService)
+        NotificationService notificationService,
+        ActivityService activity)
     {
         _dbContext = dbContext;
         _logger = logger;
         _notificationService = notificationService;
+        _activity = activity;
     }
+
     // 📌 Получить проект по публичному коду
     public async Task<Project?> GetProjectByCodeAsync(string code)
     {
@@ -31,20 +35,19 @@ public class InvitationService
     }
 
     // 📌 Получить статус приглашения
-    public async Task<InvitationStatusDto> GetInvitationStatusAsync(Guid userId, string projectCode)
+    public async Task<InvitationStatusDto> GetInvitationStatusAsync(
+        Guid userId, string projectCode)
     {
         var project = await _dbContext.Projects
             .FirstOrDefaultAsync(p => p.PublicCode == projectCode);
 
         if (project == null)
-        {
             return new InvitationStatusDto { Status = "None" };
-        }
 
         var invitation = await _dbContext.Invitations
-            .FirstOrDefaultAsync(i => i.ProjectId == project.Id &&
-                                      i.InviteeId == userId &&
-                                      i.Status == InvitationStatus.Pending);
+            .FirstOrDefaultAsync(i => i.ProjectId == project.Id
+                                      && i.InviteeId == userId
+                                      && i.Status == InvitationStatus.Pending);
 
         if (invitation != null)
         {
@@ -58,62 +61,47 @@ public class InvitationService
         return new InvitationStatusDto { Status = "None" };
     }
 
-    // 📌 Создать приглашение (только для Owner/Admin)
-    public async Task<InvitationResponseDto> CreateInvitationAsync(Guid projectId, Guid inviterId, string inviteeEmail, string? message = null)
+    // 📌 Создать приглашение (только Owner/Admin)
+    public async Task<InvitationResponseDto> CreateInvitationAsync(
+        Guid projectId, Guid inviterId, string inviteeEmail, string? message = null)
     {
-        _logger.LogInformation($"Пользователь {inviterId} приглашает {inviteeEmail} в проект {projectId}");
+        _logger.LogInformation(
+            $"Пользователь {inviterId} приглашает {inviteeEmail} в проект {projectId}");
 
-        // Проверяем, что приглашающий имеет права
         var project = await _dbContext.Projects
-            .FirstOrDefaultAsync(p => p.Id == projectId);
-
-        if (project == null)
-        {
-            throw new KeyNotFoundException("Проект не найден");
-        }
+            .FirstOrDefaultAsync(p => p.Id == projectId)
+            ?? throw new KeyNotFoundException("Проект не найден");
 
         var isOwner = project.OwnerId == inviterId;
         var isAdmin = await _dbContext.ProjectMembers
-            .AnyAsync(pm => pm.ProjectId == projectId && pm.UserId == inviterId && pm.Role == ProjectMemberRole.Admin);
+            .AnyAsync(pm => pm.ProjectId == projectId
+                            && pm.UserId == inviterId
+                            && pm.Role == ProjectMemberRole.Admin);
 
         if (!isOwner && !isAdmin)
-        {
-            throw new UnauthorizedAccessException("У вас нет прав для приглашения участников");
-        }
+            throw new UnauthorizedAccessException(
+                "У вас нет прав для приглашения участников");
 
-        // Находим приглашаемого
         var invitee = await _dbContext.Users
-            .FirstOrDefaultAsync(u => u.Email == inviteeEmail);
-
-        if (invitee == null)
-        {
-            throw new KeyNotFoundException("Пользователь с таким email не найден");
-        }
+            .FirstOrDefaultAsync(u => u.Email == inviteeEmail)
+            ?? throw new KeyNotFoundException("Пользователь с таким email не найден");
 
         if (invitee.Id == inviterId)
-        {
             throw new InvalidOperationException("Нельзя пригласить себя");
-        }
 
-        // Проверяем, уже ли пользователь в проекте
         var isMember = await _dbContext.ProjectMembers
             .AnyAsync(pm => pm.ProjectId == projectId && pm.UserId == invitee.Id);
 
         if (isMember)
-        {
             throw new InvalidOperationException("Пользователь уже является участником проекта");
-        }
 
-        // Проверяем, есть ли уже приглашение
         var existingInvitation = await _dbContext.Invitations
-            .FirstOrDefaultAsync(i => i.ProjectId == projectId &&
-                                      i.InviteeId == invitee.Id &&
-                                      i.Status == InvitationStatus.Pending);
+            .FirstOrDefaultAsync(i => i.ProjectId == projectId
+                                      && i.InviteeId == invitee.Id
+                                      && i.Status == InvitationStatus.Pending);
 
         if (existingInvitation != null)
-        {
             throw new InvalidOperationException("Приглашение уже отправлено");
-        }
 
         var invitation = new Invitation
         {
@@ -126,45 +114,50 @@ public class InvitationService
             CreatedAt = DateTime.UtcNow
         };
 
-        await _dbContext.Invitations.AddAsync(invitation);
+        _dbContext.Invitations.Add(invitation);
+
+        await _activity.LogAsync(
+            project.Id,
+            inviterId,
+            ActivityType.InvitationSent,
+            summary: $"Приглашение отправлено: {invitee.Name}",
+            link: $"/projects/{project.PublicCode}/dashboard",
+            relatedEntityId: invitee.Id
+        );
+
         await _dbContext.SaveChangesAsync();
 
         _logger.LogInformation($"Приглашение {invitation.Id} создано");
 
-        // 📨 Уведомление приглашенному
+        // 📨 Уведомление приглашённому
         var inviter = await _dbContext.Users.FindAsync(inviterId);
         await _notificationService.CreateNotificationAsync(
             invitee.Id,
-            $"📩 Приглашение в проект",
+            "📩 Приглашение в проект",
             $"Пользователь {inviter?.Name} приглашает вас присоединиться к проекту '{project.Name}'",
             NotificationType.ProjectInvitation,
-            $"/invitations",
+            "/invitations",
             invitation.Id
         );
 
         return MapToResponse(invitation);
     }
 
-    // 📌 Принять или отклонить приглашение (с удалением после обработки)
-    public async Task<InvitationResponseDto> ProcessInvitationAsync(Guid invitationId, Guid userId, bool accept)
+    // 📌 Принять или отклонить приглашение
+    public async Task<InvitationResponseDto> ProcessInvitationAsync(
+        Guid invitationId, Guid userId, bool accept)
     {
         var invitation = await _dbContext.Invitations
             .Include(i => i.Project)
             .Include(i => i.Inviter)
             .Include(i => i.Invitee)
-            .FirstOrDefaultAsync(i => i.Id == invitationId && i.InviteeId == userId);
-
-        if (invitation == null)
-        {
-            throw new KeyNotFoundException("Приглашение не найдено");
-        }
+            .FirstOrDefaultAsync(i => i.Id == invitationId && i.InviteeId == userId)
+            ?? throw new KeyNotFoundException("Приглашение не найдено");
 
         if (invitation.Status != InvitationStatus.Pending)
-        {
             throw new InvalidOperationException("Приглашение уже обработано");
-        }
 
-        // 📌 Сохраняем данные для уведомлений (до удаления)
+        // Сохраняем данные для уведомлений и истории (до удаления)
         var projectId = invitation.ProjectId;
         var projectName = invitation.Project?.Name ?? "проект";
         var projectCode = invitation.Project?.PublicCode ?? "";
@@ -175,8 +168,7 @@ public class InvitationService
 
         if (accept)
         {
-            // ✅ ПРИНИМАЕМ
-            // Добавляем пользователя в участники
+            // ✅ Принимаем
             var member = new ProjectMember
             {
                 Id = Guid.NewGuid(),
@@ -186,12 +178,23 @@ public class InvitationService
                 JoinedAt = DateTime.UtcNow
             };
 
-            await _dbContext.ProjectMembers.AddAsync(member);
+            _dbContext.ProjectMembers.Add(member);
+
+            await _activity.LogAsync(
+                projectId,
+                inviteeId,
+                ActivityType.InvitationAccepted,
+                summary: $"{inviteeName} принял(а) приглашение",
+                link: $"/projects/{projectCode}/dashboard",
+                relatedEntityId: inviteeId
+            );
+
             await _dbContext.SaveChangesAsync();
 
-            _logger.LogInformation($"Пользователь {inviteeId} принял приглашение и добавлен в проект");
+            _logger.LogInformation(
+                $"Пользователь {inviteeId} принял приглашение и добавлен в проект");
 
-            // 📨 Уведомление пригласившему
+            // 📨 Пригласившему
             await _notificationService.CreateNotificationAsync(
                 inviterId,
                 "✅ Приглашение принято",
@@ -201,7 +204,7 @@ public class InvitationService
                 projectId
             );
 
-            // 📨 Уведомление ВСЕМ участникам проекта
+            // 📨 Всем участникам проекта
             var projectMembers = await _dbContext.ProjectMembers
                 .Where(pm => pm.ProjectId == projectId)
                 .Include(pm => pm.User)
@@ -209,7 +212,6 @@ public class InvitationService
 
             foreach (var pm in projectMembers)
             {
-                // Не отправляем новому участнику и пригласившему (они уже получили)
                 if (pm.UserId == inviteeId || pm.UserId == inviterId)
                     continue;
 
@@ -223,12 +225,11 @@ public class InvitationService
                 );
             }
 
-            _logger.LogInformation($"📨 Уведомления о новом участнике отправлены всем участникам");
+            _logger.LogInformation("📨 Уведомления о новом участнике отправлены");
         }
         else
         {
-            // ❌ ОТКЛОНЯЕМ
-            // 📨 Уведомление пригласившему
+            // ❌ Отклоняем
             await _notificationService.CreateNotificationAsync(
                 inviterId,
                 "❌ Приглашение отклонено",
@@ -238,13 +239,22 @@ public class InvitationService
                 projectId
             );
 
+            await _activity.LogAsync(
+                projectId,
+                inviteeId,
+                ActivityType.InvitationDeclined,
+                summary: $"{inviteeName} отклонил(а) приглашение",
+                link: $"/projects/{projectCode}/dashboard",
+                relatedEntityId: inviteeId
+            );
+
             _logger.LogInformation($"Приглашение {invitationId} отклонено");
         }
 
-        // 📌 Удаляем уведомления, связанные с этим приглашением
+        // Удаляем уведомления по приглашению
         await _notificationService.DeleteNotificationsByRelatedIdAsync(invitationId);
 
-        // 📌 Удаляем саму заявку
+        // Удаляем само приглашение
         _dbContext.Invitations.Remove(invitation);
         await _dbContext.SaveChangesAsync();
 

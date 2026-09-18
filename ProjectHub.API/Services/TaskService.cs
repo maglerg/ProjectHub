@@ -13,6 +13,7 @@ namespace ProjectHub.API.Services
         private readonly NotificationService _notificationService;
         private readonly FileStorageService _fileStorage;
         private readonly IConfiguration _configuration;
+        private readonly ActivityService _activity;
 
         // Системные ключи колонок
         public const string KeyNotStarted = "NotStarted";
@@ -36,13 +37,15 @@ namespace ProjectHub.API.Services
             ILogger<TaskService> logger,
             NotificationService notificationService,
             FileStorageService fileStorage,
-            IConfiguration configuration)
+            IConfiguration configuration,
+            ActivityService activity)
         {
             _db = db;
             _logger = logger;
             _notificationService = notificationService;
             _fileStorage = fileStorage;
             _configuration = configuration;
+            _activity = activity;
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -163,6 +166,16 @@ namespace ProjectHub.API.Services
             };
 
             _db.ProjectTasks.Add(task);
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.TaskCreated,
+                summary: $"Создана задача: {task.Title}",
+                link: $"/projects/{project.PublicCode}/tasks/{task.Id}",
+                relatedEntityId: task.Id
+            );
+
             await _db.SaveChangesAsync();
 
             return await BuildTaskDtoAsync(task.Id, userId);
@@ -193,6 +206,16 @@ namespace ProjectHub.API.Services
                 });
 
                 task.UpdatedAt = DateTime.UtcNow;
+
+                await _activity.LogAsync(
+                    project.Id,
+                    userId,
+                    ActivityType.TaskTaken,
+                    summary: $"Взял(а) задачу: {task.Title}",
+                    link: $"/projects/{project.PublicCode}/tasks/{task.Id}",
+                    relatedEntityId: task.Id
+                );
+
                 await _db.SaveChangesAsync();
             }
 
@@ -234,8 +257,20 @@ namespace ProjectHub.API.Services
             if (assignee == null)
                 return await BuildTaskDtoAsync(task.Id, userId);
 
+            var removedUser = assignee.User?.Name ?? dto?.Email ?? "пользователь";
+
             _db.TaskAssignees.Remove(assignee);
             task.UpdatedAt = DateTime.UtcNow;
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.TaskLeft,
+                summary: $"Снял(а) с задачи «{task.Title}»: {removedUser}",
+                link: $"/projects/{project.PublicCode}/tasks/{task.Id}",
+                relatedEntityId: task.Id
+            );
+
             await _db.SaveChangesAsync();
 
             return await BuildTaskDtoAsync(task.Id, userId);
@@ -283,17 +318,40 @@ namespace ProjectHub.API.Services
                         "Нельзя завершить задачу: не все подзадачи выполнены.");
             }
 
+            var oldColumn = await _db.TaskColumns
+                .FirstOrDefaultAsync(c => c.Id == task.ColumnId);
+            var oldColumnName = oldColumn?.Name ?? "—";
+
             task.ColumnId = targetColumn.Id;
             task.UpdatedAt = DateTime.UtcNow;
 
-            if (IsKey(targetColumn, KeyCompleted))
+            var isCompleted = IsKey(targetColumn, KeyCompleted);
+
+            if (isCompleted)
             {
                 task.CompletedAt = DateTime.UtcNow;
-                // Приоритет НЕ сбрасываем — GetEffectivePriority вернёт None для завершённых
+
+                await _activity.LogAsync(
+                    project.Id,
+                    userId,
+                    ActivityType.TaskCompleted,
+                    summary: $"Завершена задача: {task.Title}",
+                    link: $"/projects/{project.PublicCode}/tasks/{task.Id}",
+                    relatedEntityId: task.Id
+                );
             }
             else
             {
                 task.CompletedAt = null;
+
+                await _activity.LogAsync(
+                    project.Id,
+                    userId,
+                    ActivityType.TaskMoved,
+                    summary: $"Задача «{task.Title}» перемещена: {oldColumnName} → {targetColumn.Name}",
+                    link: $"/projects/{project.PublicCode}/tasks/{task.Id}",
+                    relatedEntityId: task.Id
+                );
             }
 
             await _db.SaveChangesAsync();
@@ -318,7 +376,18 @@ namespace ProjectHub.API.Services
                 .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
                 ?? throw new KeyNotFoundException("Задача не найдена");
 
+            var title = task.Title;
+
             _db.ProjectTasks.Remove(task);
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.TaskDeleted,
+                summary: $"Удалена задача: {title}",
+                relatedEntityId: taskId
+            );
+
             await _db.SaveChangesAsync();
 
             _logger.LogInformation(
@@ -349,6 +418,11 @@ namespace ProjectHub.API.Services
             ValidateStartDate(project, dto.StartDate, dto.DueDate);
             ValidateDueDate(project, dto.StartDate, dto.DueDate);
 
+            var oldPriority = task.Priority;
+            var oldDue = task.DueDate;
+
+            var movedToCompleted = false;
+
             if (dto.ColumnId != Guid.Empty && dto.ColumnId != task.ColumnId)
             {
                 var column = await _db.TaskColumns
@@ -375,7 +449,7 @@ namespace ProjectHub.API.Services
                 if (IsKey(column, KeyCompleted))
                 {
                     task.CompletedAt = DateTime.UtcNow;
-                    // Приоритет не трогаем — см. GetEffectivePriority
+                    movedToCompleted = true;
                 }
                 else
                 {
@@ -389,6 +463,54 @@ namespace ProjectHub.API.Services
             task.StartDate = dto.StartDate;
             task.DueDate = dto.DueDate;
             task.UpdatedAt = DateTime.UtcNow;
+
+            // Логируем: завершение, смену приоритета, смену дедлайна или общее обновление
+            if (movedToCompleted)
+            {
+                await _activity.LogAsync(
+                    project.Id,
+                    userId,
+                    ActivityType.TaskCompleted,
+                    summary: $"Завершена задача: {task.Title}",
+                    link: $"/projects/{project.PublicCode}/tasks/{task.Id}",
+                    relatedEntityId: task.Id
+                );
+            }
+            else
+            {
+                if (oldPriority != dto.Priority)
+                {
+                    await _activity.LogAsync(
+                        project.Id,
+                        userId,
+                        ActivityType.TaskPriorityChanged,
+                        summary: $"Приоритет задачи «{task.Title}»: {oldPriority} → {dto.Priority}",
+                        link: $"/projects/{project.PublicCode}/tasks/{task.Id}",
+                        relatedEntityId: task.Id
+                    );
+                }
+
+                if (oldDue != dto.DueDate)
+                {
+                    await _activity.LogAsync(
+                        project.Id,
+                        userId,
+                        ActivityType.TaskDueDateChanged,
+                        summary: $"Дедлайн задачи «{task.Title}» изменён",
+                        link: $"/projects/{project.PublicCode}/tasks/{task.Id}",
+                        relatedEntityId: task.Id
+                    );
+                }
+
+                await _activity.LogAsync(
+                    project.Id,
+                    userId,
+                    ActivityType.TaskUpdated,
+                    summary: $"Обновлена задача: {task.Title}",
+                    link: $"/projects/{project.PublicCode}/tasks/{task.Id}",
+                    relatedEntityId: task.Id
+                );
+            }
 
             await _db.SaveChangesAsync();
 
@@ -501,6 +623,16 @@ namespace ProjectHub.API.Services
             };
 
             _db.TaskComments.Add(comment);
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.CommentAdded,
+                summary: $"Комментарий к задаче «{task.Title}»",
+                link: $"/projects/{project.PublicCode}/tasks/{taskId}",
+                relatedEntityId: taskId
+            );
+
             await _db.SaveChangesAsync();
 
             var preview = text.Length > 60 ? text.Substring(0, 60) + "…" : text;
@@ -584,6 +716,16 @@ namespace ProjectHub.API.Services
 
             _db.TaskAttachments.Add(attachment);
             task.UpdatedAt = DateTime.UtcNow;
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.AttachmentAdded,
+                summary: $"Файл к задаче «{task.Title}»: {attachment.FileName}",
+                link: $"/projects/{project.PublicCode}/tasks/{taskId}",
+                relatedEntityId: taskId
+            );
+
             await _db.SaveChangesAsync();
 
             var uploader = await _db.Users.FindAsync(userId);
@@ -659,13 +801,26 @@ namespace ProjectHub.API.Services
                 throw new UnauthorizedAccessException(
                     "Удалять вложения может только исполнитель, автор загрузки или владелец");
 
+            var fileName = attachment.FileName;
+            var storedFileName = attachment.StoredFileName;
+
             _db.TaskAttachments.Remove(attachment);
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.AttachmentDeleted,
+                summary: $"Удалён файл из задачи «{task.Title}»: {fileName}",
+                link: $"/projects/{project.PublicCode}/tasks/{taskId}",
+                relatedEntityId: taskId
+            );
+
             await _db.SaveChangesAsync();
 
-            try { _fileStorage.Delete(attachment.StoredFileName); }
+            try { _fileStorage.Delete(storedFileName); }
             catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Не удалось удалить файл с диска {File}", attachment.StoredFileName);
+                _logger.LogWarning(ex, "Не удалось удалить файл с диска {File}", storedFileName);
             }
         }
 
@@ -727,6 +882,15 @@ namespace ProjectHub.API.Services
                     task.UpdatedAt = DateTime.UtcNow;
                 }
             }
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.SubtaskAdded,
+                summary: $"Подзадача к «{task.Title}»: {subtask.Title}",
+                link: $"/projects/{project.PublicCode}/tasks/{taskId}",
+                relatedEntityId: taskId
+            );
 
             await _db.SaveChangesAsync();
 
@@ -810,7 +974,19 @@ namespace ProjectHub.API.Services
                     }
                 }
             }
-            // Кастомные колонки — не трогаем
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                subtask.IsCompleted
+                    ? ActivityType.SubtaskCompleted
+                    : ActivityType.SubtaskUncompleted,
+                summary: subtask.IsCompleted
+                    ? $"Выполнена подзадача «{subtask.Title}» в задаче «{task.Title}»"
+                    : $"Снята галочка с подзадачи «{subtask.Title}» в задаче «{task.Title}»",
+                link: $"/projects/{project.PublicCode}/tasks/{taskId}",
+                relatedEntityId: taskId
+            );
 
             await _db.SaveChangesAsync();
 
@@ -834,8 +1010,19 @@ namespace ProjectHub.API.Services
             var subtask = task.Subtasks.FirstOrDefault(s => s.Id == subtaskId)
                 ?? throw new KeyNotFoundException("Подзадача не найдена");
 
+            var subtaskTitle = subtask.Title;
+
             _db.TaskSubtasks.Remove(subtask);
             task.UpdatedAt = DateTime.UtcNow;
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.SubtaskDeleted,
+                summary: $"Удалена подзадача «{subtaskTitle}» из задачи «{task.Title}»",
+                link: $"/projects/{project.PublicCode}/tasks/{taskId}",
+                relatedEntityId: taskId
+            );
 
             await _db.SaveChangesAsync();
 
@@ -891,6 +1078,16 @@ namespace ProjectHub.API.Services
             };
 
             _db.TaskTags.Add(tag);
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.TagCreated,
+                summary: $"Создан тег проекта: {tag.Name}",
+                link: $"/projects/{project.PublicCode}",
+                relatedEntityId: tag.Id
+            );
+
             await _db.SaveChangesAsync();
 
             return MapTag(tag);
@@ -910,7 +1107,19 @@ namespace ProjectHub.API.Services
                 .FirstOrDefaultAsync(t => t.Id == tagId && t.ProjectId == project.Id)
                 ?? throw new KeyNotFoundException("Тег не найден");
 
+            var tagName = tag.Name;
+
             _db.TaskTags.Remove(tag);
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.TagDeleted,
+                summary: $"Удалён тег проекта: {tagName}",
+                link: $"/projects/{project.PublicCode}",
+                relatedEntityId: tagId
+            );
+
             await _db.SaveChangesAsync();
         }
 
@@ -933,14 +1142,12 @@ namespace ProjectHub.API.Services
                 throw new UnauthorizedAccessException(
                     "Управлять тегами задачи может только исполнитель или владелец проекта");
 
-            // Уникализируем
             var tagIds = (dto.TagIds ?? new List<Guid>()).Distinct().ToList();
 
             if (tagIds.Count > MaxTagsPerTask)
                 throw new InvalidOperationException(
                     $"К задаче можно привязать не более {MaxTagsPerTask} тегов");
 
-            // Проверяем, что все теги принадлежат проекту
             if (tagIds.Count > 0)
             {
                 var validIds = await _db.TaskTags
@@ -953,6 +1160,45 @@ namespace ProjectHub.API.Services
                         "Некоторые теги не найдены в этом проекте");
 
                 tagIds = validIds;
+            }
+
+            // Определяем diff для истории
+            var oldIds = task.TagLinks.Select(l => l.TagId).ToHashSet();
+            var newIds = tagIds.ToHashSet();
+
+            var addedIds = newIds.Except(oldIds).ToList();
+            var removedIds = oldIds.Except(newIds).ToList();
+
+            if (addedIds.Any() || removedIds.Any())
+            {
+                var addedNames = addedIds.Any()
+                    ? await _db.TaskTags
+                        .Where(t => addedIds.Contains(t.Id))
+                        .Select(t => t.Name)
+                        .ToListAsync()
+                    : new List<string>();
+
+                var removedNames = removedIds.Any()
+                    ? await _db.TaskTags
+                        .Where(t => removedIds.Contains(t.Id))
+                        .Select(t => t.Name)
+                        .ToListAsync()
+                    : new List<string>();
+
+                var parts = new List<string>();
+                if (addedNames.Any())
+                    parts.Add($"добавлены: {string.Join(", ", addedNames)}");
+                if (removedNames.Any())
+                    parts.Add($"сняты: {string.Join(", ", removedNames)}");
+
+                await _activity.LogAsync(
+                    project.Id,
+                    userId,
+                    addedIds.Any() ? ActivityType.TagAdded : ActivityType.TagRemoved,
+                    summary: $"Теги задачи «{task.Title}» — {string.Join("; ", parts)}",
+                    link: $"/projects/{project.PublicCode}/tasks/{taskId}",
+                    relatedEntityId: taskId
+                );
             }
 
             // Удаляем старые связи
@@ -1209,7 +1455,6 @@ namespace ProjectHub.API.Services
             dto.TotalSubtasksCount = t.Subtasks?.Count ?? 0;
             dto.CompletedSubtasksCount = t.Subtasks?.Count(s => s.IsCompleted) ?? 0;
 
-            // Теги для карточки
             dto.Tags = t.TagLinks?
                 .Select(l => MapTag(l.Tag))
                 .ToList() ?? new List<TaskTagDto>();

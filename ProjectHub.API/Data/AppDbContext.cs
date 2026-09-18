@@ -41,6 +41,8 @@ namespace ProjectHub.API.Data
         public DbSet<TaskTag> TaskTags { get; set; }
         public DbSet<TaskTagLink> TaskTagLinks { get; set; }
 
+        public DbSet<ProjectActivity> ProjectActivities { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -309,6 +311,23 @@ namespace ProjectHub.API.Data
 
                 // Один и тот же тег нельзя повесить на задачу дважды
                 entity.HasIndex(l => new { l.TaskId, l.TagId }).IsUnique();
+            });
+            modelBuilder.Entity<ProjectActivity>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(a => a.Project)
+                      .WithMany()
+                      .HasForeignKey(a => a.ProjectId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(a => a.User)
+                      .WithMany()
+                      .HasForeignKey(a => a.UserId)
+                      .OnDelete(DeleteBehavior.Restrict);
+
+                entity.HasIndex(a => new { a.ProjectId, a.CreatedAt });
+                entity.HasIndex(a => a.Type);
             });
         }
     }

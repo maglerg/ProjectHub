@@ -51,7 +51,35 @@ export const changeMemberRoleByCodeAndEmail = async (projectCode, memberEmail, n
         throw error;
     }
 };
+export const getProjectHistory = async (
+    projectCode,
+    { type, relatedEntityId, skip = 0, take = 50 } = {}
+) => {
+    const token = getToken();
+    const params = new URLSearchParams();
+    if (type) params.append('type', type);
+    if (relatedEntityId) params.append('relatedEntityId', relatedEntityId);
+    params.append('skip', String(skip));
+    params.append('take', String(take));
 
+    const response = await fetch(
+        `${API_BASE_URL}/projects/${projectCode}/history?${params.toString()}`,
+        {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        }
+    );
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Ошибка загрузки истории');
+    }
+
+    return response.json();
+};
 // 📌 Получить мои проекты (где пользователь владелец или участник)
 export const fetchMyProjects = async () => {
     try {
