@@ -8,9 +8,11 @@ export default function TaskContextMenu({
     onOpen, onEdit, onTake, onLeave, onMove, onPriority, onDelete
 }) {
     const menuRef = useRef(null);
+    const closeTimer = useRef(null);
 
-    const [showMoveSubmenu, setShowMoveSubmenu] = useState(false);
-    const [showPrioritySubmenu, setShowPrioritySubmenu] = useState(false);
+    // ── Одно активное подменю вместо двух независимых ──
+    // null | 'move' | 'priority'
+    const [openSubmenu, setOpenSubmenu] = useState(null);
 
     const assignees = task.assignees || [];
     const emailLower = (currentUserEmail || '').toLowerCase();
@@ -41,8 +43,28 @@ export default function TaskContextMenu({
             document.removeEventListener('mousedown', handleClickOutside);
             document.removeEventListener('keydown', handleKey);
             window.removeEventListener('scroll', handleScroll, true);
+            if (closeTimer.current) clearTimeout(closeTimer.current);
         };
     }, [onClose]);
+
+    // ── Открытие подменю ──
+    // Отменяет запланированное закрытие и мгновенно переключает на нужное подменю
+    const handleSubmenuOpen = (name) => {
+        if (closeTimer.current) {
+            clearTimeout(closeTimer.current);
+            closeTimer.current = null;
+        }
+        setOpenSubmenu(name);
+    };
+
+    // ── Отложенное закрытие ──
+    const handleSubmenuClose = () => {
+        if (closeTimer.current) clearTimeout(closeTimer.current);
+        closeTimer.current = setTimeout(() => {
+            setOpenSubmenu(null);
+            closeTimer.current = null;
+        }, 120);
+    };
 
     // ── Не вылезать за края окна ──
     const MENU_WIDTH = 240;
@@ -59,7 +81,6 @@ export default function TaskContextMenu({
         try {
             await navigator.clipboard.writeText(url);
         } catch (err) {
-            // Fallback для старых браузеров
             const el = document.createElement('textarea');
             el.value = url;
             document.body.appendChild(el);
@@ -125,12 +146,12 @@ export default function TaskContextMenu({
                 </button>
             )}
 
-            {/* Переместить в... (подменю) */}
+            {/* Переместить в... */}
             {(canEdit || isOwner) && (
                 <div
                     className="context-menu-submenu-wrapper"
-                    onMouseEnter={() => setShowMoveSubmenu(true)}
-                    onMouseLeave={() => setShowMoveSubmenu(false)}
+                    onMouseEnter={() => handleSubmenuOpen('move')}
+                    onMouseLeave={handleSubmenuClose}
                 >
                     <button
                         type="button"
@@ -141,8 +162,12 @@ export default function TaskContextMenu({
                         <span className="context-menu-arrow">›</span>
                     </button>
 
-                    {showMoveSubmenu && (
-                        <div className="context-submenu context-submenu--left">
+                    {openSubmenu === 'move' && (
+                        <div
+                            className="context-submenu context-submenu--left"
+                            onMouseEnter={() => handleSubmenuOpen('move')}
+                            onMouseLeave={handleSubmenuClose}
+                        >
                             {columns
                                 .filter(c => c.id !== task.columnId)
                                 .map(c => (
@@ -161,12 +186,12 @@ export default function TaskContextMenu({
                 </div>
             )}
 
-            {/* Изменить приоритет (подменю) */}
+            {/* Изменить приоритет */}
             {canEdit && (
                 <div
                     className="context-menu-submenu-wrapper"
-                    onMouseEnter={() => setShowPrioritySubmenu(true)}
-                    onMouseLeave={() => setShowPrioritySubmenu(false)}
+                    onMouseEnter={() => handleSubmenuOpen('priority')}
+                    onMouseLeave={handleSubmenuClose}
                 >
                     <button
                         type="button"
@@ -177,8 +202,12 @@ export default function TaskContextMenu({
                         <span className="context-menu-arrow">›</span>
                     </button>
 
-                    {showPrioritySubmenu && (
-                        <div className="context-submenu context-submenu--left">
+                    {openSubmenu === 'priority' && (
+                        <div
+                            className="context-submenu context-submenu--left"
+                            onMouseEnter={() => handleSubmenuOpen('priority')}
+                            onMouseLeave={handleSubmenuClose}
+                        >
                             {TASK_PRIORITIES.map(p => (
                                 <button
                                     key={p.value}
@@ -211,7 +240,7 @@ export default function TaskContextMenu({
                 Копировать ссылку
             </button>
 
-            {/* Удалить (только owner) */}
+            {/* Удалить */}
             {canDelete && (
                 <>
                     <div className="context-menu-divider" />

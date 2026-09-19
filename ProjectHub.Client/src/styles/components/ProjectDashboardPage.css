@@ -257,6 +257,9 @@
     margin-top: 20px;
     padding-top: 20px;
     border-top: 1px solid #f0f0f0;
+    min-width: 0;
+    max-width: 100%;
+    overflow: hidden;
 }
 
     .description-section h3 {
@@ -270,6 +273,9 @@
         line-height: 1.6;
         margin: 0;
         white-space: pre-wrap;
+        word-break: break-word;
+        overflow-wrap: anywhere;
+        max-width: 100%;
     }
 
 /* ══════════════════════════════════════════════
@@ -740,3 +746,212 @@
     .btn-create-voting:hover {
         background: #357abd;
     }
+/* ── Панель фильтров задач в сайдбаре ── */
+.sidebar-filters {
+    margin-top: 12px;
+    background: #fff;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.sidebar-filter-block {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.sidebar-filter-title {
+    font-size: 12px;
+    font-weight: 700;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.sidebar-filter-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    user-select: none;
+    padding: 4px 6px;
+    border-radius: 6px;
+    transition: background 0.1s;
+}
+
+    .sidebar-filter-checkbox:hover {
+        background: #f3f4f6;
+    }
+
+    .sidebar-filter-checkbox input[type="checkbox"] {
+        width: 15px;
+        height: 15px;
+        cursor: pointer;
+        accent-color: #4f46e5;
+        flex-shrink: 0;
+    }
+
+.sidebar-priority-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.sidebar-priority-item {
+    text-align: left;
+    padding: 6px 10px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: #374151;
+    font-size: 13px;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background 0.1s, color 0.1s, border-color 0.1s;
+}
+
+    .sidebar-priority-item:hover {
+        background: #eef2ff;
+        color: #4f46e5;
+    }
+
+    .sidebar-priority-item.active {
+        background: #4f46e5;
+        color: #fff;
+        border-color: #4f46e5;
+        font-weight: 600;
+    }
+
+/* ── Поиск по тегам внутри сайдбара ── */
+.sidebar-filters .tag-search-wrapper {
+    position: relative;
+}
+
+.sidebar-filters .tag-search-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: #fff;
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 0 10px;
+    height: 34px;
+    transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+}
+
+    .sidebar-filters .tag-search-input-wrap:focus-within {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .sidebar-filters .tag-search-input-wrap.active {
+        border-color: #4f46e5;
+        background: #eef2ff;
+    }
+
+.sidebar-filters .tag-search-icon {
+    font-size: 12px;
+    color: #9ca3af;
+    flex-shrink: 0;
+}
+
+.sidebar-filters .tag-search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    background: transparent;
+    font-size: 13px;
+    color: #111827;
+    font-family: inherit;
+    min-width: 0;
+    height: 100%;
+}
+
+.sidebar-filters .tag-search-dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 260px;
+    overflow-y: auto;
+    background: #fff;
+    border-radius: 10px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), 0 0 0 1px rgba(0, 0, 0, 0.05);
+    padding: 4px;
+    z-index: 300;
+}
+
+.sidebar-filters .tag-search-empty {
+    padding: 10px 12px;
+    font-size: 13px;
+    color: #9ca3af;
+    text-align: center;
+}
+
+.sidebar-filters .tag-search-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 10px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    transition: background 0.1s;
+    user-select: none;
+}
+
+    .sidebar-filters .tag-search-item:hover {
+        background: #eef2ff;
+    }
+
+    .sidebar-filters .tag-search-item.checked {
+        background: #e0e7ff;
+        font-weight: 500;
+    }
+
+    .sidebar-filters .tag-search-item input[type="checkbox"] {
+        width: 15px;
+        height: 15px;
+        cursor: pointer;
+        flex-shrink: 0;
+        accent-color: #4f46e5;
+    }
+
+.sidebar-filters .tag-search-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.sidebar-filters .tag-search-name {
+    flex: 1;
+    color: #111827;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sidebar-filters .tag-search-count {
+    font-size: 11px;
+    color: #9ca3af;
+    background: #f3f4f6;
+    padding: 1px 6px;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+/* На узких экранах сайдбар превращается в горизонтальную ленту —
+   фильтры при этом пусть будут чуть ниже меню, шириной 100% */
+@media (max-width: 900px) {
+    .sidebar-filters {
+        width: 100%;
+        margin-top: 8px;
+    }
+}

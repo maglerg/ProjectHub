@@ -4,10 +4,15 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { searchMyProjectByCode } from '../services/projectsApi';
-import { getCategoryName, getStatusName, getVisibilityName } from '../utils/constants';
+import {
+    getCategoryName,
+    getStatusName,
+    getVisibilityName,
+    TASK_PRIORITIES,
+} from '../utils/constants';
 import { getProjectChatByCode } from '../services/chatsApi';
 import { getVotingsSummary } from '../services/votingsApi';
-import { getTasksBoard } from '../services/tasksApi';
+import { getTasksBoard, getProjectTags } from '../services/tasksApi';
 import TasksBoard from './tasks/TasksBoard';
 import TaskTimeline from './tasks/TaskTimeline';
 import NotificationsDropdown from './NotificationsDropdown';
@@ -19,6 +24,7 @@ import InviteUserModal from './InviteUserModal';
 import VotingsListPage from './VotingsListPage';
 import ProjectHistoryPage from './ProjectHistoryPage';
 import ChatPage from './ChatPage';
+import VotingPage from './VotingPage';
 import CreateVotingModal from './CreateVotingPage';
 
 import '../styles/components/ProjectDashboardPage.css';
@@ -53,6 +59,9 @@ const ProjectDashboardPage = () => {
     // 📌 Модалка создания голосования
     const [showCreateVotingModal, setShowCreateVotingModal] = useState(false);
 
+    // 📌 Модалка просмотра/голосования
+    const [selectedVotingId, setSelectedVotingId] = useState(null);
+
     // 📌 Ключ для принудительного обновления списка голосований
     const [votingsRefreshKey, setVotingsRefreshKey] = useState(0);
 
@@ -67,6 +76,18 @@ const ProjectDashboardPage = () => {
             setActiveSection(location.state.section);
         }
     }, [location.state?.section]);
+
+    // 📌 Фильтры задач (живут на уровне страницы, рендерятся в сайдбаре)
+    const [taskFilters, setTaskFilters] = useState({
+        onlyMyTasks: false,
+        priorityFilter: 'All',
+        onlyActive: false,
+        hideCompleted: false,
+        tagFilters: [],
+    });
+    const [taskTagSearch, setTaskTagSearch] = useState('');
+    const [taskShowTagDropdown, setTaskShowTagDropdown] = useState(false);
+    const [taskAllTags, setTaskAllTags] = useState([]);
 
     // 📌 Бейдж голосований
     const [votingsBadge, setVotingsBadge] = useState(0);
@@ -142,6 +163,25 @@ const ProjectDashboardPage = () => {
             loadTimeline();
         }
     }, [activeSection, project?.publicCode, loadTimeline]);
+
+    // 📌 Загрузка тегов проекта для панели фильтров задач
+    const loadTaskTagsForFilters = useCallback(async () => {
+        if (!project?.publicCode) return;
+        try {
+            const tags = await getProjectTags(project.publicCode);
+            setTaskAllTags(tags || []);
+        } catch (err) {
+            console.warn('Не удалось загрузить теги для фильтров:', err);
+            setTaskAllTags([]);
+        }
+    }, [project?.publicCode]);
+
+    // 📌 Когда открыт раздел "tasks" — подгружаем теги для фильтров
+    useEffect(() => {
+        if (activeSection === 'tasks' && project?.publicCode) {
+            loadTaskTagsForFilters();
+        }
+    }, [activeSection, project?.publicCode, loadTaskTagsForFilters]);
 
     // 📌 Загрузка chatId проекта для встроенного чата
     const loadProjectChat = useCallback(async () => {
@@ -248,10 +288,16 @@ const ProjectDashboardPage = () => {
         setNotification({ type: 'success', text: '✅ Голосование создано!' });
         setTimeout(() => setNotification(null), 3000);
 
-        // 📌 Обновляем список голосований (см. правку VotingsListPage ниже)
         setVotingsRefreshKey(k => k + 1);
 
-        // 📌 Обновляем бейдж
+        if (project?.publicCode) {
+            loadVotingsBadge(project.publicCode);
+        }
+    };
+
+    // 📌 Изменения в голосовании (голос/закрытие/удаление) — обновляем список и бейдж
+    const handleVotingChanged = () => {
+        setVotingsRefreshKey(k => k + 1);
         if (project?.publicCode) {
             loadVotingsBadge(project.publicCode);
         }
@@ -382,7 +428,7 @@ const ProjectDashboardPage = () => {
 
             <div className="dashboard-layout">
 
-                {/* ── ЛЕВАЯ колонка: меню ── */}
+                {/* ── ЛЕВАЯ колонка: меню + фильтры задач ── */}
                 <aside className="dashboard-sidebar">
                     <nav className="sidebar-nav">
                         {MENU_ITEMS.map(item => (
@@ -400,6 +446,163 @@ const ProjectDashboardPage = () => {
                             </button>
                         ))}
                     </nav>
+
+                    {/* 📌 Панель фильтров задач (только в разделе "Задачи") */}
+                    {activeSection === 'tasks' && (
+                        <div className="sidebar-filters">
+                            {/* ── Поиск по тегам ── */}
+                            {taskAllTags.length > 0 && (
+                                <div className="sidebar-filter-block">
+                                    <div className="tag-search-wrapper">
+                                        <div
+                                            className={`tag-search-input-wrap ${taskFilters.tagFilters.length > 0 ? 'active' : ''}`}
+                                        >
+                                            <span className="tag-search-icon">🔍</span>
+                                            <input
+                                                type="text"
+                                                className="tag-search-input"
+                                                placeholder={
+                                                    taskFilters.tagFilters.length > 0
+                                                        ? `Выбрано тегов: ${taskFilters.tagFilters.length}`
+                                                        : 'Поиск по тегам…'
+                                                }
+                                                value={taskTagSearch}
+                                                onChange={e => setTaskTagSearch(e.target.value)}
+                                                onFocus={() => setTaskShowTagDropdown(true)}
+                                                onBlur={() =>
+                                                    setTimeout(() => setTaskShowTagDropdown(false), 150)
+                                                }
+                                            />
+                                            {taskFilters.tagFilters.length > 0 && (
+                                                <button
+                                                    type="button"
+                                                    className="tag-search-clear"
+                                                    title="Сбросить теги"
+                                                    onClick={() =>
+                                                        setTaskFilters(f => ({ ...f, tagFilters: [] }))
+                                                    }
+                                                >
+                                                    ×
+                                                </button>
+                                            )}
+                                        </div>
+
+                                        {taskShowTagDropdown && (
+                                            <div className="tag-search-dropdown">
+                                                {taskAllTags.filter(t =>
+                                                    t.name.toLowerCase().includes(taskTagSearch.trim().toLowerCase())
+                                                ).length === 0 ? (
+                                                    <div className="tag-search-empty">
+                                                        {taskTagSearch.trim()
+                                                            ? `Тег «${taskTagSearch}» не найден`
+                                                            : 'Нет тегов'}
+                                                    </div>
+                                                ) : (
+                                                    taskAllTags
+                                                        .filter(t =>
+                                                            t.name.toLowerCase().includes(taskTagSearch.trim().toLowerCase())
+                                                        )
+                                                        .map(t => {
+                                                            const checked = taskFilters.tagFilters.includes(t.id);
+                                                            return (
+                                                                <label
+                                                                    key={t.id}
+                                                                    className={`tag-search-item ${checked ? 'checked' : ''}`}
+                                                                    onMouseDown={e => e.preventDefault()}
+                                                                >
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={checked}
+                                                                        onChange={() => {
+                                                                            setTaskFilters(f => ({
+                                                                                ...f,
+                                                                                tagFilters: f.tagFilters.includes(t.id)
+                                                                                    ? f.tagFilters.filter(id => id !== t.id)
+                                                                                    : [...f.tagFilters, t.id]
+                                                                            }));
+                                                                        }}
+                                                                    />
+                                                                    <span
+                                                                        className="tag-search-dot"
+                                                                        style={{ backgroundColor: t.color || '#9ca3af' }}
+                                                                    />
+                                                                    <span className="tag-search-name">{t.name}</span>
+                                                                    <span className="tag-search-count">{t.tasksCount}</span>
+                                                                </label>
+                                                            );
+                                                        })
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* ── Чекбоксы ── */}
+                            <div className="sidebar-filter-block">
+                                <label className="sidebar-filter-checkbox">
+                                    <input
+                                        type="checkbox"
+                                        checked={taskFilters.onlyMyTasks}
+                                        onChange={e =>
+                                            setTaskFilters(f => ({ ...f, onlyMyTasks: e.target.checked }))
+                                        }
+                                    />
+                                    <span>Показать мои задачи</span>
+                                </label>
+
+                                <label className="sidebar-filter-checkbox">
+                                    <input
+                                        type="checkbox"
+                                        checked={taskFilters.hideCompleted}
+                                        onChange={e =>
+                                            setTaskFilters(f => ({ ...f, hideCompleted: e.target.checked }))
+                                        }
+                                    />
+                                    <span>Скрыть завершённые</span>
+                                </label>
+
+                                <label className="sidebar-filter-checkbox">
+                                    <input
+                                        type="checkbox"
+                                        checked={taskFilters.onlyActive}
+                                        onChange={e =>
+                                            setTaskFilters(f => ({ ...f, onlyActive: e.target.checked }))
+                                        }
+                                    />
+                                    <span>Показать только активные</span>
+                                </label>
+                            </div>
+
+                            {/* ── Приоритеты ── */}
+                            <div className="sidebar-filter-block">
+                                <div className="sidebar-filter-title">Приоритеты</div>
+                                <div className="sidebar-priority-list">
+                                    <button
+                                        type="button"
+                                        className={`sidebar-priority-item ${taskFilters.priorityFilter === 'All' ? 'active' : ''}`}
+                                        onClick={() =>
+                                            setTaskFilters(f => ({ ...f, priorityFilter: 'All' }))
+                                        }
+                                    >
+                                        Все
+                                    </button>
+                                    {TASK_PRIORITIES.map(p => (
+                                        <button
+                                            key={p.value}
+                                            type="button"
+                                            className={`sidebar-priority-item ${taskFilters.priorityFilter === p.value ? 'active' : ''}`}
+                                            onClick={() =>
+                                                setTaskFilters(f => ({ ...f, priorityFilter: p.value }))
+                                            }
+                                        >
+                                            {p.icon} {p.label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </aside>
 
                 {/* ── ПРАВАЯ колонка: контент ── */}
@@ -505,15 +708,12 @@ const ProjectDashboardPage = () => {
                     {/* ── ЗАДАЧИ ── */}
                     {activeSection === 'tasks' && (
                         <section className="dashboard-section">
-                            <div className="section-header">
-                                <h2>🗂️ Задачи</h2>
-                            </div>
-
                             <TasksBoard
                                 projectCode={project.publicCode}
                                 projectDeadline={project.deadline}
                                 currentUserEmail={user.email}
                                 isOwner={userStatus === 'Owner'}
+                                filters={taskFilters}
                             />
                         </section>
                     )}
@@ -523,14 +723,6 @@ const ProjectDashboardPage = () => {
                         <section className="dashboard-section">
                             <div className="section-header">
                                 <h2>📅 Таймлайн задач</h2>
-                                <button
-                                    className="btn-refresh"
-                                    onClick={loadTimeline}
-                                    disabled={timelineLoading}
-                                    title="Обновить"
-                                >
-                                    {timelineLoading ? '⏳' : '🔄 Обновить'}
-                                </button>
                             </div>
 
                             {timelineError && (
@@ -596,6 +788,8 @@ const ProjectDashboardPage = () => {
                             <VotingsListPage
                                 embedded
                                 refreshKey={votingsRefreshKey}
+                                onOpenVoting={setSelectedVotingId}
+                                onCreateVoting={() => setShowCreateVotingModal(true)}
                             />
                         </section>
                     )}
@@ -648,6 +842,15 @@ const ProjectDashboardPage = () => {
                     projectCode={project.publicCode}
                     onClose={() => setShowCreateVotingModal(false)}
                     onCreated={handleVotingCreated}
+                />
+            )}
+
+            {selectedVotingId && (
+                <VotingPage
+                    votingId={selectedVotingId}
+                    projectUserStatus={userStatus}
+                    onClose={() => setSelectedVotingId(null)}
+                    onChanged={handleVotingChanged}
                 />
             )}
         </div>

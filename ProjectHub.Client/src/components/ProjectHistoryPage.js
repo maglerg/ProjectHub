@@ -12,6 +12,9 @@ import '../styles/components/ProjectHistoryPage.css';
 
 const PAGE_SIZE = 30;
 
+// 📌 Группы активностей, которые НЕ показываем на этой странице
+const EXCLUDED_GROUPS = ['chat'];
+
 export default function ProjectHistoryPage({ embedded = false }) {
     const { code } = useParams();
     const navigate = useNavigate();
@@ -24,6 +27,11 @@ export default function ProjectHistoryPage({ embedded = false }) {
     const [loading, setLoading] = useState(true);
     const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState(null);
+
+    // ── Фильтры без исключённых групп ──
+    const visibleFilters = ACTIVITY_FILTERS.filter(
+        f => !EXCLUDED_GROUPS.includes(f.value)
+    );
 
     // ── Загрузка ──
     const loadPage = async (reset = false) => {
@@ -63,10 +71,16 @@ export default function ProjectHistoryPage({ embedded = false }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [code]);
 
-    // ── Фильтрация на клиенте по группе ──
-    const visibleItems = activeGroup === 'all'
-        ? items
-        : items.filter(it => getActivityInfo(it.type).group === activeGroup);
+    // ── Клиентская фильтрация: по группе + исключаем чат ──
+    const visibleItems = items.filter(it => {
+        const info = getActivityInfo(it.type);
+
+        // 📌 Никогда не показываем события из исключённых групп
+        if (EXCLUDED_GROUPS.includes(info.group)) return false;
+
+        if (activeGroup === 'all') return true;
+        return info.group === activeGroup;
+    });
 
     const hasMore = items.length < total;
 
@@ -104,9 +118,9 @@ export default function ProjectHistoryPage({ embedded = false }) {
                 </div>
             )}
 
-            {/* ── Фильтры ── */}
+            {/* ── Фильтры (без исключённых групп) ── */}
             <div className="history-filters">
-                {ACTIVITY_FILTERS.map(f => (
+                {visibleFilters.map(f => (
                     <button
                         key={f.value}
                         type="button"

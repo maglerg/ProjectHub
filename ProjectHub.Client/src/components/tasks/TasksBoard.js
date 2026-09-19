@@ -12,7 +12,6 @@ import {
     createTag,
     setTaskTags
 } from '../../services/tasksApi';
-import { TASK_PRIORITIES } from '../../utils/constants';
 import TaskColumn from './TaskColumn';
 import CreateTaskModal from './CreateTaskModal';
 import '../../styles/components/tasks/tasks.css';
@@ -21,18 +20,21 @@ export default function TasksBoard({
     projectCode,
     projectDeadline,
     currentUserEmail,
-    isOwner
+    isOwner,
+    // 📌 Фильтры приходят снаружи (панель в сайдбаре дашборда)
+    filters = {}
 }) {
+    const {
+        onlyMyTasks = false,
+        priorityFilter = 'All',
+        onlyActive = false,
+        hideCompleted = false,
+        tagFilters = [],
+    } = filters;
+
     const [columns, setColumns] = useState([]);
     const [progress, setProgress] = useState(null);
     const [allTags, setAllTags] = useState([]);
-    const [tagFilters, setTagFilters] = useState([]);
-    const [tagSearch, setTagSearch] = useState('');
-    const [showTagDropdown, setShowTagDropdown] = useState(false);
-    const [onlyMyTasks, setOnlyMyTasks] = useState(false);
-    const [priorityFilter, setPriorityFilter] = useState('All');
-    const [onlyActive, setOnlyActive] = useState(false);
-    const [hideCompleted, setHideCompleted] = useState(false);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
@@ -124,28 +126,6 @@ export default function TasksBoard({
     };
 
     const visibleColumns = filterColumns(columns);
-    const hasVisibleTasks = visibleColumns.some(c => c.tasks.length > 0);
-    const isFiltering =
-        onlyMyTasks ||
-        priorityFilter !== 'All' ||
-        onlyActive ||
-        hideCompleted ||
-        tagFilters.length > 0;
-
-    // ── Отфильтрованный список тегов по поисковому запросу ──
-    const filteredTags = allTags.filter(t =>
-        t.name.toLowerCase().includes(tagSearch.trim().toLowerCase())
-    );
-
-    // ── Сброс всех фильтров ──
-    const resetFilters = () => {
-        setOnlyMyTasks(false);
-        setPriorityFilter('All');
-        setOnlyActive(false);
-        setHideCompleted(false);
-        setTagFilters([]);
-        setTagSearch('');
-    };
 
     // ── Взять задачу ──
     const handleTake = async (taskId) => {
@@ -215,164 +195,16 @@ export default function TasksBoard({
         }
     };
 
-    // ── Toggle тега в фильтре ──
-    const toggleTagFilter = (tagId) => {
-        setTagFilters(prev =>
-            prev.includes(tagId)
-                ? prev.filter(id => id !== tagId)
-                : [...prev, tagId]
-        );
-    };
-
     if (loading) return <div className="tasks-loading">Загрузка задач…</div>;
     if (error) return <div className="tasks-error">Ошибка: {error}</div>;
 
     return (
         <div className="tasks-board-wrapper">
+            {/* ── Верхняя панель доски: заголовок + кнопка создания ── */}
             <div className="tasks-board-header">
                 <h2>Задачи</h2>
 
                 <div className="tasks-board-actions">
-                    {/* ── Кнопка «Все / Мои задачи» ── */}
-                    <button
-                        type="button"
-                        className={`btn-filter-my ${onlyMyTasks ? 'active' : ''}`}
-                        onClick={() => setOnlyMyTasks(v => !v)}
-                        title={
-                            onlyMyTasks
-                                ? 'Показать все задачи'
-                                : 'Показать только мои задачи'
-                        }
-                    >
-                        {onlyMyTasks ? '📋 Все задачи' : '👤 Мои задачи'}
-                    </button>
-
-                    {/* ── Кнопка «Только активные» ── */}
-                    <button
-                        type="button"
-                        className={`btn-filter-active ${onlyActive ? 'active' : ''}`}
-                        onClick={() => setOnlyActive(v => !v)}
-                        title={
-                            onlyActive
-                                ? 'Показать все задачи, включая ещё не начатые'
-                                : 'Скрыть задачи, которые ещё не начались'
-                        }
-                    >
-                        {onlyActive ? '🚀 Только активные' : '🗂 Все задачи'}
-                    </button>
-
-                    {/* ── Кнопка «Без завершённых» ── */}
-                    <button
-                        type="button"
-                        className={`btn-filter-hide-completed ${hideCompleted ? 'active' : ''}`}
-                        onClick={() => setHideCompleted(v => !v)}
-                        title={
-                            hideCompleted
-                                ? 'Показать завершённые задачи'
-                                : 'Скрыть завершённые задачи'
-                        }
-                    >
-                        {hideCompleted ? '🙈 Без завершённых' : '✅ Все задачи'}
-                    </button>
-
-                    {/* ── Фильтр по приоритету ── */}
-                    <select
-                        className={`priority-filter ${priorityFilter !== 'All' ? 'active' : ''}`}
-                        value={priorityFilter}
-                        onChange={e => setPriorityFilter(e.target.value)}
-                        title="Фильтр по приоритету"
-                    >
-                        <option value="All">Все</option>
-                        {TASK_PRIORITIES.map(p => (
-                            <option key={p.value} value={p.value}>
-                                {p.icon} {p.label}
-                            </option>
-                        ))}
-                    </select>
-
-                    {/* ── Поиск по тегам ── */}
-                    {allTags.length > 0 && (
-                        <div className="tag-search-wrapper">
-                            <div
-                                className={`tag-search-input-wrap ${tagFilters.length > 0 ? 'active' : ''
-                                    }`}
-                            >
-                                <span className="tag-search-icon">🔍</span>
-                                <input
-                                    type="text"
-                                    className="tag-search-input"
-                                    placeholder={
-                                        tagFilters.length > 0
-                                            ? `Выбрано тегов: ${tagFilters.length}`
-                                            : 'Поиск по тегам…'
-                                    }
-                                    value={tagSearch}
-                                    onChange={e => setTagSearch(e.target.value)}
-                                    onFocus={() => setShowTagDropdown(true)}
-                                    onBlur={() =>
-                                        setTimeout(
-                                            () => setShowTagDropdown(false),
-                                            150
-                                        )
-                                    }
-                                />
-                                {tagFilters.length > 0 && (
-                                    <button
-                                        type="button"
-                                        className="tag-search-clear"
-                                        title="Сбросить выбранные теги"
-                                        onClick={() => setTagFilters([])}
-                                    >
-                                        ×
-                                    </button>
-                                )}
-                            </div>
-
-                            {showTagDropdown && (
-                                <div className="tag-search-dropdown">
-                                    {filteredTags.length === 0 ? (
-                                        <div className="tag-search-empty">
-                                            {tagSearch.trim()
-                                                ? `Тег «${tagSearch}» не найден`
-                                                : 'Нет тегов'}
-                                        </div>
-                                    ) : (
-                                        filteredTags.map(t => {
-                                            const checked = tagFilters.includes(t.id);
-                                            return (
-                                                <label
-                                                    key={t.id}
-                                                    className={`tag-search-item ${checked ? 'checked' : ''
-                                                        }`}
-                                                    onMouseDown={e => e.preventDefault()}
-                                                >
-                                                    <input
-                                                        type="checkbox"
-                                                        checked={checked}
-                                                        onChange={() => toggleTagFilter(t.id)}
-                                                    />
-                                                    <span
-                                                        className="tag-search-dot"
-                                                        style={{
-                                                            backgroundColor:
-                                                                t.color || '#9ca3af'
-                                                        }}
-                                                    />
-                                                    <span className="tag-search-name">
-                                                        {t.name}
-                                                    </span>
-                                                    <span className="tag-search-count">
-                                                        {t.tasksCount}
-                                                    </span>
-                                                </label>
-                                            );
-                                        })
-                                    )}
-                                </div>
-                            )}
-                        </div>
-                    )}
-
                     <button
                         className="btn-create-task"
                         onClick={() => setIsModalOpen(true)}
@@ -413,33 +245,24 @@ export default function TasksBoard({
                 </div>
             )}
 
-            {/* ── Доска / пустое состояние ── */}
-            {isFiltering && !hasVisibleTasks ? (
-                <div className="tasks-empty-filter">
-                    <p>По выбранным фильтрам задач не найдено.</p>
-                    <button className="btn-reset-filters" onClick={resetFilters}>
-                        Сбросить фильтры
-                    </button>
-                </div>
-            ) : (
-                <div className="tasks-columns">
-                    {visibleColumns.map(col => (
-                        <TaskColumn
-                            key={col.id}
-                            column={col}
-                            columns={columns}
-                            projectCode={projectCode}
-                            currentUserEmail={currentUserEmail}
-                            isOwner={isOwner}
-                            onTake={handleTake}
-                            onMove={handleMove}
-                            onUpload={handleUpload}
-                            onRefresh={loadBoard}
-                            onError={setActionError}
-                        />
-                    ))}
-                </div>
-            )}
+            {/* ── Доска ── */}
+            <div className="tasks-columns">
+                {visibleColumns.map(col => (
+                    <TaskColumn
+                        key={col.id}
+                        column={col}
+                        columns={columns}
+                        projectCode={projectCode}
+                        currentUserEmail={currentUserEmail}
+                        isOwner={isOwner}
+                        onTake={handleTake}
+                        onMove={handleMove}
+                        onUpload={handleUpload}
+                        onRefresh={loadBoard}
+                        onError={setActionError}
+                    />
+                ))}
+            </div>
 
             {isModalOpen && (
                 <CreateTaskModal

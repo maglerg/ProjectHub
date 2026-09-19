@@ -1,7 +1,11 @@
 // projecthub.client/src/components/EditProjectModal.js
 
 import React, { useState, useEffect } from 'react';
-import { PROJECT_CATEGORIES, PROJECT_VISIBILITY } from '../utils/constants';
+import {
+    PROJECT_CATEGORIES,
+    PROJECT_VISIBILITY,
+    PROJECT_STATUSES
+} from '../utils/constants';
 import { updateProject } from '../services/projectsApi';
 import '../styles/components/EditProjectModal.css';
 
@@ -11,17 +15,19 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
         description: '',
         category: '',
         visibility: '',
+        status: '',
         deadline: ''
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
 
-    // 📌 Определяем, что может редактировать пользователь
+    // 📌 Что может редактировать пользователь
     const canEdit = {
         name: userRole === 'Owner',
         category: userRole === 'Owner',
         visibility: userRole === 'Owner',
+        status: userRole === 'Owner',
         deadline: userRole === 'Owner',
         description: userRole === 'Owner' || userRole === 'Admin'
     };
@@ -33,7 +39,10 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                 description: project.description || '',
                 category: project.category || '',
                 visibility: project.visibility || 'Public',
-                deadline: project.deadline ? new Date(project.deadline).toISOString().split('T')[0] : ''
+                status: project.status || 'Uncompleted',
+                deadline: project.deadline
+                    ? new Date(project.deadline).toISOString().split('T')[0]
+                    : ''
             });
         }
     }, [project]);
@@ -50,13 +59,14 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
         setSuccess(null);
 
         try {
-            // Формируем данные для отправки (только те поля, которые можно редактировать)
             const updateData = {};
             if (canEdit.name) updateData.name = formData.name;
             if (canEdit.description) updateData.description = formData.description;
             if (canEdit.category) updateData.category = formData.category;
             if (canEdit.visibility) updateData.visibility = formData.visibility;
-            if (canEdit.deadline) updateData.deadline = new Date(formData.deadline).toISOString();
+            if (canEdit.status) updateData.status = formData.status;
+            if (canEdit.deadline)
+                updateData.deadline = new Date(formData.deadline).toISOString();
 
             await updateProject(project.publicCode, updateData);
             setSuccess('✅ Проект успешно обновлен!');
@@ -71,13 +81,12 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
         }
     };
 
-    const getFieldDisabled = (field) => {
-        return !canEdit[field] || loading;
-    };
+    const getFieldDisabled = (field) => !canEdit[field] || loading;
 
     const getFieldHint = (field) => {
         if (!canEdit[field]) {
-            if (field === 'description') return '✏️ Только владелец и администратор могут редактировать описание';
+            if (field === 'description')
+                return '✏️ Только владелец и администратор могут редактировать описание';
             return '🔒 Только владелец может редактировать это поле';
         }
         return null;
@@ -91,12 +100,8 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                     <button className="edit-modal-close" onClick={onClose}>✕</button>
                 </div>
 
-                {error && (
-                    <div className="edit-modal-error">{error}</div>
-                )}
-                {success && (
-                    <div className="edit-modal-success">{success}</div>
-                )}
+                {error && <div className="edit-modal-error">{error}</div>}
+                {success && <div className="edit-modal-success">{success}</div>}
 
                 <form onSubmit={handleSubmit} className="edit-modal-form">
                     <div className="form-group">
@@ -171,20 +176,42 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                         </div>
                     </div>
 
-                    <div className="form-group">
-                        <label>Дедлайн</label>
-                        <input
-                            type="date"
-                            name="deadline"
-                            value={formData.deadline}
-                            onChange={handleChange}
-                            disabled={getFieldDisabled('deadline')}
-                            className={!canEdit.deadline ? 'field-disabled' : ''}
-                            min={new Date().toISOString().split('T')[0]}
-                        />
-                        {getFieldHint('deadline') && (
-                            <span className="field-hint">{getFieldHint('deadline')}</span>
-                        )}
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label>Статус проекта</label>
+                            <select
+                                name="status"
+                                value={formData.status}
+                                onChange={handleChange}
+                                disabled={getFieldDisabled('status')}
+                                className={!canEdit.status ? 'field-disabled' : ''}
+                            >
+                                {PROJECT_STATUSES.map(st => (
+                                    <option key={st.value} value={st.value}>
+                                        {st.label}
+                                    </option>
+                                ))}
+                            </select>
+                            {getFieldHint('status') && (
+                                <span className="field-hint">{getFieldHint('status')}</span>
+                            )}
+                        </div>
+
+                        <div className="form-group">
+                            <label>Дедлайн</label>
+                            <input
+                                type="date"
+                                name="deadline"
+                                value={formData.deadline}
+                                onChange={handleChange}
+                                disabled={getFieldDisabled('deadline')}
+                                className={!canEdit.deadline ? 'field-disabled' : ''}
+                                min={new Date().toISOString().split('T')[0]}
+                            />
+                            {getFieldHint('deadline') && (
+                                <span className="field-hint">{getFieldHint('deadline')}</span>
+                            )}
+                        </div>
                     </div>
 
                     <div className="edit-modal-footer">

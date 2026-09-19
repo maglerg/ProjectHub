@@ -7,7 +7,12 @@ import { getProjectVotings, deleteVoting } from '../services/votingsApi';
 import { searchMyProjectByCode } from '../services/projectsApi';
 import '../styles/components/VotingsListPage.css';
 
-const VotingsListPage = ({ embedded = false }) => {
+const VotingsListPage = ({
+    embedded = false,
+    refreshKey = 0,
+    onOpenVoting,
+    onCreateVoting,
+}) => {
     const { code } = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -47,6 +52,14 @@ const VotingsListPage = ({ embedded = false }) => {
     useEffect(() => {
         loadData();
     }, [loadData]);
+
+    // 📌 Принудительное обновление по refreshKey
+    useEffect(() => {
+        if (refreshKey > 0) {
+            loadData();
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [refreshKey]);
 
     const getVotingStatus = (v) => {
         if (v.isClosed) return { label: 'Закрыто', className: 'closed' };
@@ -100,17 +113,26 @@ const VotingsListPage = ({ embedded = false }) => {
     };
 
     // 📌 Открыть голосование
-    // Передаём state, чтобы VotingPage знал, откуда пришёл пользователь
-    // и куда возвращать по кнопке «Назад».
+    //   — если передан onOpenVoting, вызываем его (обычно открывает модалку),
+    //   — иначе fallback — переход на отдельную страницу.
     const handleOpenVoting = (votingId) => {
+        if (onOpenVoting) {
+            onOpenVoting(votingId);
+            return;
+        }
         navigate(`/projects/${code}/votings/${votingId}`, {
             state: { fromDashboard: embedded, section: 'votings' }
         });
     };
 
     // 📌 Создать голосование
-    // Аналогично — чтобы CreateVotingPage вернул на дашборд с активным разделом.
+    //   — если передан onCreateVoting, вызываем его (обычно открывает модалку),
+    //   — иначе fallback — переход на отдельную страницу.
     const handleCreateVoting = () => {
+        if (onCreateVoting) {
+            onCreateVoting();
+            return;
+        }
         navigate(`/projects/${code}/votings/new`, {
             state: { fromDashboard: embedded, section: 'votings' }
         });

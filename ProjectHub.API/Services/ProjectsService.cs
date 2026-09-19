@@ -529,6 +529,9 @@ namespace ProjectHub.API.Services
             if (request.Visibility.HasValue && isOwner)
                 project.Visibility = request.Visibility.Value;
 
+            if (request.Status.HasValue && isOwner)
+                project.Status = request.Status.Value;
+
             if (request.Deadline.HasValue && isOwner)
                 project.Deadline = request.Deadline.Value;
 
