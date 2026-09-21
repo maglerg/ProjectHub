@@ -152,22 +152,25 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseCors("AllowReactApp");
+// 🆕 Раздача /uploads из App_Data/uploads
+var uploadsPath = Path.Combine(
+    app.Environment.ContentRootPath, "App_Data", "uploads");
+Directory.CreateDirectory(uploadsPath);
+
 app.UseStaticFiles(new StaticFileOptions
 {
+    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
+    RequestPath = "/uploads",
     OnPrepareResponse = ctx =>
     {
-        var path = ctx.File.PhysicalPath ?? string.Empty;
-
-        if (path.Contains(
-                Path.DirectorySeparatorChar + "App_Data" + Path.DirectorySeparatorChar,
-                StringComparison.OrdinalIgnoreCase))
-        {
-            ctx.Context.Response.StatusCode = 404;
-            ctx.Context.Response.ContentLength = 0;
-            ctx.Context.Response.Body = Stream.Null;
-        }
+        // Кэшируем картинки на 7 дней — они редко меняются
+        ctx.Context.Response.Headers["Cache-Control"] = "public,max-age=604800";
     }
 });
+
+// Существующая раздача wwwroot (оставляем как есть, но без блокировки App_Data —
+// теперь до неё запросы /uploads не доходят вовсе)
+app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();

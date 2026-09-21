@@ -2,6 +2,7 @@
 
 using ProjectHub.API.Models;
 using ProjectHub.Models.Enums;
+using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
 
 namespace ProjectHub.Models;
@@ -27,6 +28,8 @@ public class User
     public virtual ICollection<ProjectMember> ProjectMemberships { get; set; } = new List<ProjectMember>();
     // настройка приватности сообщений
     public ChatPrivacy ChatPrivacy { get; set; } = ChatPrivacy.All;
+    [MaxLength(500)]
+    public string? AvatarUrl { get; set; }
 
 }
 public enum ChatPrivacy

@@ -17,6 +17,8 @@ namespace ProjectHub.API.DTOs.InvitationDtos
         public string Status { get; set; } = string.Empty;
         public string? Message { get; set; }
         public DateTime CreatedAt { get; set; }
+        public string? InviterAvatarUrl { get; set; }
+        public string? InviteeAvatarUrl { get; set; }
         public DateTime? ProcessedAt { get; set; }
     }
 }

@@ -4,6 +4,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getInvitations, processInvitation } from '../services/invitationsApi';
+import UserAvatar from './UserAvatar';
 import '../styles/components/InvitationsPage.css';
 
 const InvitationsPage = () => {
@@ -139,11 +140,24 @@ const InvitationsPage = () => {
                                     </div>
                                 </div>
 
+                                {/* 🆕 Блок «От кого» — с аватаром */}
                                 <div className="invitation-details">
                                     <div className="invitation-from">
-                                        <span className="label">От:</span>
-                                        <span className="value">{inv.inviterName}</span>
-                                        <span className="email">({inv.inviterEmail})</span>
+                                        <UserAvatar
+                                            avatarUrl={inv.inviterAvatarUrl}
+                                            name={inv.inviterName}
+                                            email={inv.inviterEmail}
+                                            size="sm"
+                                        />
+                                        <div className="invitation-from-info">
+                                            <div className="invitation-from-label">От:</div>
+                                            <div className="invitation-from-name">
+                                                {inv.inviterName}
+                                            </div>
+                                            <div className="invitation-from-email">
+                                                {inv.inviterEmail}
+                                            </div>
+                                        </div>
                                     </div>
                                     <div className="invitation-time">
                                         📅 {formatDate(inv.createdAt)}

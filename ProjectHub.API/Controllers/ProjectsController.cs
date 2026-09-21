@@ -220,6 +220,56 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+        // POST /api/projects/code/{code}/cover
+        [HttpPost("code/{code}/cover")]
+        [RequestSizeLimit(6 * 1024 * 1024)]
+        public async Task<IActionResult> UploadCover(string code, IFormFile file)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Не авторизован" });
+
+            try
+            {
+                var project = await _projectsService.UploadCoverAsync(code, userId, file);
+                return Ok(project);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка загрузки обложки");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // DELETE /api/projects/code/{code}/cover
+        [HttpDelete("code/{code}/cover")]
+        public async Task<IActionResult> DeleteCover(string code)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Не авторизован" });
+
+            try
+            {
+                var project = await _projectsService.DeleteCoverAsync(code, userId);
+                return Ok(project);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка удаления обложки");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+        private bool TryGetUserId(out Guid userId)
+        {
+            userId = Guid.Empty;
+            var claim = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier);
+            return claim != null && Guid.TryParse(claim.Value, out userId);
+        }
         // 📌 PUT /api/projects/code/{code}/members/{email}/role — изменить роль участника по публичному коду и email
         [HttpPut("code/{code}/members/{email}/role")]
         [Authorize]

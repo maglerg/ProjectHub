@@ -62,5 +62,8 @@ namespace ProjectHub.API.Models
         public virtual User? ArchivedBy { get; set; }
         public virtual ICollection<ProjectTagLink> TagLinks { get; set; }
     = new List<ProjectTagLink>();
+
+        [MaxLength(500)]
+        public string? CoverImageUrl { get; set; }
     }
 }

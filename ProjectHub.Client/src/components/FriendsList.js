@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MemberCard from './MemberCard';
+import UserAvatar from './UserAvatar';   // 🆕
 import { getUserProfileByEmail } from '../services/userApi';
 import { getFriendStatus, sendFriendRequest } from '../services/friendRequestsApi';
 import '../styles/components/FriendsList.css';
@@ -152,8 +153,20 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
                         </div>
 
                         <div className="search-result-card">
-                            <div className="search-result-avatar">
-                                {foundUser.name ? foundUser.name[0].toUpperCase() : '👤'}
+                            {/* 🆕 Аватар найденного пользователя */}
+                            <div className="search-result-avatar-wrapper">
+                                <UserAvatar
+                                    avatarUrl={foundUser.avatarUrl}
+                                    name={foundUser.name}
+                                    email={foundUser.email}
+                                    size="md"
+                                />
+                                {foundUser.isOnline && (
+                                    <span
+                                        className="search-result-online-dot"
+                                        title="Онлайн"
+                                    />
+                                )}
                             </div>
                             <div className="search-result-info">
                                 <div className="search-result-name">{foundUser.name}</div>

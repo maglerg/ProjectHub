@@ -260,3 +260,81 @@
     text-align: center;
     border: 1px dashed #e5e7eb;
 }
+/* ── Блок обложки в модалке ── */
+.edit-modal-cover-group {
+    margin-bottom: 20px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.edit-modal-cover {
+    position: relative;
+    margin-top: 8px;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+    .edit-modal-cover .project-cover--lg {
+        height: 160px;
+        border-radius: 10px;
+    }
+
+.edit-modal-cover-actions {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    gap: 8px;
+}
+
+    .edit-modal-cover-actions .btn-cover-upload,
+    .edit-modal-cover-actions .btn-cover-delete {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 12.5px;
+        font-weight: 500;
+        cursor: pointer;
+        border: none;
+        transition: background 0.15s, transform 0.1s;
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+    }
+
+    .edit-modal-cover-actions .btn-cover-upload {
+        background: rgba(255, 255, 255, 0.92);
+        color: #111827;
+    }
+
+        .edit-modal-cover-actions .btn-cover-upload:hover:not(:disabled) {
+            background: #fff;
+            transform: translateY(-1px);
+        }
+
+    .edit-modal-cover-actions .btn-cover-delete {
+        background: rgba(239, 68, 68, 0.92);
+        color: #fff;
+    }
+
+        .edit-modal-cover-actions .btn-cover-delete:hover:not(:disabled) {
+            background: #ef4444;
+            transform: translateY(-1px);
+        }
+
+        .edit-modal-cover-actions .btn-cover-upload:disabled,
+        .edit-modal-cover-actions .btn-cover-delete:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
+.edit-modal-cover-error {
+    margin-top: 8px;
+    padding: 6px 10px;
+    background: #fef2f2;
+    color: #dc2626;
+    border: 1px solid #fecaca;
+    border-radius: 6px;
+    font-size: 13px;
+}

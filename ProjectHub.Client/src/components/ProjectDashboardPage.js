@@ -17,11 +17,17 @@ import {
     getProjectTags as getProjectTagsApi,
     setProjectTags as setProjectTagsApi
 } from '../services/projectTagsApi';
+import {
+    uploadProjectCover,
+    deleteProjectCover
+} from '../services/projectCoverApi';
 
 import TasksBoard from './tasks/TasksBoard';
 import TaskTimeline from './tasks/TaskTimeline';
 import NotificationsDropdown from './NotificationsDropdown';
 import ProjectTagPicker from './ProjectTagPicker';
+import ProjectCover from './ProjectCover';
+import UserAvatar from './UserAvatar';   // 🆕
 
 import MemberCard from './MemberCard';
 import RoleManagementModal from './RoleManagementModal';
@@ -88,7 +94,7 @@ const ProjectDashboardPage = () => {
         }
     }, [location.state?.section]);
 
-    // ── Фильтры задач (теги задач — taskAllTags) ──
+    // ── Фильтры задач ──
     const [taskFilters, setTaskFilters] = useState({
         onlyMyTasks: false,
         priorityFilter: 'All',
@@ -100,9 +106,12 @@ const ProjectDashboardPage = () => {
     const [taskShowTagDropdown, setTaskShowTagDropdown] = useState(false);
     const [taskAllTags, setTaskAllTags] = useState([]);
 
-    // 🆕 ── Теги проекта (для раздела "Информация") ──
+    // ── Теги проекта ──
     const [projectTags, setProjectTags] = useState([]);
     const [savingProjectTags, setSavingProjectTags] = useState(false);
+
+    // ── Обложка проекта ──
+    const [uploadingCover, setUploadingCover] = useState(false);
 
     // ── Бейдж и обновление ──
     const [votingsBadge, setVotingsBadge] = useState(0);
@@ -182,7 +191,7 @@ const ProjectDashboardPage = () => {
         }
     }, [activeSection, project?.publicCode, loadTimeline]);
 
-    // ── Загрузка ТЕГОВ ЗАДАЧ (для фильтров в сайдбаре) ──
+    // ── Загрузка ТЕГОВ ЗАДАЧ ──
     const loadTaskTagsForFilters = useCallback(async () => {
         if (!project?.publicCode) return;
         try {
@@ -200,7 +209,7 @@ const ProjectDashboardPage = () => {
         }
     }, [activeSection, project?.publicCode, loadTaskTagsForFilters]);
 
-    // 🆕 ── Загрузка ТЕГОВ ПРОЕКТА (для раздела "Информация") ──
+    // ── Загрузка ТЕГОВ ПРОЕКТА ──
     const loadProjectTags = useCallback(async () => {
         if (!project?.publicCode) return;
         try {
@@ -383,7 +392,7 @@ const ProjectDashboardPage = () => {
         }
     };
 
-    // 🆕 ── Сохранить теги проекта ──
+    // ── Сохранить теги проекта ──
     const handleSaveProjectTags = async (newTagIds) => {
         if (!project?.publicCode) return;
         if (project.isArchived) return;
@@ -393,7 +402,6 @@ const ProjectDashboardPage = () => {
             const updated = await setProjectTagsApi(project.publicCode, newTagIds);
             setProjectTags(updated || []);
 
-            // Обновляем project.tags, чтобы связанные места сразу видели изменения
             setProject(prev => ({
                 ...prev,
                 tags: updated || []
@@ -407,6 +415,63 @@ const ProjectDashboardPage = () => {
             setTimeout(() => setNotification(null), 3000);
         } finally {
             setSavingProjectTags(false);
+        }
+    };
+
+    // ── Обложка проекта ──
+    const handleCoverUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+            setNotification({ type: 'error', text: 'Файл больше 5 МБ' });
+            setTimeout(() => setNotification(null), 3000);
+            e.target.value = '';
+            return;
+        }
+
+        const allowed = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
+        if (!allowed.includes(file.type)) {
+            setNotification({ type: 'error', text: 'Недопустимый тип файла' });
+            setTimeout(() => setNotification(null), 3000);
+            e.target.value = '';
+            return;
+        }
+
+        setUploadingCover(true);
+        try {
+            const updated = await uploadProjectCover(project.publicCode, file);
+            setProject(updated);
+            setNotification({ type: 'success', text: '✅ Обложка обновлена' });
+            setTimeout(() => setNotification(null), 2500);
+        } catch (err) {
+            console.error('❌ Ошибка загрузки обложки:', err);
+            setNotification({ type: 'error', text: err.message });
+            setTimeout(() => setNotification(null), 3500);
+        } finally {
+            setUploadingCover(false);
+            e.target.value = '';
+        }
+    };
+
+    const handleCoverDelete = async () => {
+        if (!project?.publicCode) return;
+        if (!project.coverImageUrl) return;
+
+        if (!window.confirm('Удалить обложку проекта?')) return;
+
+        setUploadingCover(true);
+        try {
+            const updated = await deleteProjectCover(project.publicCode);
+            setProject(updated);
+            setNotification({ type: 'success', text: '✅ Обложка удалена' });
+            setTimeout(() => setNotification(null), 2500);
+        } catch (err) {
+            console.error('❌ Ошибка удаления обложки:', err);
+            setNotification({ type: 'error', text: err.message });
+            setTimeout(() => setNotification(null), 3500);
+        } finally {
+            setUploadingCover(false);
         }
     };
 
@@ -508,20 +573,32 @@ const ProjectDashboardPage = () => {
                             onClick={() => setUserMenuOpen(v => !v)}
                             title="Меню пользователя"
                         >
-                            <span className="user-menu-avatar">
-                                {user?.name ? user.name[0].toUpperCase() : '👤'}
-                            </span>
+                            {/* 🆕 Аватар пользователя */}
+                            <UserAvatar
+                                avatarUrl={user?.avatarUrl}
+                                name={user?.name}
+                                email={user?.email}
+                                size="sm"
+                            />
                             <span className="user-menu-caret">▾</span>
                         </button>
 
                         {userMenuOpen && (
                             <div className="user-menu-dropdown">
                                 <div className="user-menu-header">
-                                    <div className="user-menu-name">
-                                        {user?.name || 'Пользователь'}
-                                    </div>
-                                    <div className="user-menu-email">
-                                        {user?.email || ''}
+                                    <UserAvatar
+                                        avatarUrl={user?.avatarUrl}
+                                        name={user?.name}
+                                        email={user?.email}
+                                        size="md"
+                                    />
+                                    <div className="user-menu-header-info">
+                                        <div className="user-menu-name">
+                                            {user?.name || 'Пользователь'}
+                                        </div>
+                                        <div className="user-menu-email">
+                                            {user?.email || ''}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -761,6 +838,41 @@ const ProjectDashboardPage = () => {
                     {/* ── ИНФОРМАЦИЯ ── */}
                     {activeSection === 'info' && (
                         <section className="dashboard-section">
+                            <div className="project-cover-section">
+                                <ProjectCover
+                                    coverImageUrl={project.coverImageUrl}
+                                    name={project.name}
+                                    publicCode={project.publicCode}
+                                    size="lg"
+                                />
+
+                                {canEdit && !project.isArchived && (
+                                    <div className="project-cover-actions">
+                                        <label className="btn-cover-upload">
+                                            {uploadingCover ? '⏳ Загрузка…' : '📷 Сменить обложку'}
+                                            <input
+                                                type="file"
+                                                accept="image/png,image/jpeg,image/gif,image/webp"
+                                                style={{ display: 'none' }}
+                                                onChange={handleCoverUpload}
+                                                disabled={uploadingCover}
+                                            />
+                                        </label>
+
+                                        {project.coverImageUrl && (
+                                            <button
+                                                type="button"
+                                                className="btn-cover-delete"
+                                                onClick={handleCoverDelete}
+                                                disabled={uploadingCover}
+                                            >
+                                                🗑 Удалить
+                                            </button>
+                                        )}
+                                    </div>
+                                )}
+                            </div>
+
                             <div className="section-header">
                                 <h2>📋 Информация о проекте</h2>
                                 {canEdit && !project.isArchived && (
@@ -808,7 +920,6 @@ const ProjectDashboardPage = () => {
                                 </div>
                             )}
 
-                            {/* 🆕 ── ТЕГИ ПРОЕКТА ── */}
                             <div className="project-tags-section">
                                 <h3>🏷️ Теги проекта</h3>
 
@@ -1038,7 +1149,7 @@ const ProjectDashboardPage = () => {
             {selectedVotingId && (
                 <VotingPage
                     votingId={selectedVotingId}
-                    projectUserStatus={userStatus}
+                    userStatus={userStatus}
                     onClose={() => setSelectedVotingId(null)}
                     onChanged={handleVotingChanged}
                 />

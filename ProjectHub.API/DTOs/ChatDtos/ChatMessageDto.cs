@@ -21,5 +21,7 @@
         // сколько прочитало / всего (для отладки/UI)
         public int ReadCount { get; set; }
         public int TotalParticipants { get; set; }
+        public string? AvatarUrl { get; set; }
+        public string? SenderAvatarUrl { get; set; }
     }
 }

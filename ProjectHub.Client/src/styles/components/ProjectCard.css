@@ -1,135 +1,48 @@
 /* src/styles/components/ProjectCard.css */
 
-.project-item-clickable {
-    cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-    .project-item-clickable:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
-    }
-
-    .project-item-clickable:active {
-        transform: scale(0.98);
-    }
 .project-item {
-    background: #f8f9fa;
-    padding: 20px;
-    margin-bottom: 15px;
-    border-radius: 12px;
-    border-left: 4px solid #667eea;
-    transition: all 0.3s ease;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding: 0; /* padding переезжает в .project-card-body */
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    overflow: hidden; /* чтобы обложка не вылезала за скругления */
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s, border-color 0.15s;
 }
 
     .project-item:hover {
-        transform: translateX(5px);
-        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+        transform: translateY(-2px);
+        box-shadow: 0 10px 22px rgba(0, 0, 0, 0.08);
+        border-color: #d1d5db;
     }
 
-.project-header {
+.project-item--archived {
+    cursor: pointer; /* кликабельна, если ты участник */
+}
+
+    .project-item--archived .project-cover {
+        filter: grayscale(0.35);
+        opacity: 0.9;
+    }
+
+/* ── Обложка внутри карточки ── */
+.project-item .project-cover--lg {
+    border-radius: 0; /* скругление делает сам .project-item */
+    height: 140px;
+}
+
+/* ── Контент карточки ── */
+.project-card-body {
+    padding: 16px;
     display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 10px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 10px;
 }
 
-    .project-header h3 {
-        margin: 0;
-        color: #333;
-    }
-
-.visibility-tag {
-    padding: 4px 12px;
-    border-radius: 20px;
-    font-size: 12px;
-    font-weight: 600;
-}
-
-    .visibility-tag.public {
-        background: #d4edda;
-        color: #155724;
-    }
-
-    .visibility-tag.private {
-        background: #f8d7da;
-        color: #721c24;
-    }
-
-.project-description {
-    margin: 10px 0;
-    color: #666;
-    line-height: 1.5;
-}
-
-.project-meta {
-    display: flex;
-    gap: 20px;
-    flex-wrap: wrap;
-    margin-top: 10px;
-    font-size: 13px;
-    color: #888;
-}
-
-.meta-item {
-    background: white;
-    padding: 4px 12px;
-    border-radius: 15px;
-}
-
-    .meta-item strong {
-        color: #555;
-    }
-
-/* Код проекта в списке */
-.code-meta {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    background: #f8f9fa;
-    padding: 4px 10px;
-    border-radius: 4px;
-}
-
-.project-code-display {
-    font-family: 'Courier New', monospace;
-    font-weight: bold;
-    color: #2c3e50;
-    background: #ecf0f1;
-    padding: 2px 8px;
-    border-radius: 3px;
-    font-size: 13px;
-    letter-spacing: 0.5px;
-}
-
-.copy-code-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 16px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    transition: background 0.3s;
-}
-
-    .copy-code-btn:hover {
-        background: #e0e0e0;
-    }
-
-/* Адаптивность */
-@media (max-width: 600px) {
-    .project-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 8px;
-    }
-
-    .project-meta {
-        flex-direction: column;
-        gap: 8px;
-    }
-}
+/* ── Заголовок ── */
 .project-header {
     display: flex;
     justify-content: space-between;
@@ -137,119 +50,189 @@
     gap: 12px;
 }
 
+    .project-header h3 {
+        margin: 0;
+        font-size: 17px;
+        font-weight: 600;
+        color: #111827;
+        line-height: 1.3;
+        flex: 1;
+        word-break: break-word;
+    }
+
 .project-header-right {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 8px;
     flex-shrink: 0;
 }
 
 .project-badges {
     display: flex;
+    align-items: center;
     gap: 6px;
+    flex-wrap: wrap;
 }
 
+.status-tag,
+.visibility-tag,
+.archive-tag {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.status-tag {
+    color: #fff;
+}
+
+.visibility-tag.public {
+    background: #e0f2fe;
+    color: #0369a1;
+}
+
+.visibility-tag.private {
+    background: #fef3c7;
+    color: #b45309;
+}
+
+.archive-tag {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+/* ── Избранное ── */
 .favorite-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
     background: none;
     border: none;
-    font-size: 22px;
     cursor: pointer;
-    padding: 4px 8px;
-    transition: all 0.2s;
-    position: relative;
-    color: #ccc;
+    font-size: 18px;
+    color: #d1d5db;
+    padding: 2px;
     line-height: 1;
+    transition: color 0.15s, transform 0.1s;
 }
 
-    .favorite-btn:hover {
-        transform: scale(1.2);
+    .favorite-btn:hover:not(:disabled) {
+        color: #f59e0b;
+        transform: scale(1.1);
     }
 
     .favorite-btn.active {
-        color: #f1c40f;
+        color: #f59e0b;
     }
 
     .favorite-btn:disabled {
-        opacity: 0.5;
         cursor: not-allowed;
-        transform: none;
+        opacity: 0.6;
     }
 
 .favorites-count {
-    position: absolute;
-    top: -6px;
-    right: -4px;
-    font-size: 10px;
-    background: #e74c3c;
-    color: white;
-    border-radius: 50%;
-    padding: 1px 5px;
-    min-width: 16px;
-    text-align: center;
-    font-weight: 600;
-}
-/* ── Теги на карточке проекта ── */
-.project-card-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px dashed #e5e7eb;
-}
-
-.project-card-tag {
-    display: inline-block;
-    padding: 3px 8px;
-    border-radius: 10px;
-    font-size: 11px;
-    font-weight: 500;
-    border: 1px solid transparent;
-    line-height: 1.4;
-    white-space: nowrap;
-}
-
-.project-card-tag-more {
-    display: inline-block;
-    padding: 3px 8px;
-    font-size: 11px;
+    font-size: 12px;
     color: #6b7280;
-    background: #f3f4f6;
-    border-radius: 10px;
-}
-/* ── Теги на карточке проекта ── */
-.project-card-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 6px;
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px dashed #e5e7eb;
-}
-
-.project-card-tag {
-    display: inline-block;
-    padding: 3px 8px;
-    border-radius: 10px;
-    font-size: 11px;
     font-weight: 500;
-    border: 1px solid transparent;
-    line-height: 1.4;
-    white-space: nowrap;
-    cursor: default;
-    transition: transform 0.1s;
 }
 
-    .project-card-tag:hover {
-        transform: translateY(-1px);
+/* ── Описание ── */
+.project-description {
+    margin: 0;
+    color: #6b7280;
+    font-size: 13px;
+    line-height: 1.5;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+/* ── Метаданные ── */
+.project-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    font-size: 12px;
+    color: #6b7280;
+}
+
+.meta-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+    .meta-item strong {
+        color: #374151;
+        font-weight: 600;
     }
 
+.code-meta {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.project-code-display {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    background: #f3f4f6;
+    color: #111827;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 12px;
+    letter-spacing: 0.5px;
+}
+
+.copy-code-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 2px;
+    opacity: 0.7;
+    transition: opacity 0.15s, transform 0.1s;
+}
+
+    .copy-code-btn:hover {
+        opacity: 1;
+        transform: scale(1.1);
+    }
+
+/* ── Теги ── */
+.project-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+}
+
+.project-card-tag {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid transparent;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
 .project-card-tag-more {
     display: inline-block;
-    padding: 3px 8px;
+    padding: 2px 8px;
     font-size: 11px;
     color: #6b7280;
     background: #f3f4f6;
     border-radius: 10px;
-    cursor: help;
+}
+
+/* ── Футер ── */
+.project-footer {
+    padding-top: 8px;
+    border-top: 1px dashed #e5e7eb;
+    font-size: 12px;
+    color: #9ca3af;
 }

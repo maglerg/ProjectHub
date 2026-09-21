@@ -450,6 +450,7 @@ public class ChatService
             SenderId = message.SenderId,
             SenderName = message.Sender?.Name ?? string.Empty,
             SenderEmail = message.Sender?.Email ?? string.Empty,
+            SenderAvatarUrl = message.Sender?.AvatarUrl,        // 🆕
             SenderRole = role,
             Type = message.Type.ToString(),
             Text = message.Text,
@@ -472,7 +473,8 @@ public class ChatService
             Name = user.Name,
             Email = user.Email,
             Specialization = user.Specialization.ToString(),
-            IsOnline = user.IsOnline
+            IsOnline = user.IsOnline,
+            AvatarUrl = user.AvatarUrl    // 🆕
         };
     }
 

@@ -1001,3 +1001,65 @@
         margin-top: 8px;
     }
 }
+/* ── Обложка проекта на дашборде ── */
+.project-cover-section {
+    position: relative;
+    margin-bottom: 24px;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+    .project-cover-section .project-cover--lg {
+        height: 220px;
+        border-radius: 12px;
+    }
+
+.project-cover-actions {
+    position: absolute;
+    bottom: 12px;
+    right: 12px;
+    display: flex;
+    gap: 8px;
+}
+
+.btn-cover-upload,
+.btn-cover-delete {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: background 0.15s, transform 0.1s;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.btn-cover-upload {
+    background: rgba(255, 255, 255, 0.92);
+    color: #111827;
+}
+
+    .btn-cover-upload:hover:not(:disabled) {
+        background: #fff;
+        transform: translateY(-1px);
+    }
+
+.btn-cover-delete {
+    background: rgba(239, 68, 68, 0.92);
+    color: #fff;
+}
+
+    .btn-cover-delete:hover:not(:disabled) {
+        background: #ef4444;
+        transform: translateY(-1px);
+    }
+
+    .btn-cover-upload:disabled,
+    .btn-cover-delete:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }

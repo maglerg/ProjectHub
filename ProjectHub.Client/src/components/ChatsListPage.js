@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getChats } from '../services/chatsApi';
+import UserAvatar from './UserAvatar';   // 🆕
 import '../styles/components/ChatsListPage.css';
 
 const ChatsListPage = () => {
@@ -64,13 +65,6 @@ const ChatsListPage = () => {
         return chat.name || 'Чат';
     };
 
-    const getChatAvatar = (chat) => {
-        if (chat.type === 'Personal' && chat.otherUser) {
-            return chat.otherUser.name?.[0]?.toUpperCase() || '👤';
-        }
-        return '💬';
-    };
-
     if (loading) {
         return (
             <div className="chats-loading">
@@ -118,44 +112,64 @@ const ChatsListPage = () => {
                     </div>
                 ) : (
                     <div className="chats-list">
-                        {chats.map(chat => (
-                            <div
-                                key={chat.id}
-                                className={`chat-item ${chat.unreadCount > 0 ? 'unread' : ''}`}
-                                onClick={() => navigate(`/chats/${chat.id}`)}
-                            >
-                                <div className="chat-item-avatar">
-                                    {getChatAvatar(chat)}
-                                    {chat.otherUser?.isOnline && (
-                                        <div className="online-dot"></div>
-                                    )}
-                                </div>
-                                <div className="chat-item-content">
-                                    <div className="chat-item-header">
-                                        <span className="chat-item-name">
-                                            {getChatTitle(chat)}
-                                        </span>
-                                        <span className="chat-item-time">
-                                            {formatTime(chat.lastMessageAt)}
-                                        </span>
-                                    </div>
-                                    <div className="chat-item-footer">
-                                        <span className="chat-item-last-message">
-                                            {chat.lastMessage
-                                                ? (chat.lastMessage.senderEmail === chat.otherUser?.email
-                                                    ? ''
-                                                    : 'Вы: ') + chat.lastMessage.text
-                                                : 'Нет сообщений'}
-                                        </span>
-                                        {chat.unreadCount > 0 && (
-                                            <span className="chat-item-badge">
-                                                {chat.unreadCount}
-                                            </span>
+                        {chats.map(chat => {
+                            const isPersonal = chat.type === 'Personal';
+                            const otherUser = chat.otherUser;
+
+                            return (
+                                <div
+                                    key={chat.id}
+                                    className={`chat-item ${chat.unreadCount > 0 ? 'unread' : ''}`}
+                                    onClick={() => navigate(`/chats/${chat.id}`)}
+                                >
+                                    <div className="chat-item-avatar-wrapper">
+                                        {isPersonal && otherUser ? (
+                                            // 🆕 Личный чат — UserAvatar собеседника
+                                            <UserAvatar
+                                                avatarUrl={otherUser.avatarUrl}
+                                                name={otherUser.name}
+                                                email={otherUser.email}
+                                                size="md"
+                                            />
+                                        ) : (
+                                            // Групповой чат — иконка
+                                            <div className="chat-item-group-avatar">
+                                                💬
+                                            </div>
+                                        )}
+
+                                        {otherUser?.isOnline && (
+                                            <div className="online-dot" />
                                         )}
                                     </div>
+
+                                    <div className="chat-item-content">
+                                        <div className="chat-item-header">
+                                            <span className="chat-item-name">
+                                                {getChatTitle(chat)}
+                                            </span>
+                                            <span className="chat-item-time">
+                                                {formatTime(chat.lastMessageAt)}
+                                            </span>
+                                        </div>
+                                        <div className="chat-item-footer">
+                                            <span className="chat-item-last-message">
+                                                {chat.lastMessage
+                                                    ? (chat.lastMessage.senderEmail === chat.otherUser?.email
+                                                        ? ''
+                                                        : 'Вы: ') + chat.lastMessage.text
+                                                    : 'Нет сообщений'}
+                                            </span>
+                                            {chat.unreadCount > 0 && (
+                                                <span className="chat-item-badge">
+                                                    {chat.unreadCount}
+                                                </span>
+                                            )}
+                                        </div>
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            );
+                        })}
                     </div>
                 )}
             </div>

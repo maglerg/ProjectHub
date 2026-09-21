@@ -5,6 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { getCategoryName, getStatusName, getVisibilityName } from '../utils/constants';
 import { toggleFavoriteByCode } from '../services/projectsApi';
 import '../styles/components/ProjectCard.css';
+import ProjectCover from './ProjectCover';
 
 const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
     const navigate = useNavigate();
@@ -139,98 +140,108 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
             className={`project-item ${isArchived ? 'project-item--archived' : ''}`}
             onClick={handleCardClick}
         >
-            <div className="project-header">
-                <h3>{name}</h3>
-                <div className="project-header-right">
-                    <div className="project-badges">
-                        <span
-                            className="status-tag"
-                            style={{ backgroundColor: getStatusColor(status) }}
+            {/* 🆕 Обложка */}
+            <ProjectCover
+                coverImageUrl={project.coverImageUrl}
+                name={name}
+                publicCode={publicCode}
+                size="lg"
+            />
+
+            {/* ── Контент карточки ── */}
+            <div className="project-card-body">
+                <div className="project-header">
+                    <h3>{name}</h3>
+                    <div className="project-header-right">
+                        <div className="project-badges">
+                            <span
+                                className="status-tag"
+                                style={{ backgroundColor: getStatusColor(status) }}
+                            >
+                                {getStatusName(status)}
+                            </span>
+                            <span className={`visibility-tag ${visibility === 'Private' ? 'private' : 'public'}`}>
+                                {getVisibilityName(visibility)}
+                            </span>
+                            {isArchived && (
+                                <span className="archive-tag">📦 В архиве</span>
+                            )}
+                        </div>
+                        <button
+                            className={`favorite-btn ${isFavorite ? 'active' : ''}`}
+                            onClick={handleFavoriteClick}
+                            disabled={isToggling}
+                            title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}
                         >
-                            {getStatusName(status)}
-                        </span>
-                        <span className={`visibility-tag ${visibility === 'Private' ? 'private' : 'public'}`}>
-                            {getVisibilityName(visibility)}
-                        </span>
-                        {isArchived && (
-                            <span className="archive-tag">📦 В архиве</span>
-                        )}
+                            {isFavorite ? '⭐' : '☆'}
+                            {favoritesCount > 0 && (
+                                <span className="favorites-count">{favoritesCount}</span>
+                            )}
+                        </button>
                     </div>
-                    <button
-                        className={`favorite-btn ${isFavorite ? 'active' : ''}`}
-                        onClick={handleFavoriteClick}
-                        disabled={isToggling}
-                        title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}
-                    >
-                        {isFavorite ? '⭐' : '☆'}
-                        {favoritesCount > 0 && (
-                            <span className="favorites-count">{favoritesCount}</span>
-                        )}
-                    </button>
                 </div>
-            </div>
 
-            {description && (
-                <p className="project-description">{description}</p>
-            )}
-
-            <div className="project-meta">
-                <span className="meta-item">
-                    <strong>Категория:</strong> {getCategoryName(category)}
-                </span>
-                {deadline && (
-                    <span className="meta-item">
-                        <strong>Дедлайн:</strong> {formatDate(deadline)}
-                    </span>
+                {description && (
+                    <p className="project-description">{description}</p>
                 )}
-                <span className="meta-item code-meta">
-                    <strong>Код:</strong>
-                    <span className="project-code-display">{publicCode}</span>
-                    <button
-                        className="copy-code-btn"
-                        onClick={handleCopyClick}
-                        title="Скопировать код"
-                    >
-                        📋
-                    </button>
-                </span>
-            </div>
 
-            {/* 🆕 ── Теги проекта ── */}
-            {tags.length > 0 && (
-                <div className="project-card-tags">
-                    {tags.slice(0, 6).map(t => (
-                        <span
-                            key={t.id}
-                            className="project-card-tag"
-                            style={{
-                                backgroundColor: t.color ? `${t.color}22` : '#eef2ff',
-                                color: t.color || '#4f46e5',
-                                borderColor: t.color || '#c7d2fe'
-                            }}
-                            title={t.name}
-                        >
-                            {t.name}
-                        </span>
-                    ))}
-                    {tags.length > 6 && (
-                        <span
-                            className="project-card-tag-more"
-                            title={tags.slice(6).map(t => t.name).join(', ')}
-                        >
-                            +{tags.length - 6}
+                <div className="project-meta">
+                    <span className="meta-item">
+                        <strong>Категория:</strong> {getCategoryName(category)}
+                    </span>
+                    {deadline && (
+                        <span className="meta-item">
+                            <strong>Дедлайн:</strong> {formatDate(deadline)}
                         </span>
                     )}
-                </div>
-            )}
-
-            {createdAt && (
-                <div className="project-footer">
-                    <span className="created-at">
-                        📅 Создан: {formatDate(createdAt)}
+                    <span className="meta-item code-meta">
+                        <strong>Код:</strong>
+                        <span className="project-code-display">{publicCode}</span>
+                        <button
+                            className="copy-code-btn"
+                            onClick={handleCopyClick}
+                            title="Скопировать код"
+                        >
+                            📋
+                        </button>
                     </span>
                 </div>
-            )}
+
+                {tags.length > 0 && (
+                    <div className="project-card-tags">
+                        {tags.slice(0, 6).map(t => (
+                            <span
+                                key={t.id}
+                                className="project-card-tag"
+                                style={{
+                                    backgroundColor: t.color ? `${t.color}22` : '#eef2ff',
+                                    color: t.color || '#4f46e5',
+                                    borderColor: t.color || '#c7d2fe'
+                                }}
+                                title={t.name}
+                            >
+                                {t.name}
+                            </span>
+                        ))}
+                        {tags.length > 6 && (
+                            <span
+                                className="project-card-tag-more"
+                                title={tags.slice(6).map(t => t.name).join(', ')}
+                            >
+                                +{tags.length - 6}
+                            </span>
+                        )}
+                    </div>
+                )}
+
+                {createdAt && (
+                    <div className="project-footer">
+                        <span className="created-at">
+                            📅 Создан: {formatDate(createdAt)}
+                        </span>
+                    </div>
+                )}
+            </div>
         </li>
     );
 };

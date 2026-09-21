@@ -5,8 +5,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { searchProjectByCode, toggleFavoriteByCode } from '../services/projectsApi';
 import { createApplicationByCode } from '../services/applicationsApi';
+import {
+    getProjectTags as getProjectTagsApi
+} from '../services/projectTagsApi';
 import { getCategoryName, getStatusName, getVisibilityName } from '../utils/constants';
 import MemberCard from './MemberCard';
+import ProjectCover from './ProjectCover';
 import '../styles/components/ProjectDetailsPage.css';
 
 const ProjectDetailsPage = () => {
@@ -16,6 +20,7 @@ const ProjectDetailsPage = () => {
 
     const [project, setProject] = useState(null);
     const [members, setMembers] = useState([]);
+    const [projectTags, setProjectTags] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -51,6 +56,21 @@ const ProjectDetailsPage = () => {
         }
     };
 
+    // ── Загрузка тегов проекта (для публичного просмотра) ──
+    const loadProjectTagsForPublic = async (publicCode) => {
+        // Теги приходят в ProjectResponse.tags, но на всякий случай
+        // попробуем отдельный эндпоинт. Если он вернёт 403 — просто
+        // откажемся и оставим теги из project.tags.
+        try {
+            const tags = await getProjectTagsApi(publicCode);
+            setProjectTags(tags || []);
+        } catch (err) {
+            // На публичной странице эндпоинт может требовать членства —
+            // используем теги, пришедшие в самом проекте.
+            console.warn('Не удалось загрузить теги отдельно, использую project.tags:', err);
+        }
+    };
+
     const loadProjectDetails = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -66,6 +86,14 @@ const ProjectDetailsPage = () => {
                 setIsFavorite(projectData.isFavorite || false);
                 setFavoritesCount(projectData.favoritesCount || 0);
                 setJustSubmitted(false);
+
+                // 🆕 Теги проекта
+                if (Array.isArray(projectData.tags)) {
+                    setProjectTags(projectData.tags);
+                } else {
+                    // fallback — попробуем отдельным запросом
+                    loadProjectTagsForPublic(projectData.publicCode);
+                }
             } else {
                 setError('Проект не найден');
             }
@@ -181,6 +209,11 @@ const ProjectDetailsPage = () => {
         userStatus === 'Admin' ||
         userStatus === 'Member';
 
+    // ── Используемые теги: сначала projectTags, потом project.tags ──
+    const tagsToRender = projectTags.length > 0
+        ? projectTags
+        : (Array.isArray(project.tags) ? project.tags : []);
+
     return (
         <div className="project-details-page">
             <header className="details-header">
@@ -203,6 +236,20 @@ const ProjectDetailsPage = () => {
                     <span className={`visibility-badge ${project.visibility === 'Private' ? 'private' : 'public'}`}>
                         {getVisibilityName(project.visibility)}
                     </span>
+
+                    {/* 🆕 Избранное */}
+                    <button
+                        type="button"
+                        className={`favorite-btn-lg ${isFavorite ? 'active' : ''}`}
+                        onClick={handleFavoriteClick}
+                        disabled={isTogglingFavorite}
+                        title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}
+                    >
+                        {isFavorite ? '⭐' : '☆'}
+                        {favoritesCount > 0 && (
+                            <span className="favorites-count-lg">{favoritesCount}</span>
+                        )}
+                    </button>
                 </div>
             </header>
 
@@ -213,6 +260,16 @@ const ProjectDetailsPage = () => {
             )}
 
             <div className="details-content">
+                {/* 🆕 ── ОБЛОЖКА ПРОЕКТА ── */}
+                <div className="details-cover">
+                    <ProjectCover
+                        coverImageUrl={project.coverImageUrl}
+                        name={project.name}
+                        publicCode={project.publicCode}
+                        size="lg"
+                    />
+                </div>
+
                 <section className="info-section">
                     <h2>📋 Информация о проекте</h2>
                     <div className="info-grid">
@@ -238,6 +295,28 @@ const ProjectDetailsPage = () => {
                         <div className="description-section">
                             <h3>📝 Описание</h3>
                             <p>{project.description}</p>
+                        </div>
+                    )}
+
+                    {/* 🆕 ── ТЕГИ ПРОЕКТА ── */}
+                    {tagsToRender.length > 0 && (
+                        <div className="details-tags-section">
+                            <h3>🏷️ Теги проекта</h3>
+                            <div className="details-tags-view">
+                                {tagsToRender.map(t => (
+                                    <span
+                                        key={t.id}
+                                        className="project-tag-chip"
+                                        style={{
+                                            backgroundColor: t.color ? `${t.color}22` : '#eef2ff',
+                                            color: t.color || '#4f46e5',
+                                            borderColor: t.color || '#c7d2fe'
+                                        }}
+                                    >
+                                        {t.name}
+                                    </span>
+                                ))}
+                            </div>
                         </div>
                     )}
                 </section>

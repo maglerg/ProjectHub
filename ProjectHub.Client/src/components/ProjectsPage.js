@@ -12,6 +12,7 @@ import FilterSection from './FilterSection';
 import NotificationsDropdown from './NotificationsDropdown';
 import FriendsList from './FriendsList';
 import ProjectTagsFilter from './ProjectTagsFilter';
+import UserAvatar from './UserAvatar';   // 🆕
 
 import {
     fetchAllProjects,
@@ -37,7 +38,7 @@ const ProjectsPage = () => {
     // 📌 Только категория — без статуса
     const [selectedCategory, setSelectedCategory] = useState('');
 
-    // 🆕 Фильтр по тегам (для вкладки "Найти проект")
+    // Фильтр по тегам (для вкладки "Найти проект")
     const [selectedTagIds, setSelectedTagIds] = useState([]);
 
     const [shouldResetForm, setShouldResetForm] = useState(false);
@@ -116,7 +117,7 @@ const ProjectsPage = () => {
         }
     };
 
-    // 🆕 📌 Поиск проектов по тегам
+    // 📌 Поиск проектов по тегам
     const searchByTags = async () => {
         if (selectedTagIds.length === 0) {
             setMessage('❌ Выберите хотя бы один тег');
@@ -148,7 +149,7 @@ const ProjectsPage = () => {
         }
     };
 
-    // 🆕 📌 Сброс фильтра тегов
+    // 📌 Сброс фильтра тегов
     const resetTagsFilter = () => {
         setSelectedTagIds([]);
         setProjects([]);
@@ -246,7 +247,7 @@ const ProjectsPage = () => {
         setSelectedCategory('');
         setShowFavoritesOnly(false);
         setShowMyProjectsOnly(false);
-        setSelectedTagIds([]);   // 🆕 сбрасываем теги
+        setSelectedTagIds([]);
         setProjects([]);
         setMessage('');
     };
@@ -259,8 +260,8 @@ const ProjectsPage = () => {
             setProjects([]);
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(false);
-            setSelectedTagIds([]);   // 🆕
-            setSelectedCategory(''); // 🆕
+            setSelectedTagIds([]);
+            setSelectedCategory('');
             return;
         }
 
@@ -275,25 +276,25 @@ const ProjectsPage = () => {
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(false);
             setSelectedCategory('');
-            setSelectedTagIds([]);   // 🆕 очищаем теги при входе на вкладку
+            setSelectedTagIds([]);
             setProjects([]);
         } else if (tab === 'my') {
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(true);
-            setSelectedTagIds([]);   // 🆕
-            setSelectedCategory(''); // 🆕
+            setSelectedTagIds([]);
+            setSelectedCategory('');
             loadProjects(false, true);
         } else if (tab === 'favorites') {
             setShowFavoritesOnly(true);
             setShowMyProjectsOnly(false);
-            setSelectedTagIds([]);   // 🆕
-            setSelectedCategory(''); // 🆕
+            setSelectedTagIds([]);
+            setSelectedCategory('');
             loadProjects(true, false);
         } else if (tab === 'archive') {
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(false);
-            setSelectedTagIds([]);   // 🆕
-            setSelectedCategory(''); // 🆕
+            setSelectedTagIds([]);
+            setSelectedCategory('');
             loadArchivedProjects();
         }
     };
@@ -305,8 +306,8 @@ const ProjectsPage = () => {
         setMessage('');
         setShowFavoritesOnly(false);
         setShowMyProjectsOnly(false);
-        setSelectedTagIds([]);   // 🆕
-        setSelectedCategory(''); // 🆕
+        setSelectedTagIds([]);
+        setSelectedCategory('');
         loadFriends();
     };
 
@@ -347,20 +348,32 @@ const ProjectsPage = () => {
                             onClick={() => setUserMenuOpen(v => !v)}
                             title="Меню пользователя"
                         >
-                            <span className="user-menu-avatar">
-                                {user?.name ? user.name[0].toUpperCase() : '👤'}
-                            </span>
+                            {/* 🆕 Аватар пользователя */}
+                            <UserAvatar
+                                avatarUrl={user?.avatarUrl}
+                                name={user?.name}
+                                email={user?.email}
+                                size="sm"
+                            />
                             <span className="user-menu-caret">▾</span>
                         </button>
 
                         {userMenuOpen && (
                             <div className="user-menu-dropdown">
                                 <div className="user-menu-header">
-                                    <div className="user-menu-name">
-                                        {user?.name || 'Пользователь'}
-                                    </div>
-                                    <div className="user-menu-email">
-                                        {user?.email || ''}
+                                    <UserAvatar
+                                        avatarUrl={user?.avatarUrl}
+                                        name={user?.name}
+                                        email={user?.email}
+                                        size="md"
+                                    />
+                                    <div className="user-menu-header-info">
+                                        <div className="user-menu-name">
+                                            {user?.name || 'Пользователь'}
+                                        </div>
+                                        <div className="user-menu-email">
+                                            {user?.email || ''}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -504,7 +517,7 @@ const ProjectsPage = () => {
 
                             {activeTab === 'search' && (
                                 <div className="search-tab-content">
-                                    {/* 🆕 Фильтр по тегам */}
+                                    {/* Фильтр по тегам */}
                                     <div className="search-tags-filter-wrap">
                                         <ProjectTagsFilter
                                             selectedTagIds={selectedTagIds}

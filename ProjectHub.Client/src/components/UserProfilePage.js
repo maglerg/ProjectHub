@@ -7,6 +7,7 @@ import { getUserProfileByEmail } from '../services/userApi';
 import { getFriendStatus, sendFriendRequest, cancelFriendRequest, processFriendRequest } from '../services/friendRequestsApi';
 import { getFriends, removeFriend } from '../services/friendsApi';
 import { createPersonalChat } from '../services/chatsApi';
+import UserAvatar from './UserAvatar';   // 🆕
 import '../styles/components/UserProfilePage.css';
 
 const UserProfilePage = () => {
@@ -162,7 +163,6 @@ const UserProfilePage = () => {
             const chat = await createPersonalChat(user.email);
             navigate(`/chats/${chat.id}`);
         } catch (err) {
-            // 📌 Показываем специальное сообщение для FriendsOnly
             if (err.message?.includes('только от друзей')) {
                 setNotification({
                     type: 'info',
@@ -175,6 +175,7 @@ const UserProfilePage = () => {
             setIsProcessing(false);
         }
     };
+
     if (loading) {
         return (
             <div className="user-profile-loading">
@@ -290,8 +291,20 @@ const UserProfilePage = () => {
                 )}
 
                 <div className="user-profile-card">
-                    <div className="user-profile-avatar">
-                        {user.name ? user.name[0].toUpperCase() : '👤'}
+                    {/* 🆕 Аватар пользователя */}
+                    <div className="user-profile-avatar-wrapper">
+                        <UserAvatar
+                            avatarUrl={user.avatarUrl}
+                            name={user.name}
+                            email={user.email}
+                            size="xl"
+                        />
+                        {user.isOnline && (
+                            <span
+                                className="profile-online-dot"
+                                title="Онлайн"
+                            />
+                        )}
                     </div>
 
                     <div className="user-profile-info">

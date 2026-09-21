@@ -21,7 +21,50 @@ public class UsersController : ControllerBase
         _userService = userService;
         _logger = logger;
     }
+    // POST /api/users/avatar
+    [HttpPost("avatar")]
+    [RequestSizeLimit(4 * 1024 * 1024)]
+    public async Task<IActionResult> UploadAvatar(IFormFile file)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
 
+            var user = await _userService.UploadAvatarAsync(userId, file);
+            return Ok(user);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка загрузки аватара");
+            return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+        }
+    }
+
+    // DELETE /api/users/avatar
+    [HttpDelete("avatar")]
+    public async Task<IActionResult> DeleteAvatar()
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            var user = await _userService.DeleteAvatarAsync(userId);
+            return Ok(user);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка удаления аватара");
+            return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+        }
+    }
     // 📌 PUT /api/users - обновить данные текущего пользователя
     [HttpPut]
     public async Task<IActionResult> UpdateUser([FromBody] UpdateUserDto dto)

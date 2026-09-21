@@ -143,6 +143,11 @@ public class InvitationService
             invitation.Id
         );
 
+        // 📌 Подгружаем навигации, чтобы MapToResponse заполнил AvatarUrl
+        invitation.Project = project;
+        invitation.Inviter = inviter;
+        invitation.Invitee = invitee;
+
         return MapToResponse(invitation);
     }
 
@@ -160,14 +165,20 @@ public class InvitationService
         if (invitation.Status != InvitationStatus.Pending)
             throw new InvalidOperationException("Приглашение уже обработано");
 
-        // Сохраняем данные для уведомлений и истории (до удаления)
+        // Сохраняем данные для уведомлений и ответа (до удаления)
         var projectId = invitation.ProjectId;
         var projectName = invitation.Project?.Name ?? "проект";
         var projectCode = invitation.Project?.PublicCode ?? "";
         var inviterId = invitation.InviterId;
         var inviterName = invitation.Inviter?.Name ?? "Пользователь";
+        var inviterEmail = invitation.Inviter?.Email ?? "";
+        var inviterAvatarUrl = invitation.Inviter?.AvatarUrl;     // 🆕
         var inviteeId = invitation.InviteeId;
         var inviteeName = invitation.Invitee?.Name ?? "Пользователь";
+        var inviteeEmail = invitation.Invitee?.Email ?? "";
+        var inviteeAvatarUrl = invitation.Invitee?.AvatarUrl;     // 🆕
+        var message = invitation.Message;
+        var createdAt = invitation.CreatedAt;
 
         if (accept)
         {
@@ -276,13 +287,15 @@ public class InvitationService
             ProjectCode = projectCode,
             InviterId = inviterId,
             InviterName = inviterName,
-            InviterEmail = invitation.Inviter?.Email ?? "",
+            InviterEmail = inviterEmail,
+            InviterAvatarUrl = inviterAvatarUrl,       // 🆕
             InviteeId = inviteeId,
             InviteeName = inviteeName,
-            InviteeEmail = invitation.Invitee?.Email ?? "",
+            InviteeEmail = inviteeEmail,
+            InviteeAvatarUrl = inviteeAvatarUrl,       // 🆕
             Status = accept ? "Accepted" : "Rejected",
-            Message = invitation.Message,
-            CreatedAt = invitation.CreatedAt,
+            Message = message,
+            CreatedAt = createdAt,
             ProcessedAt = DateTime.UtcNow
         };
     }
@@ -323,9 +336,11 @@ public class InvitationService
             InviterId = invitation.InviterId,
             InviterName = invitation.Inviter?.Name ?? string.Empty,
             InviterEmail = invitation.Inviter?.Email ?? string.Empty,
+            InviterAvatarUrl = invitation.Inviter?.AvatarUrl,      // 🆕
             InviteeId = invitation.InviteeId,
             InviteeName = invitation.Invitee?.Name ?? string.Empty,
             InviteeEmail = invitation.Invitee?.Email ?? string.Empty,
+            InviteeAvatarUrl = invitation.Invitee?.AvatarUrl,      // 🆕
             Status = invitation.Status.ToString(),
             Message = invitation.Message,
             CreatedAt = invitation.CreatedAt,

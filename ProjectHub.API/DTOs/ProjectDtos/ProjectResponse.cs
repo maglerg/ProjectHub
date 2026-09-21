@@ -27,5 +27,6 @@ namespace ProjectHub.API.DTOs.ProjectDtos
         public DateTime? ArchivedAt { get; set; }
         public string? ArchivedByName { get; set; }
         public List<ProjectTagBriefDto> Tags { get; set; } = new();
+        public string? CoverImageUrl { get; set; }
     }
 }

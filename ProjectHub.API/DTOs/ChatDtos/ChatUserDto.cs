@@ -6,5 +6,6 @@
         public string Email { get; set; } = string.Empty;
         public string Specialization { get; set; } = string.Empty;
         public bool IsOnline { get; set; }
+        public string? AvatarUrl { get; set; }
     }
 }

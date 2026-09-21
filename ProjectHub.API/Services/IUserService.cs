@@ -20,4 +20,6 @@ public interface IUserService
 
     Task<UserResponseDto> UpdateUserAsync(Guid userId, UpdateUserDto dto);
     Task<UserResponseDto?> GetUserProfileByEmailAsync(string email);
+    Task<UserResponseDto> UploadAvatarAsync(Guid userId, IFormFile file);
+    Task<UserResponseDto> DeleteAvatarAsync(Guid userId);
 }

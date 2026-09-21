@@ -5,16 +5,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { searchProjectByCode } from '../services/projectsApi';
 import { getApplicationsByCode, processApplication } from '../services/applicationsApi';
-import '../styles/components/ApplicationsPage.css';
 import { getUnreadCount } from '../services/notificationsApi';
-
+import UserAvatar from './UserAvatar';
+import '../styles/components/ApplicationsPage.css';
 
 const ApplicationsPage = () => {
-    console.log('🔴 === APPLICATIONS PAGE MOUNTED ===');
-
     const { code } = useParams();
-    console.log('🔴 code из URL:', code);
-
     const navigate = useNavigate();
     const { user } = useAuth();
 
@@ -27,86 +23,65 @@ const ApplicationsPage = () => {
     const [filter, setFilter] = useState('pending');
 
     useEffect(() => {
-        console.log('🔴 useEffect сработал! code:', code);
         if (code) {
             loadData();
         } else {
-            console.warn('⚠️ code не найден в URL');
             setError('Код проекта не указан');
             setLoading(false);
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [code]);
 
     const loadData = async () => {
-        console.log('🔴 loadData вызвана!');
         setLoading(true);
         setError(null);
 
         try {
-            console.log('🔍 Загрузка проекта по коду:', code);
             const projectData = await searchProjectByCode(code);
-            console.log('📦 Данные проекта:', projectData);
 
             if (!projectData) {
-                console.warn('⚠️ Проект не найден');
                 setError('Проект не найден');
                 setLoading(false);
                 return;
             }
 
             setProject(projectData);
-            console.log('✅ Проект сохранен в state');
 
             const userStatus = projectData.userStatus || 'NotJoined';
-            console.log('👤 Статус пользователя:', userStatus);
 
             if (userStatus !== 'Owner' && userStatus !== 'Admin') {
-                console.warn('⚠️ Нет прав для просмотра заявок');
                 setError('У вас нет прав для просмотра заявок');
                 setLoading(false);
                 return;
             }
 
-            console.log('✅ Права подтверждены, загружаем заявки...');
-
-            // 📌 Загружаем заявки по публичному коду
             await loadApplications(code);
         } catch (err) {
             console.error('❌ Ошибка загрузки:', err);
             setError(err.message || 'Ошибка загрузки данных');
             setLoading(false);
         }
+
+        // Обновляем счётчик уведомлений
         try {
-            const count = await getUnreadCount();
-            // Если используешь глобальное состояние для счетчика
-            // setUnreadCount(count);
-            console.log('📬 Обновлен счетчик уведомлений:', count);
+            await getUnreadCount();
         } catch (err) {
-            console.warn('Не удалось обновить счетчик:', err);
+            console.warn('Не удалось обновить счётчик:', err);
         }
     };
 
     const loadApplications = async (projectCode) => {
-        console.log('🔴 loadApplications вызвана, code:', projectCode);
-
         try {
             if (!projectCode) {
-                console.warn('⚠️ code не передан');
                 setApplications([]);
                 setLoading(false);
                 return;
-            } 
+            }
 
-            console.log('📥 Загрузка заявок для проекта по коду:', projectCode);
             const data = await getApplicationsByCode(projectCode);
-            console.log('📦 Получены заявки:', data);
 
             if (Array.isArray(data)) {
                 setApplications(data);
-                console.log(`✅ Загружено ${data.length} заявок`);
-                data.forEach((app, index) => {
-                    console.log(`  📌 Заявка ${index + 1}: id=${app.id}, статус=${app.status}, пользователь=${app.userName}`);
-                });
             } else {
                 console.warn('⚠️ Получены не массив:', data);
                 setApplications([]);
@@ -131,11 +106,9 @@ const ApplicationsPage = () => {
         setSuccess(null);
 
         try {
-            console.log(`🔄 Обработка заявки ${applicationId}: ${approve ? 'Принять' : 'Отклонить'}`);
             await processApplication(applicationId, approve);
             setSuccess(approve ? '✅ Заявка одобрена!' : '❌ Заявка отклонена');
 
-            // 📌 Обновляем список заявок по коду
             await loadApplications(code);
             await loadData();
         } catch (err) {
@@ -282,12 +255,16 @@ const ApplicationsPage = () => {
                         </div>
                     ) : (
                         filteredApplications.map(app => (
-                            <div key={app.id || Math.random()} className="application-card">
+                            <div key={app.id} className="application-card">
                                 <div className="application-header">
                                     <div className="user-info">
-                                        <div className="user-avatar">
-                                            {app.userName ? app.userName[0].toUpperCase() : '👤'}
-                                        </div>
+                                        {/* 🆕 Аватар заявителя */}
+                                        <UserAvatar
+                                            avatarUrl={app.userAvatarUrl}
+                                            name={app.userName}
+                                            email={app.userEmail}
+                                            size="md"
+                                        />
                                         <div className="user-details">
                                             <span className="user-name">{app.userName || 'Неизвестно'}</span>
                                             <span className="user-email">{app.userEmail || '—'}</span>

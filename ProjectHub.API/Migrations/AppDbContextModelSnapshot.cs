@@ -421,6 +421,10 @@ namespace ProjectHub.API.Migrations
                     b.Property<int>("Category")
                         .HasColumnType("integer");
 
+                    b.Property<string>("CoverImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp with time zone")
@@ -1029,6 +1033,10 @@ namespace ProjectHub.API.Migrations
                     b.Property<Guid>("Id")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
+
+                    b.Property<string>("AvatarUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<int>("ChatPrivacy")
                         .HasColumnType("integer");

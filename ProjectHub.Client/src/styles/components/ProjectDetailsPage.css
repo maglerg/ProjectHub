@@ -630,3 +630,14 @@
     text-align: center;
     font-weight: 600;
 }
+.details-cover {
+    margin: -24px -24px 20px; /* если info-section имеет padding */
+    overflow: hidden;
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+}
+
+    .details-cover .project-cover--lg {
+        height: 240px;
+        border-radius: 0;
+    }

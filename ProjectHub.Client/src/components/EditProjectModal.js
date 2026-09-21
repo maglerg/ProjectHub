@@ -1,6 +1,6 @@
 // projecthub.client/src/components/EditProjectModal.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
     PROJECT_CATEGORIES,
     PROJECT_VISIBILITY,
@@ -11,8 +11,16 @@ import {
     getProjectTags as getProjectTagsApi,
     setProjectTags as setProjectTagsApi
 } from '../services/projectTagsApi';
+import {
+    uploadProjectCover,
+    deleteProjectCover
+} from '../services/projectCoverApi';
 import ProjectTagPicker from './ProjectTagPicker';
+import ProjectCover from './ProjectCover';
 import '../styles/components/EditProjectModal.css';
+
+const MAX_COVER_SIZE = 5 * 1024 * 1024; // 5 МБ
+const ALLOWED_COVER_TYPES = ['image/png', 'image/jpeg', 'image/gif', 'image/webp'];
 
 const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
     const [formData, setFormData] = useState({
@@ -32,6 +40,12 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
     const [selectedTagIds, setSelectedTagIds] = useState([]);
     const [tagsLoading, setTagsLoading] = useState(false);
 
+    // 🆕 Обложка проекта
+    const [coverUrl, setCoverUrl] = useState('');
+    const [uploadingCover, setUploadingCover] = useState(false);
+    const [coverError, setCoverError] = useState(null);
+    const fileInputRef = useRef(null);
+
     // 📌 Что может редактировать пользователь
     const canEdit = {
         name: userRole === 'Owner',
@@ -40,7 +54,8 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
         status: userRole === 'Owner',
         deadline: userRole === 'Owner',
         description: userRole === 'Owner' || userRole === 'Admin',
-        tags: userRole === 'Owner'   // 🆕 только владелец
+        tags: userRole === 'Owner',
+        cover: userRole === 'Owner'    // 🆕 только владелец
     };
 
     // 📌 Форма
@@ -56,6 +71,7 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                     ? new Date(project.deadline).toISOString().split('T')[0]
                     : ''
             });
+            setCoverUrl(project.coverImageUrl || '');
         }
     }, [project]);
 
@@ -90,6 +106,74 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+    };
+
+    // 🆕 ── Загрузка обложки ──
+    const handleCoverUpload = async (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        setCoverError(null);
+
+        // Валидация размера
+        if (file.size > MAX_COVER_SIZE) {
+            setCoverError(`Файл больше ${MAX_COVER_SIZE / 1024 / 1024} МБ`);
+            e.target.value = '';
+            return;
+        }
+
+        // Валидация типа
+        if (!ALLOWED_COVER_TYPES.includes(file.type)) {
+            setCoverError('Допустимы только PNG, JPG, GIF, WEBP');
+            e.target.value = '';
+            return;
+        }
+
+        setUploadingCover(true);
+        try {
+            const updated = await uploadProjectCover(project.publicCode, file);
+
+            // updated — ProjectResponse с новым coverImageUrl
+            setCoverUrl(updated.coverImageUrl || '');
+
+            // Тут же сообщаем родителю, чтобы он подтянул изменения,
+            // если хочет. Но не закрываем модалку.
+            if (onUpdated) onUpdated();
+
+            setSuccess('✅ Обложка обновлена');
+            setTimeout(() => setSuccess(null), 2500);
+        } catch (err) {
+            console.error('❌ Ошибка загрузки обложки:', err);
+            setCoverError(err.message || 'Не удалось загрузить обложку');
+        } finally {
+            setUploadingCover(false);
+            e.target.value = '';
+        }
+    };
+
+    // 🆕 ── Удаление обложки ──
+    const handleCoverDelete = async () => {
+        if (!project?.publicCode) return;
+        if (!coverUrl) return;
+
+        if (!window.confirm('Удалить обложку проекта?')) return;
+
+        setCoverError(null);
+        setUploadingCover(true);
+        try {
+            const updated = await deleteProjectCover(project.publicCode);
+            setCoverUrl(updated.coverImageUrl || '');
+
+            if (onUpdated) onUpdated();
+
+            setSuccess('✅ Обложка удалена');
+            setTimeout(() => setSuccess(null), 2500);
+        } catch (err) {
+            console.error('❌ Ошибка удаления обложки:', err);
+            setCoverError(err.message || 'Не удалось удалить обложку');
+        } finally {
+            setUploadingCover(false);
+        }
     };
 
     // 🆕 Сохранение: сначала updateProject, потом setProjectTags (если нужно)
@@ -146,6 +230,8 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                 return '✏️ Только владелец и администратор могут редактировать описание';
             if (field === 'tags')
                 return '🔒 Только владелец может управлять тегами проекта';
+            if (field === 'cover')
+                return '🔒 Только владелец может менять обложку проекта';
             return '🔒 Только владелец может редактировать это поле';
         }
         return null;
@@ -163,6 +249,61 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                 {success && <div className="edit-modal-success">{success}</div>}
 
                 <form onSubmit={handleSubmit} className="edit-modal-form">
+
+                    {/* 🆕 ── ОБЛОЖКА ПРОЕКТА ── */}
+                    <div className="form-group edit-modal-cover-group">
+                        <label>🖼️ Обложка проекта</label>
+
+                        <div className="edit-modal-cover">
+                            <ProjectCover
+                                coverImageUrl={coverUrl}
+                                name={formData.name || project?.name}
+                                publicCode={project?.publicCode}
+                                size="lg"
+                            />
+
+                            {canEdit.cover && (
+                                <div className="edit-modal-cover-actions">
+                                    <label className="btn-cover-upload">
+                                        {uploadingCover ? '⏳ Загрузка…' : '📷 Заменить'}
+                                        <input
+                                            ref={fileInputRef}
+                                            type="file"
+                                            accept="image/png,image/jpeg,image/gif,image/webp"
+                                            style={{ display: 'none' }}
+                                            onChange={handleCoverUpload}
+                                            disabled={uploadingCover || loading}
+                                        />
+                                    </label>
+
+                                    {coverUrl && (
+                                        <button
+                                            type="button"
+                                            className="btn-cover-delete"
+                                            onClick={handleCoverDelete}
+                                            disabled={uploadingCover || loading}
+                                            title="Удалить обложку"
+                                        >
+                                            🗑 Удалить
+                                        </button>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+
+                        {coverError && (
+                            <div className="edit-modal-cover-error">{coverError}</div>
+                        )}
+
+                        {getFieldHint('cover') ? (
+                            <span className="field-hint">{getFieldHint('cover')}</span>
+                        ) : (
+                            <span className="field-hint">
+                                🖼️ PNG, JPG, GIF или WEBP до 5 МБ. Не обязательно.
+                            </span>
+                        )}
+                    </div>
+
                     <div className="form-group">
                         <label>Название проекта</label>
                         <input
@@ -273,7 +414,7 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                         </div>
                     </div>
 
-                    {/* 🆕 ── Теги проекта (только владелец) ── */}
+                    {/* ── Теги проекта (только владелец) ── */}
                     {canEdit.tags && (
                         <div className="form-group edit-modal-tags-group">
                             <label>🏷️ Теги проекта</label>
@@ -310,7 +451,7 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                         type="submit"
                         className="btn-save"
                         onClick={handleSubmit}
-                        disabled={loading}
+                        disabled={loading || uploadingCover}
                     >
                         {loading ? '⏳ Сохранение...' : '💾 Сохранить'}
                     </button>

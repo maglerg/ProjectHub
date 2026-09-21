@@ -127,6 +127,10 @@ public class ApplicationService
             _logger.LogError($"❌ Ошибка при отправке уведомлений: {ex.Message}");
         }
 
+        // 📌 Подгружаем навигацию, чтобы маппер заполнил данные пользователя и проекта
+        application.User = user;
+        application.Project = project;
+
         return MapToResponse(application);
     }
 
@@ -369,6 +373,7 @@ public class ApplicationService
             UserName = application.User?.Name ?? string.Empty,
             UserEmail = application.User?.Email ?? string.Empty,
             UserSpecialization = application.User?.Specialization.ToString(),
+            UserAvatarUrl = application.User?.AvatarUrl,        // 🆕
             Status = application.Status.ToString(),
             Message = application.Message,
             CreatedAt = application.CreatedAt,

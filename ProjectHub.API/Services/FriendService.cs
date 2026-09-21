@@ -39,7 +39,8 @@ public class FriendService
             Description = f.FriendUser.Description,
             IsOnline = f.FriendUser.IsOnline,
             CreatedAt = f.FriendUser.CreatedAt,
-            FriendSince = f.CreatedAt
+            FriendSince = f.CreatedAt,
+            AvatarUrl = f.FriendUser.AvatarUrl    // 🆕
         }).ToList();
     }
 
@@ -120,7 +121,8 @@ public class FriendService
                 Description = friendUser.Description,
                 IsOnline = friendUser.IsOnline,
                 CreatedAt = friendUser.CreatedAt,
-                FriendSince = friend.CreatedAt
+                FriendSince = friend.CreatedAt,
+                AvatarUrl = friendUser.AvatarUrl    // 🆕
             }
         };
     }

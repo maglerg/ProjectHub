@@ -8,5 +8,6 @@
         public string Specialization { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
         public DateTime JoinedAt { get; set; }
+        public string? AvatarUrl { get; set; }
     }
 }

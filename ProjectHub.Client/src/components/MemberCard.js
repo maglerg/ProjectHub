@@ -2,9 +2,10 @@
 
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import UserAvatar from './UserAvatar';
 import '../styles/components/MemberCard.css';
 
-const MemberCard = ({ member, onRemove }) => {  // ← Добавляем onRemove
+const MemberCard = ({ member, onRemove }) => {
     const navigate = useNavigate();
 
     const getRoleColor = (role) => {
@@ -23,29 +24,6 @@ const MemberCard = ({ member, onRemove }) => {  // ← Добавляем onRemo
             case 'member': return '👤';
             default: return '👤';
         }
-    };
-
-    const getInitials = (name) => {
-        if (!name) return '👤';
-        const parts = name.split(' ');
-        if (parts.length >= 2) {
-            return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
-        }
-        return name.slice(0, 2).toUpperCase();
-    };
-
-    const getAvatarColor = (name) => {
-        const colors = [
-            '#667eea', '#764ba2', '#f093fb', '#4facfe',
-            '#43e97b', '#fa709a', '#fee140', '#f5576c',
-            '#4facfe', '#43e97b', '#fa709a'
-        ];
-        if (!name) return colors[0];
-        let hash = 0;
-        for (let i = 0; i < name.length; i++) {
-            hash = name.charCodeAt(i) + ((hash << 5) - hash);
-        }
-        return colors[Math.abs(hash) % colors.length];
     };
 
     const handleCardClick = () => {
@@ -67,12 +45,14 @@ const MemberCard = ({ member, onRemove }) => {  // ← Добавляем onRemo
         <div className="member-card clickable" onClick={handleCardClick}>
             <div className="member-card-content">
                 <div className="member-avatar-wrapper">
-                    <div
-                        className="member-avatar"
-                        style={{ backgroundColor: getAvatarColor(member.name) }}
-                    >
-                        {getInitials(member.name)}
-                    </div>
+                    {/* 🆕 Аватар пользователя */}
+                    <UserAvatar
+                        avatarUrl={member.avatarUrl}
+                        name={member.name}
+                        email={member.email}
+                        size="md"
+                    />
+
                     {member.role?.toLowerCase() === 'owner' && (
                         <div className="member-owner-crown">👑</div>
                     )}

@@ -13,6 +13,7 @@ namespace ProjectHub.API.DTOs.FriendDtos
         public bool IsOnline { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime FriendSince { get; set; }
+        public string? AvatarUrl { get; set; }
     }
 }
 

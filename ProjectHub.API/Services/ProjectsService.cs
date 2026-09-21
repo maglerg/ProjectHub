@@ -8,6 +8,7 @@ using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
 using ProjectHub.Models;
 
+
 namespace ProjectHub.API.Services
 {
     public class ProjectsService
@@ -18,6 +19,7 @@ namespace ProjectHub.API.Services
         private readonly NotificationService _notificationService;
         private readonly ActivityService _activity;
         private readonly ProjectTagsService _projectTags;
+        private readonly FileStorageService _fileStorage;
 
         private const int MaxAttempts = 100;
 
@@ -27,7 +29,8 @@ namespace ProjectHub.API.Services
             CodeGeneratorService codeGenerator,
             NotificationService notificationService,
             ActivityService activity,
-            ProjectTagsService projectTags)
+            ProjectTagsService projectTags,
+            FileStorageService fileStorage)
         {
             _dbContext = dbContext;
             _logger = logger;
@@ -35,6 +38,7 @@ namespace ProjectHub.API.Services
             _notificationService = notificationService;
             _activity = activity;
             _projectTags = projectTags;
+            _fileStorage = fileStorage;
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -857,7 +861,120 @@ namespace ProjectHub.API.Services
 
             return true;
         }
+        private static readonly string[] AllowedImageExtensions =
+{
+    ".png", ".jpg", ".jpeg", ".gif", ".webp"
+};
 
+        private const long MaxCoverSizeBytes = 5 * 1024 * 1024; // 5 МБ
+
+        public async Task<ProjectResponse> UploadCoverAsync(
+            string projectCode, Guid userId, IFormFile file)
+        {
+            var project = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.PublicCode == projectCode)
+                ?? throw new KeyNotFoundException("Проект с таким кодом не найден");
+
+            var isOwner = project.OwnerId == userId;
+            var isAdmin = await _dbContext.ProjectMembers
+                .AnyAsync(pm => pm.ProjectId == project.Id
+                                && pm.UserId == userId
+                                && pm.Role == ProjectMemberRole.Admin);
+
+            if (!isOwner && !isAdmin)
+                throw new UnauthorizedAccessException(
+                    "Менять обложку может только владелец или администратор");
+
+            if (project.IsArchived)
+                throw new InvalidOperationException(
+                    "Проект в архиве, действие недоступно");
+
+            if (file == null || file.Length == 0)
+                throw new InvalidOperationException("Файл пуст");
+
+            if (file.Length > MaxCoverSizeBytes)
+                throw new InvalidOperationException(
+                    $"Файл слишком большой (макс. {MaxCoverSizeBytes / 1024 / 1024} МБ)");
+
+            var ext = Path.GetExtension(file.FileName).ToLowerInvariant();
+            if (!AllowedImageExtensions.Contains(ext))
+                throw new InvalidOperationException(
+                    $"Тип файла {ext} не разрешён");
+
+            // Удаляем старую обложку с диска
+            if (!string.IsNullOrWhiteSpace(project.CoverImageUrl))
+            {
+                try
+                {
+                    var oldStored = Path.GetFileName(
+                        new Uri(project.CoverImageUrl).AbsolutePath);
+                    _fileStorage.Delete(oldStored);
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Не удалось удалить старую обложку");
+                }
+            }
+
+            var storedName = await _fileStorage.SaveAsync(file.OpenReadStream(), ext);
+            project.CoverImageUrl = $"/uploads/{storedName}";
+            project.UpdatedAt = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation(
+                $"Обложка проекта {projectCode} обновлена: {project.CoverImageUrl}");
+
+            var withAll = await _dbContext.Projects
+                .Include(p => p.Members).ThenInclude(m => m.User)
+                .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
+                .FirstAsync(p => p.Id == project.Id);
+
+            return MapToResponse(withAll);
+        }
+
+        public async Task<ProjectResponse> DeleteCoverAsync(
+            string projectCode, Guid userId)
+        {
+            var project = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.PublicCode == projectCode)
+                ?? throw new KeyNotFoundException("Проект не найден");
+
+            var isOwner = project.OwnerId == userId;
+            var isAdmin = await _dbContext.ProjectMembers
+                .AnyAsync(pm => pm.ProjectId == project.Id
+                                && pm.UserId == userId
+                                && pm.Role == ProjectMemberRole.Admin);
+
+            if (!isOwner && !isAdmin)
+                throw new UnauthorizedAccessException("Нет прав");
+
+            if (string.IsNullOrWhiteSpace(project.CoverImageUrl))
+                throw new InvalidOperationException("У проекта нет обложки");
+
+            try
+            {
+                var oldStored = Path.GetFileName(
+                    new Uri(project.CoverImageUrl).AbsolutePath);
+                _fileStorage.Delete(oldStored);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Не удалось удалить файл обложки");
+            }
+
+            project.CoverImageUrl = null;
+            project.UpdatedAt = DateTime.UtcNow;
+
+            await _dbContext.SaveChangesAsync();
+
+            var withAll = await _dbContext.Projects
+                .Include(p => p.Members).ThenInclude(m => m.User)
+                .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
+                .FirstAsync(p => p.Id == project.Id);
+
+            return MapToResponse(withAll);
+        }
         // ═══════════════════════════════════════════════════════════
         //  ВСПОМОГАТЕЛЬНЫЕ
         // ═══════════════════════════════════════════════════════════
@@ -928,6 +1045,7 @@ namespace ProjectHub.API.Services
                 FavoritesCount = entity.FavoritesCount,
                 IsArchived = entity.IsArchived,
                 ArchivedAt = entity.ArchivedAt,
+                CoverImageUrl = entity.CoverImageUrl,
                 ArchivedByName = entity.ArchivedBy?.Name,
                 Members = entity.Members.Select(m => new MemberInfo
                 {
@@ -936,8 +1054,10 @@ namespace ProjectHub.API.Services
                     Email = m.User.Email,
                     Specialization = m.User.Specialization.ToString(),
                     Role = m.Role.ToString(),
-                    JoinedAt = m.JoinedAt
+                    JoinedAt = m.JoinedAt,
+                AvatarUrl = m.User.AvatarUrl    // 🆕
                 }).ToList(),
+
 
                 // 📌 Теги проекта
                 Tags = entity.TagLinks?

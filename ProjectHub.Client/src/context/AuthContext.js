@@ -13,35 +13,37 @@ import {
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
-    const [user, setUser] = useState(null);
+    const [user, setUserState] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     // 📌 Загружаем пользователя при старте
     useEffect(() => {
         loadUser();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     const loadUser = async () => {
         setLoading(true);
         try {
-            // ✅ Проверяем, есть ли токен в localStorage (с tabId)
             if (isAuthenticated()) {
                 const userData = await getCurrentUser();
                 if (userData) {
-                    setUser(userData);
+                    setUserState(userData);
+                    persistUser(userData);   // 🆕 синхронизируем localStorage
                 } else {
-                    setUser(null);
+                    setUserState(null);
                 }
             } else {
                 const storedUser = getUserFromStorage();
                 if (storedUser) {
-                    // 📌 Проверяем, не истек ли токен (на бэкенде)
                     try {
                         const refreshedUser = await getCurrentUser();
-                        setUser(refreshedUser || storedUser);
+                        const next = refreshedUser || storedUser;
+                        setUserState(next);
+                        persistUser(next);
                     } catch {
-                        setUser(storedUser);
+                        setUserState(storedUser);
                     }
                 }
             }
@@ -52,12 +54,36 @@ export const AuthProvider = ({ children }) => {
             setLoading(false);
         }
     };
+
+    // 🆕 ── Публичный сеттер пользователя ──
+    // Используется в ProfilePage / других местах, где обновился профиль
+    // (например, после загрузки аватара).
+    // Синхронизирует и React-state, и localStorage.
+    const setUser = (nextUser) => {
+        setUserState(nextUser);
+        persistUser(nextUser);
+    };
+
+    // 🆕 Хелпер: пишем пользователя в localStorage,
+    // чтобы после перезагрузки страницы данные не «слетали».
+    const persistUser = (nextUser) => {
+        try {
+            if (nextUser) {
+                localStorage.setItem('user', JSON.stringify(nextUser));
+            } else {
+                localStorage.removeItem('user');
+            }
+        } catch (e) {
+            console.warn('Не удалось сохранить пользователя в localStorage:', e);
+        }
+    };
+
     // 📌 Вход
     const handleLogin = async (email, password) => {
         setError(null);
         try {
             const userData = await apiLogin(email, password);
-            setUser(userData);
+            setUser(userData);   // через наш сеттер — сохранит в localStorage
             return userData;
         } catch (err) {
             setError(err.message);
@@ -70,7 +96,6 @@ export const AuthProvider = ({ children }) => {
         setError(null);
         try {
             const data = await apiRegister(userData);
-            // После регистрации автоматически логиним пользователя
             setUser(data);
             return data;
         } catch (err) {
@@ -86,7 +111,7 @@ export const AuthProvider = ({ children }) => {
         } catch (err) {
             console.error('Logout error:', err);
         } finally {
-            setUser(null);
+            setUser(null);   // через сеттер — заодно чистит localStorage
         }
     };
 
@@ -98,7 +123,7 @@ export const AuthProvider = ({ children }) => {
         register: handleRegister,
         logout: handleLogout,
         isAuthenticated: !!user && isAuthenticated(),
-        setUser
+        setUser,             // 🆕 публичный сеттер с автосохранением
     };
 
     return (

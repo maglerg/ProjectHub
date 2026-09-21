@@ -16,6 +16,7 @@ namespace ProjectHub.API.DTOs.ApplicationDtos
         public string? Message { get; set; }
         public DateTime CreatedAt { get; set; }
         public DateTime? ProcessedAt { get; set; }
+        public string? UserAvatarUrl { get; set; }
     }
 }
 

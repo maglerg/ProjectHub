@@ -1,0 +1,62 @@
+/* src/styles/components/UserAvatar.css */
+
+.user-avatar {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    overflow: hidden;
+    border-radius: 50%;
+    color: #fff;
+    font-weight: 700;
+    user-select: none;
+    background-color: #6366f1;
+    text-transform: uppercase;
+}
+
+/* ── Размеры ── */
+.user-avatar--xs {
+    width: 24px;
+    height: 24px;
+    font-size: 10px;
+}
+
+.user-avatar--sm {
+    width: 32px;
+    height: 32px;
+    font-size: 12px;
+}
+
+.user-avatar--md {
+    width: 48px;
+    height: 48px;
+    font-size: 16px;
+}
+
+.user-avatar--lg {
+    width: 80px;
+    height: 80px;
+    font-size: 28px;
+}
+
+.user-avatar--xl {
+    width: 120px;
+    height: 120px;
+    font-size: 42px;
+}
+
+/* ── Картинка ── */
+.user-avatar__img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center 25%; /* лицо обычно в верхней части */
+    display: block;
+}
+
+/* ── Инициалы ── */
+.user-avatar__initials {
+    font-size: inherit;
+    line-height: 1;
+    letter-spacing: 0.02em;
+}

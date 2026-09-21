@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { getChatById, getChatMessages, sendMessage } from '../services/chatsApi';
+import UserAvatar from './UserAvatar';   // 🆕
 import '../styles/components/ChatPage.css';
 
 const ChatPage = ({
@@ -93,7 +94,6 @@ const ChatPage = ({
     const handleSendMessage = async (e) => {
         e.preventDefault();
 
-        // 📦 В архиве отправка недоступна
         if (isArchived) return;
         if (!newMessage.trim() || sending) return;
 
@@ -208,7 +208,7 @@ const ChatPage = ({
 
     return (
         <div className={embedded ? 'chat-page chat-page--embedded' : 'chat-page'}>
-            {/* ── Шапка: в embedded-режиме — компактная, без кнопки "Назад" ── */}
+            {/* ── Шапка ── */}
             <header className="chat-header">
                 {!embedded && (
                     <button className="btn-back" onClick={goBackToChats}>
@@ -220,8 +220,20 @@ const ChatPage = ({
                     {/* Личный чат */}
                     {chat?.type === 'Personal' && chat?.otherUser && (
                         <>
-                            <div className="chat-header-avatar">
-                                {chat.otherUser.name?.[0]?.toUpperCase() || '👤'}
+                            {/* 🆕 Аватар собеседника */}
+                            <div className="chat-header-avatar-wrapper">
+                                <UserAvatar
+                                    avatarUrl={chat.otherUser.avatarUrl}
+                                    name={chat.otherUser.name}
+                                    email={chat.otherUser.email}
+                                    size="md"
+                                />
+                                {chat.otherUser.isOnline && (
+                                    <span
+                                        className="chat-online-dot"
+                                        title="Онлайн"
+                                    />
+                                )}
                             </div>
                             <div className="chat-header-info">
                                 <div className="chat-header-name">{getChatTitle()}</div>
@@ -235,7 +247,9 @@ const ChatPage = ({
                     {/* Групповой чат проекта */}
                     {chat?.type === 'Project' && (
                         <>
-                            <div className="chat-header-avatar">👥</div>
+                            <div className="chat-header-avatar chat-header-avatar--group">
+                                👥
+                            </div>
                             <div className="chat-header-info">
                                 <div className="chat-header-name">
                                     {getChatTitle()}
@@ -289,55 +303,73 @@ const ChatPage = ({
                             ? message.isReadByAll
                             : message.isRead;
 
+                        // 🆕 Аватар отправителя — показываем только в групповом чате
+                        // и только у чужих сообщений, у первого в серии.
+                        // (в личных чатах аватар собеседника уже в шапке — не дублируем)
+                        const showSenderAvatar = isProjectChat && !isOwn && showSenderName;
+
                         return (
                             <div
                                 key={message.id || index}
-                                className={`chat-message ${isOwn ? 'own' : 'other'}`}
+                                className={`chat-message ${isOwn ? 'own' : 'other'} ${showSenderAvatar ? 'with-avatar' : ''}`}
                             >
-                                {!isOwn && showSenderName && (
-                                    <div className="message-sender-name">
-                                        <span className="sender-name-text">
-                                            {message.senderName}
-                                        </span>
-                                        {isProjectChat && message.senderRole && (
-                                            <span className={`sender-role role-${message.senderRole.toLowerCase()}`}>
-                                                {getRoleName(message.senderRole)}
-                                            </span>
-                                        )}
+                                {showSenderAvatar && (
+                                    <div className="message-avatar">
+                                        <UserAvatar
+                                            avatarUrl={message.senderAvatarUrl}
+                                            name={message.senderName}
+                                            email={message.senderEmail}
+                                            size="sm"
+                                        />
                                     </div>
                                 )}
 
-                                <div className="message-bubble-wrapper">
-                                    <div className="message-bubble">
-                                        <div className="message-text">{message.text}</div>
-                                        <div className="message-time">
-                                            {formatTime(message.createdAt)}
+                                <div className="message-content">
+                                    {!isOwn && showSenderName && (
+                                        <div className="message-sender-name">
+                                            <span className="sender-name-text">
+                                                {message.senderName}
+                                            </span>
+                                            {isProjectChat && message.senderRole && (
+                                                <span className={`sender-role role-${message.senderRole.toLowerCase()}`}>
+                                                    {getRoleName(message.senderRole)}
+                                                </span>
+                                            )}
                                         </div>
+                                    )}
+
+                                    <div className="message-bubble-wrapper">
+                                        <div className="message-bubble">
+                                            <div className="message-text">{message.text}</div>
+                                            <div className="message-time">
+                                                {formatTime(message.createdAt)}
+                                            </div>
+                                        </div>
+
+                                        {isOwn && !isReadAll && (
+                                            <span
+                                                className="message-unread-dot"
+                                                title={
+                                                    isProjectChat
+                                                        ? `Прочитали: ${message.readCount}/${message.totalParticipants}`
+                                                        : 'Не прочитано'
+                                                }
+                                            />
+                                        )}
+
+                                        {isOwn && isReadAll && (
+                                            <span
+                                                className="message-read-check"
+                                                title={
+                                                    isProjectChat
+                                                        ? `Прочитали все (${message.readCount}/${message.totalParticipants})`
+                                                        : 'Прочитано'
+                                                }
+                                            >
+                                                ✓✓
+                                            </span>
+                                        )}
                                     </div>
-
-                                    {isOwn && !isReadAll && (
-                                        <span
-                                            className="message-unread-dot"
-                                            title={
-                                                isProjectChat
-                                                    ? `Прочитали: ${message.readCount}/${message.totalParticipants}`
-                                                    : 'Не прочитано'
-                                            }
-                                        />
-                                    )}
-
-                                    {isOwn && isReadAll && (
-                                        <span
-                                            className="message-read-check"
-                                            title={
-                                                isProjectChat
-                                                    ? `Прочитали все (${message.readCount}/${message.totalParticipants})`
-                                                    : 'Прочитано'
-                                            }
-                                        >
-                                            ✓✓
-                                        </span>
-                                    )}
                                 </div>
                             </div>
                         );
