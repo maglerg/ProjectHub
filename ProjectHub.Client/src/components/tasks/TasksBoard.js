@@ -22,7 +22,9 @@ export default function TasksBoard({
     currentUserEmail,
     isOwner,
     // 📌 Фильтры приходят снаружи (панель в сайдбаре дашборда)
-    filters = {}
+    filters = {},
+    // 📌 Проект в архиве — только просмотр
+    isArchived = false,
 }) {
     const {
         onlyMyTasks = false,
@@ -129,6 +131,7 @@ export default function TasksBoard({
 
     // ── Взять задачу ──
     const handleTake = async (taskId) => {
+        if (isArchived) return;
         try {
             setActionError(null);
             await takeTask(projectCode, taskId);
@@ -141,6 +144,7 @@ export default function TasksBoard({
 
     // ── Загрузить вложение ──
     const handleUpload = async (taskId, file) => {
+        if (isArchived) return;
         try {
             setActionError(null);
             await uploadTaskAttachment(projectCode, taskId, file);
@@ -153,6 +157,7 @@ export default function TasksBoard({
 
     // ── Создать задачу (с тегами) ──
     const handleCreate = async (payload) => {
+        if (isArchived) return;
         try {
             setActionError(null);
 
@@ -183,6 +188,7 @@ export default function TasksBoard({
 
     // ── Переместить задачу ──
     const handleMove = async (taskId, columnId) => {
+        if (isArchived) return;
         try {
             setActionError(null);
             setColumns(prev => moveTaskLocally(prev, taskId, columnId));
@@ -205,14 +211,23 @@ export default function TasksBoard({
                 <h2>Задачи</h2>
 
                 <div className="tasks-board-actions">
-                    <button
-                        className="btn-create-task"
-                        onClick={() => setIsModalOpen(true)}
-                    >
-                        + Создать задачу
-                    </button>
+                    {!isArchived && (
+                        <button
+                            className="btn-create-task"
+                            onClick={() => setIsModalOpen(true)}
+                        >
+                            + Создать задачу
+                        </button>
+                    )}
                 </div>
             </div>
+
+            {/* 📌 Плашка «Проект в архиве» */}
+            {isArchived && (
+                <div className="tasks-archive-banner">
+                    📦 Проект в архиве. Задачи доступны только для просмотра.
+                </div>
+            )}
 
             {/* ── Прогресс проекта ── */}
             {progress && (
@@ -255,6 +270,7 @@ export default function TasksBoard({
                         projectCode={projectCode}
                         currentUserEmail={currentUserEmail}
                         isOwner={isOwner}
+                        isArchived={isArchived}
                         onTake={handleTake}
                         onMove={handleMove}
                         onUpload={handleUpload}
@@ -264,7 +280,7 @@ export default function TasksBoard({
                 ))}
             </div>
 
-            {isModalOpen && (
+            {!isArchived && isModalOpen && (
                 <CreateTaskModal
                     columns={columns}
                     projectDeadline={projectDeadline}

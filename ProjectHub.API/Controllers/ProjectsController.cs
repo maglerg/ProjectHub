@@ -92,10 +92,82 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Ошибка при поиске проекта" });
             }
         }
+        // ═══════════════════════════════════════════════════════════
+        //  АРХИВ
+        // ═══════════════════════════════════════════════════════════
+
+        // POST /api/projects/code/{code}/archive
+        [HttpPost("code/{code}/archive")]
+        [Authorize]
+        public async Task<IActionResult> ArchiveProject(string code)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                    return Unauthorized(new { error = "Пользователь не авторизован" });
+
+                var project = await _projectsService.ArchiveProjectAsync(code, userId);
+                return Ok(project);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Ошибка архивации проекта: {ex.Message}");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // POST /api/projects/code/{code}/unarchive
+        [HttpPost("code/{code}/unarchive")]
+        [Authorize]
+        public async Task<IActionResult> UnarchiveProject(string code)
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                    return Unauthorized(new { error = "Пользователь не авторизован" });
+
+                var project = await _projectsService.UnarchiveProjectAsync(code, userId);
+                return Ok(project);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Ошибка восстановления проекта: {ex.Message}");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // GET /api/projects/my/archived
+        [HttpGet("my/archived")]
+        [Authorize]
+        public async Task<IActionResult> GetMyArchivedProjects()
+        {
+            try
+            {
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                    return Unauthorized(new { error = "Пользователь не авторизован" });
+
+                var projects = await _projectsService.GetUserProjectsAsync(userId, archived: true);
+                return Ok(projects);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError($"Ошибка загрузки архивных проектов: {ex.Message}");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
         // 📌 GET /api/projects/my — получить проекты текущего пользователя
         [HttpGet("my")]
         [Authorize]
-        public async Task<IActionResult> GetMyProjects()
+        public async Task<IActionResult> GetMyProjects([FromQuery] bool archived = false)
         {
             try
             {
@@ -107,7 +179,7 @@ namespace ProjectHub.API.Controllers
                     return Unauthorized(new { error = "Пользователь не авторизован" });
                 }
 
-                var projects = await _projectsService.GetUserProjectsAsync(userId);
+                var projects = await _projectsService.GetUserProjectsAsync(userId, archived);
                 return Ok(projects);
             }
             catch (Exception ex)

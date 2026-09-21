@@ -51,5 +51,14 @@ namespace ProjectHub.API.Models
 
         // Навигационное свойство для избранных
         public virtual ICollection<Favorite> Favorites { get; set; } = new List<Favorite>();
+
+        public bool IsArchived { get; set; } = false;
+
+        public DateTime? ArchivedAt { get; set; }
+
+        public Guid? ArchivedById { get; set; }
+
+        [ForeignKey(nameof(ArchivedById))]
+        public virtual User? ArchivedBy { get; set; }
     }
 }

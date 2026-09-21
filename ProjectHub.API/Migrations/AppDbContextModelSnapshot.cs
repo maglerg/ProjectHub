@@ -412,6 +412,12 @@ namespace ProjectHub.API.Migrations
                         .HasColumnType("uuid")
                         .HasDefaultValueSql("gen_random_uuid()");
 
+                    b.Property<DateTime?>("ArchivedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ArchivedById")
+                        .HasColumnType("uuid");
+
                     b.Property<int>("Category")
                         .HasColumnType("integer");
 
@@ -429,6 +435,11 @@ namespace ProjectHub.API.Migrations
 
                     b.Property<int>("FavoritesCount")
                         .HasColumnType("integer");
+
+                    b.Property<bool>("IsArchived")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
 
                     b.Property<string>("Name")
                         .IsRequired()
@@ -456,8 +467,12 @@ namespace ProjectHub.API.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("ArchivedById");
+
                     b.HasIndex("Category")
                         .HasDatabaseName("IX_Projects_Category");
+
+                    b.HasIndex("IsArchived");
 
                     b.HasIndex("OwnerId");
 
@@ -1192,11 +1207,17 @@ namespace ProjectHub.API.Migrations
 
             modelBuilder.Entity("ProjectHub.API.Models.Project", b =>
                 {
+                    b.HasOne("ProjectHub.Models.User", "ArchivedBy")
+                        .WithMany()
+                        .HasForeignKey("ArchivedById");
+
                     b.HasOne("ProjectHub.Models.User", "Owner")
                         .WithMany("OwnedProjects")
                         .HasForeignKey("OwnerId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
+
+                    b.Navigation("ArchivedBy");
 
                     b.Navigation("Owner");
                 });

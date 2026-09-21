@@ -72,6 +72,9 @@ public class InvitationService
             .FirstOrDefaultAsync(p => p.Id == projectId)
             ?? throw new KeyNotFoundException("Проект не найден");
 
+        // 📌 Архив — блокируем приглашения
+        EnsureProjectNotArchived(project);
+
         var isOwner = project.OwnerId == inviterId;
         var isAdmin = await _dbContext.ProjectMembers
             .AnyAsync(pm => pm.ProjectId == projectId
@@ -168,6 +171,11 @@ public class InvitationService
 
         if (accept)
         {
+            // 📌 Принятие приглашения в архивный проект блокируем
+            if (invitation.Project?.IsArchived == true)
+                throw new InvalidOperationException(
+                    "Проект находится в архиве, присоединиться нельзя");
+
             // ✅ Принимаем
             var member = new ProjectMember
             {
@@ -291,6 +299,17 @@ public class InvitationService
             .ToListAsync();
 
         return invitations.Select(MapToResponse).ToList();
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  ВСПОМОГАТЕЛЬНЫЕ
+    // ═══════════════════════════════════════════════════════════
+
+    private static void EnsureProjectNotArchived(Project project)
+    {
+        if (project.IsArchived)
+            throw new InvalidOperationException(
+                "Проект находится в архиве, действие недоступно");
     }
 
     private InvitationResponseDto MapToResponse(Invitation invitation)

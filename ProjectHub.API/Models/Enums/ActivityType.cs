@@ -8,6 +8,8 @@
         ProjectDeleted = 3,
         ProjectVisibilityChanged = 4,
         ProjectDeadlineChanged = 5,
+        ProjectArchived = 6,
+        ProjectUnarchived = 7,
 
         // ── Участники ──
         MemberJoined = 10,

@@ -54,7 +54,8 @@ namespace ProjectHub.API.Services
                 Deadline = request.Deadline,
                 CreatedAt = DateTime.UtcNow,
                 UpdatedAt = DateTime.UtcNow,
-                OwnerId = userId
+                OwnerId = userId,
+                IsArchived = false
             };
 
             _dbContext.Projects.Add(projectEntity);
@@ -95,8 +96,7 @@ namespace ProjectHub.API.Services
             _logger.LogInformation($"Создан проект с кодом: {publicCode}");
 
             var projectWithMembers = await _dbContext.Projects
-                .Include(p => p.Members)
-                    .ThenInclude(m => m.User)
+                .Include(p => p.Members).ThenInclude(m => m.User)
                 .FirstAsync(p => p.Id == projectEntity.Id);
 
             return MapToResponse(projectWithMembers);
@@ -111,11 +111,13 @@ namespace ProjectHub.API.Services
             _logger.LogInformation($"Попытка присоединения к проекту {publicCode} пользователем {userId}");
 
             var project = await _dbContext.Projects
-                .FirstOrDefaultAsync(p => p.PublicCode == publicCode && p.Visibility == ProjectVisibility.Public);
+                .FirstOrDefaultAsync(p => p.PublicCode == publicCode
+                                          && p.Visibility == ProjectVisibility.Public
+                                          && !p.IsArchived);
 
             if (project == null)
             {
-                _logger.LogWarning($"Проект с кодом {publicCode} не найден");
+                _logger.LogWarning($"Проект с кодом {publicCode} не найден или архивирован");
                 return false;
             }
 
@@ -123,16 +125,10 @@ namespace ProjectHub.API.Services
                 .FirstOrDefaultAsync(pm => pm.ProjectId == project.Id && pm.UserId == userId);
 
             if (existingMember != null)
-            {
-                _logger.LogWarning($"Пользователь {userId} уже является участником проекта {publicCode}");
                 throw new InvalidOperationException("Вы уже являетесь участником этого проекта");
-            }
 
             if (project.OwnerId == userId)
-            {
-                _logger.LogWarning($"Пользователь {userId} является владельцем проекта {publicCode}");
                 throw new InvalidOperationException("Вы являетесь владельцем этого проекта");
-            }
 
             var member = new ProjectMember
             {
@@ -173,10 +169,8 @@ namespace ProjectHub.API.Services
         public async Task<bool> ToggleFavoriteAsync(Guid projectId, Guid userId)
         {
             var project = await _dbContext.Projects
-                .FirstOrDefaultAsync(p => p.Id == projectId);
-
-            if (project == null)
-                throw new KeyNotFoundException("Проект не найден");
+                .FirstOrDefaultAsync(p => p.Id == projectId)
+                ?? throw new KeyNotFoundException("Проект не найден");
 
             var favorite = await _dbContext.Favorites
                 .FirstOrDefaultAsync(f => f.ProjectId == projectId && f.UserId == userId);
@@ -209,6 +203,7 @@ namespace ProjectHub.API.Services
                 .Select(f => f.Project)
                 .Include(p => p.Members).ThenInclude(m => m.User)
                 .Include(p => p.Favorites)
+                .Where(p => !p.IsArchived)   // ← архивные не показываем в избранном
                 .OrderByDescending(p => p.FavoritesCount)
                 .ToListAsync();
 
@@ -226,24 +221,25 @@ namespace ProjectHub.API.Services
         //  СПИСКИ ПРОЕКТОВ
         // ═══════════════════════════════════════════════════════════
 
-        public async Task<List<ProjectResponse>> GetUserProjectsAsync(Guid userId)
+        public async Task<List<ProjectResponse>> GetUserProjectsAsync(Guid userId, bool archived = false)
         {
             var ownedProjects = await _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
                 .Include(p => p.Favorites)
-                .Where(p => p.OwnerId == userId)
+                .Where(p => p.OwnerId == userId && p.IsArchived == archived)
                 .ToListAsync();
 
             var memberProjects = await _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
                 .Include(p => p.Favorites)
-                .Where(p => p.Members.Any(m => m.UserId == userId))
+                .Where(p => p.Members.Any(m => m.UserId == userId)
+                            && p.IsArchived == archived)
                 .ToListAsync();
 
             var allProjects = ownedProjects
                 .Union(memberProjects)
                 .DistinctBy(p => p.Id)
-                .OrderByDescending(p => p.CreatedAt)
+                .OrderByDescending(p => p.IsArchived ? (p.ArchivedAt ?? p.CreatedAt) : p.CreatedAt)
                 .ToList();
 
             if (!allProjects.Any())
@@ -273,6 +269,7 @@ namespace ProjectHub.API.Services
         {
             var query = _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
+                .Where(p => !p.IsArchived)
                 .AsQueryable();
 
             if (category.HasValue)
@@ -318,7 +315,9 @@ namespace ProjectHub.API.Services
             var projectEntity = await _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
                 .Include(p => p.Favorites)
-                .FirstOrDefaultAsync(p => p.PublicCode == code && p.Visibility == ProjectVisibility.Public);
+                .FirstOrDefaultAsync(p => p.PublicCode == code
+                                          && p.Visibility == ProjectVisibility.Public
+                                          && !p.IsArchived);
 
             if (projectEntity == null)
                 return null;
@@ -367,28 +366,22 @@ namespace ProjectHub.API.Services
             string projectCode, Guid ownerId, string memberEmail, string newRole)
         {
             var project = await _dbContext.Projects
-                .FirstOrDefaultAsync(p => p.PublicCode == projectCode);
-
-            if (project == null)
-                throw new KeyNotFoundException("Проект с таким кодом не найден");
+                .FirstOrDefaultAsync(p => p.PublicCode == projectCode)
+                ?? throw new KeyNotFoundException("Проект с таким кодом не найден");
 
             if (project.OwnerId != ownerId)
                 throw new UnauthorizedAccessException("Только владелец может изменять роли");
 
             var memberUser = await _dbContext.Users
-                .FirstOrDefaultAsync(u => u.Email == memberEmail);
-
-            if (memberUser == null)
-                throw new KeyNotFoundException("Пользователь с таким email не найден");
+                .FirstOrDefaultAsync(u => u.Email == memberEmail)
+                ?? throw new KeyNotFoundException("Пользователь с таким email не найден");
 
             if (memberUser.Id == ownerId)
                 throw new InvalidOperationException("Нельзя изменить роль владельца");
 
             var member = await _dbContext.ProjectMembers
-                .FirstOrDefaultAsync(pm => pm.ProjectId == project.Id && pm.UserId == memberUser.Id);
-
-            if (member == null)
-                throw new KeyNotFoundException("Участник не найден");
+                .FirstOrDefaultAsync(pm => pm.ProjectId == project.Id && pm.UserId == memberUser.Id)
+                ?? throw new KeyNotFoundException("Участник не найден");
 
             if (!Enum.TryParse<ProjectMemberRole>(newRole, true, out var role))
                 throw new InvalidOperationException("Некорректная роль");
@@ -434,62 +427,10 @@ namespace ProjectHub.API.Services
         public async Task<bool> ToggleFavoriteByCodeAsync(string code, Guid userId)
         {
             var project = await _dbContext.Projects
-                .FirstOrDefaultAsync(p => p.PublicCode == code);
-
-            if (project == null)
-                throw new KeyNotFoundException("Проект с таким кодом не найден");
+                .FirstOrDefaultAsync(p => p.PublicCode == code)
+                ?? throw new KeyNotFoundException("Проект с таким кодом не найден");
 
             return await ToggleFavoriteAsync(project.Id, userId);
-        }
-
-        // ═══════════════════════════════════════════════════════════
-        //  ВСПОМОГАТЕЛЬНЫЕ
-        // ═══════════════════════════════════════════════════════════
-
-        private async Task<UserProjectStatus> GetUserProjectStatusAsync(Guid projectId, Guid userId)
-        {
-            var project = await _dbContext.Projects
-                .FirstOrDefaultAsync(p => p.Id == projectId);
-
-            if (project != null && project.OwnerId == userId)
-                return UserProjectStatus.Owner;
-
-            var member = await _dbContext.ProjectMembers
-                .FirstOrDefaultAsync(pm => pm.ProjectId == projectId && pm.UserId == userId);
-
-            if (member != null)
-                return member.Role == ProjectMemberRole.Admin
-                    ? UserProjectStatus.Admin
-                    : UserProjectStatus.Member;
-
-            var pendingApplication = await _dbContext.Applications
-                .FirstOrDefaultAsync(a => a.ProjectId == projectId &&
-                                          a.UserId == userId &&
-                                          a.Status == ApplicationStatus.Pending);
-
-            if (pendingApplication != null)
-                return UserProjectStatus.Pending;
-
-            return UserProjectStatus.NotJoined;
-        }
-
-        public async Task<bool> IsCodeExistsAsync(string code)
-        {
-            return await _dbContext.Projects.AnyAsync(p => p.PublicCode == code);
-        }
-
-        private async Task<string> GenerateUniqueCodeAsync()
-        {
-            var attempts = 0;
-            while (attempts < MaxAttempts)
-            {
-                var formattedCode = _codeGenerator.GenerateFormattedCode();
-                if (!await IsCodeExistsAsync(formattedCode))
-                    return formattedCode;
-                attempts++;
-            }
-            throw new InvalidOperationException(
-                $"Не удалось сгенерировать уникальный код после {MaxAttempts} попыток");
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -501,10 +442,8 @@ namespace ProjectHub.API.Services
         {
             var project = await _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
-                .FirstOrDefaultAsync(p => p.PublicCode == code);
-
-            if (project == null)
-                throw new KeyNotFoundException("Проект с таким кодом не найден");
+                .FirstOrDefaultAsync(p => p.PublicCode == code)
+                ?? throw new KeyNotFoundException("Проект с таким кодом не найден");
 
             var isOwner = project.OwnerId == userId;
             var isAdmin = await _dbContext.ProjectMembers
@@ -587,6 +526,171 @@ namespace ProjectHub.API.Services
         }
 
         // ═══════════════════════════════════════════════════════════
+        //  АРХИВИРОВАНИЕ
+        // ═══════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Архивировать проект. Только владелец.
+        ///   • pending-заявки отклоняются и удаляются;
+        ///   • pending-приглашения отменяются и удаляются;
+        ///   • активные голосования закрываются;
+        ///   • пишется событие в историю.
+        /// </summary>
+        public async Task<ProjectResponse> ArchiveProjectAsync(string code, Guid userId)
+        {
+            var project = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.PublicCode == code)
+                ?? throw new KeyNotFoundException("Проект с таким кодом не найден");
+
+            if (project.OwnerId != userId)
+                throw new UnauthorizedAccessException(
+                    "Архивировать проект может только владелец");
+
+            if (project.IsArchived)
+                throw new InvalidOperationException("Проект уже находится в архиве");
+
+            var now = DateTime.UtcNow;
+
+            project.IsArchived = true;
+            project.ArchivedAt = now;
+            project.ArchivedById = userId;
+            project.UpdatedAt = now;
+
+            // ── Отменяем pending-заявки ──
+            var pendingApplications = await _dbContext.Applications
+                .Where(a => a.ProjectId == project.Id
+                            && a.Status == ApplicationStatus.Pending)
+                .ToListAsync();
+
+            foreach (var app in pendingApplications)
+            {
+                try
+                {
+                    await _notificationService.CreateNotificationAsync(
+                        app.UserId,
+                        "❌ Проект переведён в архив",
+                        $"Ваша заявка в проект '{project.Name}' отклонена: проект архивирован владельцем",
+                        NotificationType.ApplicationRejected,
+                        $"/projects/{project.PublicCode}",
+                        project.Id
+                    );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Не удалось отправить уведомление заявителю");
+                }
+            }
+
+            if (pendingApplications.Any())
+                _dbContext.Applications.RemoveRange(pendingApplications);
+
+            // ── Отменяем pending-приглашения ──
+            var pendingInvitations = await _dbContext.Invitations
+                .Where(i => i.ProjectId == project.Id
+                            && i.Status == InvitationStatus.Pending)
+                .ToListAsync();
+
+            foreach (var inv in pendingInvitations)
+            {
+                try
+                {
+                    await _notificationService.CreateNotificationAsync(
+                        inv.InviteeId,
+                        "❌ Приглашение отменено",
+                        $"Приглашение в проект '{project.Name}' отменено: проект переведён в архив",
+                        NotificationType.InvitationRejected,
+                        $"/projects/{project.PublicCode}",
+                        project.Id
+                    );
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "Не удалось отправить уведомление приглашённому");
+                }
+            }
+
+            if (pendingInvitations.Any())
+                _dbContext.Invitations.RemoveRange(pendingInvitations);
+
+            // ── Закрываем активные голосования ──
+            var activeVotings = await _dbContext.Votings
+                .Where(v => v.ProjectId == project.Id && !v.IsClosed)
+                .ToListAsync();
+
+            foreach (var v in activeVotings)
+            {
+                v.IsClosed = true;
+            }
+
+            // ── Событие в историю ──
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.ProjectArchived,
+                summary: $"Проект архивирован: {project.Name}",
+                link: $"/projects/{project.PublicCode}",
+                relatedEntityId: project.Id
+            );
+
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation(
+                $"Проект {code} архивирован пользователем {userId}. " +
+                $"Отменено заявок: {pendingApplications.Count}, " +
+                $"приглашений: {pendingInvitations.Count}, " +
+                $"закрыто голосований: {activeVotings.Count}");
+
+            var withMembers = await _dbContext.Projects
+                .Include(p => p.Members).ThenInclude(m => m.User)
+                .FirstAsync(p => p.Id == project.Id);
+
+            return MapToResponse(withMembers);
+        }
+
+        /// <summary>
+        /// Восстановить проект из архива. Только владелец.
+        /// Заявки и приглашения не возвращаются.
+        /// </summary>
+        public async Task<ProjectResponse> UnarchiveProjectAsync(string code, Guid userId)
+        {
+            var project = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.PublicCode == code)
+                ?? throw new KeyNotFoundException("Проект с таким кодом не найден");
+
+            if (project.OwnerId != userId)
+                throw new UnauthorizedAccessException(
+                    "Восстанавливать проект может только владелец");
+
+            if (!project.IsArchived)
+                throw new InvalidOperationException("Проект не находится в архиве");
+
+            project.IsArchived = false;
+            project.ArchivedAt = null;
+            project.ArchivedById = null;
+            project.UpdatedAt = DateTime.UtcNow;
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.ProjectUnarchived,
+                summary: $"Проект восстановлен из архива: {project.Name}",
+                link: $"/projects/{project.PublicCode}",
+                relatedEntityId: project.Id
+            );
+
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation(
+                $"Проект {code} восстановлен из архива пользователем {userId}");
+
+            var withMembers = await _dbContext.Projects
+                .Include(p => p.Members).ThenInclude(m => m.User)
+                .FirstAsync(p => p.Id == project.Id);
+
+            return MapToResponse(withMembers);
+        }
+
+        // ═══════════════════════════════════════════════════════════
         //  УДАЛЕНИЕ УЧАСТНИКА
         // ═══════════════════════════════════════════════════════════
 
@@ -594,14 +698,11 @@ namespace ProjectHub.API.Services
             string projectCode, Guid userId, string memberEmail)
         {
             var project = await _dbContext.Projects
-                .FirstOrDefaultAsync(p => p.PublicCode == projectCode);
+                .FirstOrDefaultAsync(p => p.PublicCode == projectCode)
+                ?? throw new KeyNotFoundException("Проект с таким кодом не найден");
 
-            if (project == null)
-                throw new KeyNotFoundException("Проект с таким кодом не найден");
-
-            var currentUser = await _dbContext.Users.FindAsync(userId);
-            if (currentUser == null)
-                throw new KeyNotFoundException("Пользователь не найден");
+            var currentUser = await _dbContext.Users.FindAsync(userId)
+                ?? throw new KeyNotFoundException("Пользователь не найден");
 
             var isOwner = project.OwnerId == userId;
             var isAdmin = await _dbContext.ProjectMembers
@@ -611,10 +712,8 @@ namespace ProjectHub.API.Services
                 throw new UnauthorizedAccessException("У вас нет прав для удаления участников");
 
             var memberUser = await _dbContext.Users
-                .FirstOrDefaultAsync(u => u.Email == memberEmail);
-
-            if (memberUser == null)
-                throw new KeyNotFoundException("Пользователь с таким email не найден");
+                .FirstOrDefaultAsync(u => u.Email == memberEmail)
+                ?? throw new KeyNotFoundException("Пользователь с таким email не найден");
 
             if (memberUser.Id == project.OwnerId)
                 throw new InvalidOperationException("Нельзя удалить владельца проекта");
@@ -632,10 +731,8 @@ namespace ProjectHub.API.Services
                 throw new InvalidOperationException("Нельзя удалить себя из проекта");
 
             var member = await _dbContext.ProjectMembers
-                .FirstOrDefaultAsync(pm => pm.ProjectId == project.Id && pm.UserId == memberUser.Id);
-
-            if (member == null)
-                throw new KeyNotFoundException("Участник не найден");
+                .FirstOrDefaultAsync(pm => pm.ProjectId == project.Id && pm.UserId == memberUser.Id)
+                ?? throw new KeyNotFoundException("Участник не найден");
 
             var removedUserName = memberUser.Name;
             var removedUserId = memberUser.Id;
@@ -694,6 +791,56 @@ namespace ProjectHub.API.Services
         }
 
         // ═══════════════════════════════════════════════════════════
+        //  ВСПОМОГАТЕЛЬНЫЕ
+        // ═══════════════════════════════════════════════════════════
+
+        private async Task<UserProjectStatus> GetUserProjectStatusAsync(Guid projectId, Guid userId)
+        {
+            var project = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.Id == projectId);
+
+            if (project != null && project.OwnerId == userId)
+                return UserProjectStatus.Owner;
+
+            var member = await _dbContext.ProjectMembers
+                .FirstOrDefaultAsync(pm => pm.ProjectId == projectId && pm.UserId == userId);
+
+            if (member != null)
+                return member.Role == ProjectMemberRole.Admin
+                    ? UserProjectStatus.Admin
+                    : UserProjectStatus.Member;
+
+            var pendingApplication = await _dbContext.Applications
+                .FirstOrDefaultAsync(a => a.ProjectId == projectId &&
+                                          a.UserId == userId &&
+                                          a.Status == ApplicationStatus.Pending);
+
+            if (pendingApplication != null)
+                return UserProjectStatus.Pending;
+
+            return UserProjectStatus.NotJoined;
+        }
+
+        public async Task<bool> IsCodeExistsAsync(string code)
+        {
+            return await _dbContext.Projects.AnyAsync(p => p.PublicCode == code);
+        }
+
+        private async Task<string> GenerateUniqueCodeAsync()
+        {
+            var attempts = 0;
+            while (attempts < MaxAttempts)
+            {
+                var formattedCode = _codeGenerator.GenerateFormattedCode();
+                if (!await IsCodeExistsAsync(formattedCode))
+                    return formattedCode;
+                attempts++;
+            }
+            throw new InvalidOperationException(
+                $"Не удалось сгенерировать уникальный код после {MaxAttempts} попыток");
+        }
+
+        // ═══════════════════════════════════════════════════════════
         //  МАППЕР
         // ═══════════════════════════════════════════════════════════
 
@@ -711,6 +858,9 @@ namespace ProjectHub.API.Services
                 CreatedAt = entity.CreatedAt,
                 OwnerId = entity.OwnerId,
                 FavoritesCount = entity.FavoritesCount,
+                IsArchived = entity.IsArchived,
+                ArchivedAt = entity.ArchivedAt,
+                ArchivedByName = entity.ArchivedBy?.Name,
                 Members = entity.Members.Select(m => new MemberInfo
                 {
                     UserId = m.UserId,

@@ -68,7 +68,10 @@ public class VotingsService
         if (!isOwner && !isMember)
             throw new UnauthorizedAccessException("Вы не участник этого проекта");
 
-        // 4. Создаём голосование
+        // 4. Архив — блокируем создание
+        EnsureProjectNotArchived(project);
+
+        // 5. Создаём голосование
         var voting = new Voting
         {
             Id = Guid.NewGuid(),
@@ -86,7 +89,7 @@ public class VotingsService
         _dbContext.Votings.Add(voting);
         await _dbContext.SaveChangesAsync();
 
-        // 5. Создаём опции
+        // 6. Создаём опции
         var votingOptions = options.Select((text, index) => new VotingOption
         {
             Id = Guid.NewGuid(),
@@ -110,7 +113,7 @@ public class VotingsService
 
         _logger.LogInformation($"Создано голосование {voting.Id} в проекте {projectCode}");
 
-        // 6. Уведомления всем участникам (кроме создателя)
+        // 7. Уведомления всем участникам (кроме создателя)
         var creator = await _dbContext.Users.FindAsync(userId);
         var creatorName = creator?.Name ?? "Участник";
 
@@ -183,6 +186,8 @@ public class VotingsService
 
         if (!isOwner && !isMember)
             throw new UnauthorizedAccessException("Вы не участник этого проекта");
+
+        EnsureProjectNotArchived(voting.Project);
 
         if (voting.IsClosed)
             throw new InvalidOperationException("Голосование закрыто");
@@ -258,6 +263,10 @@ public class VotingsService
             throw new UnauthorizedAccessException(
                 "Только автор голосования, владелец или админ проекта может закрыть его");
 
+        // 📌 Закрытие разрешено даже в архиве — оно не создаёт нового контента.
+        // Если хочешь блокировать — раскомментируй строку ниже.
+        // EnsureProjectNotArchived(voting.Project);
+
         voting.IsClosed = true;
 
         await _activity.LogAsync(
@@ -294,6 +303,8 @@ public class VotingsService
         if (!canDelete)
             throw new UnauthorizedAccessException(
                 "Только автор голосования, владелец или админ проекта может удалить его");
+
+        EnsureProjectNotArchived(voting.Project);
 
         _dbContext.Votings.Remove(voting);
         await _dbContext.SaveChangesAsync();
@@ -344,6 +355,17 @@ public class VotingsService
         }
 
         return result;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  ВСПОМОГАТЕЛЬНЫЕ
+    // ═══════════════════════════════════════════════════════════
+
+    private static void EnsureProjectNotArchived(Project project)
+    {
+        if (project.IsArchived)
+            throw new InvalidOperationException(
+                "Проект находится в архиве, действие недоступно");
     }
 
     private async Task<VotingDto> BuildVotingDtoAsync(Guid votingId, Guid userId)

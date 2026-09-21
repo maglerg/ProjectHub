@@ -313,6 +313,17 @@ public class ChatService
         if (!chat.Participants.Any(p => p.UserId == senderId))
             throw new UnauthorizedAccessException("У вас нет доступа к этому чату");
 
+        // 📌 Архив — блокируем отправку в чат проекта
+        if (chat.Type == ChatType.Project && chat.ProjectId.HasValue)
+        {
+            var project = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.Id == chat.ProjectId.Value);
+
+            if (project?.IsArchived == true)
+                throw new InvalidOperationException(
+                    "Чат проекта находится в архиве, отправка сообщений недоступна");
+        }
+
         // Проверка приватности для личных чатов
         if (chat.Type == ChatType.Personal)
         {

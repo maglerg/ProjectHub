@@ -12,6 +12,7 @@ const VotingsListPage = ({
     refreshKey = 0,
     onOpenVoting,
     onCreateVoting,
+    isArchived = false,
 }) => {
     const { code } = useParams();
     const navigate = useNavigate();
@@ -81,7 +82,9 @@ const VotingsListPage = ({
     };
 
     // 📌 Может ли текущий пользователь управлять голосованием
+    // 📦 В архиве — никто не может удалять
     const canManageVoting = (v) => {
+        if (isArchived) return false;
         if (!v || !user) return false;
 
         const isAuthor = v.createdById === user.id || v.createdById === user.userId;
@@ -94,6 +97,8 @@ const VotingsListPage = ({
     // 📌 Удалить голосование
     const handleDelete = async (e, voting) => {
         e.stopPropagation();
+
+        if (isArchived) return;   // 📦 архив — не удаляем
 
         if (!window.confirm(`Удалить голосование «${voting.title}»? Это действие необратимо.`)) {
             return;
@@ -126,9 +131,9 @@ const VotingsListPage = ({
     };
 
     // 📌 Создать голосование
-    //   — если передан onCreateVoting, вызываем его (обычно открывает модалку),
-    //   — иначе fallback — переход на отдельную страницу.
+    // 📦 В архиве — запрещено
     const handleCreateVoting = () => {
+        if (isArchived) return;
         if (onCreateVoting) {
             onCreateVoting();
             return;
@@ -177,12 +182,14 @@ const VotingsListPage = ({
                         <h1>🗳️ Голосования</h1>
                         {project && <p className="votings-page-subtitle">{project.name}</p>}
                     </div>
-                    <button
-                        className="btn-primary btn-create-voting-page"
-                        onClick={handleCreateVoting}
-                    >
-                        ➕ Создать голосование
-                    </button>
+                    {!isArchived && (
+                        <button
+                            className="btn-primary btn-create-voting-page"
+                            onClick={handleCreateVoting}
+                        >
+                            ➕ Создать голосование
+                        </button>
+                    )}
                 </header>
             )}
 
@@ -197,13 +204,19 @@ const VotingsListPage = ({
                     <div className="votings-page-empty">
                         <div className="empty-icon">🗳️</div>
                         <h3>Пока нет голосований</h3>
-                        <p>Создайте первое голосование для участников проекта</p>
-                        <button
-                            className="btn-primary"
-                            onClick={handleCreateVoting}
-                        >
-                            ➕ Создать голосование
-                        </button>
+                        <p>
+                            {isArchived
+                                ? 'В архиве нельзя создавать голосования'
+                                : 'Создайте первое голосование для участников проекта'}
+                        </p>
+                        {!isArchived && (
+                            <button
+                                className="btn-primary"
+                                onClick={handleCreateVoting}
+                            >
+                                ➕ Создать голосование
+                            </button>
+                        )}
                     </div>
                 ) : (
                     <div className="votings-page-list">

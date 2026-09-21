@@ -6,7 +6,11 @@ import { useAuth } from '../context/AuthContext';
 import { getChatById, getChatMessages, sendMessage } from '../services/chatsApi';
 import '../styles/components/ChatPage.css';
 
-const ChatPage = ({ chatId: chatIdProp = null, embedded = false }) => {
+const ChatPage = ({
+    chatId: chatIdProp = null,
+    embedded = false,
+    isArchived = false,
+}) => {
     const params = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
@@ -88,6 +92,9 @@ const ChatPage = ({ chatId: chatIdProp = null, embedded = false }) => {
     // 📌 Отправка
     const handleSendMessage = async (e) => {
         e.preventDefault();
+
+        // 📦 В архиве отправка недоступна
+        if (isArchived) return;
         if (!newMessage.trim() || sending) return;
 
         setSending(true);
@@ -108,6 +115,7 @@ const ChatPage = ({ chatId: chatIdProp = null, embedded = false }) => {
     };
 
     const handleKeyPress = (e) => {
+        if (isArchived) return;
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
             handleSendMessage(e);
@@ -229,7 +237,12 @@ const ChatPage = ({ chatId: chatIdProp = null, embedded = false }) => {
                         <>
                             <div className="chat-header-avatar">👥</div>
                             <div className="chat-header-info">
-                                <div className="chat-header-name">{getChatTitle()}</div>
+                                <div className="chat-header-name">
+                                    {getChatTitle()}
+                                    {isArchived && (
+                                        <span className="chat-archived-badge">📦 Архив</span>
+                                    )}
+                                </div>
                                 <div className="chat-header-status">
                                     👥 {chat.participantsCount || 0} участников
                                 </div>
@@ -333,26 +346,32 @@ const ChatPage = ({ chatId: chatIdProp = null, embedded = false }) => {
                 <div ref={messagesEndRef} />
             </div>
 
-            {/* 📌 Поле ввода */}
-            <form className="chat-input-form" onSubmit={handleSendMessage}>
-                <textarea
-                    className="chat-input"
-                    placeholder="Введите сообщение..."
-                    value={newMessage}
-                    onChange={(e) => setNewMessage(e.target.value)}
-                    onKeyPress={handleKeyPress}
-                    rows="1"
-                    disabled={sending}
-                />
-                <button
-                    type="submit"
-                    className="btn-send"
-                    disabled={!newMessage.trim() || sending}
-                    title="Отправить"
-                >
-                    {sending ? '⏳' : '📤'}
-                </button>
-            </form>
+            {/* 📌 Поле ввода или плашка «архив» */}
+            {isArchived ? (
+                <div className="chat-archived-notice">
+                    📦 Проект в архиве — отправка сообщений недоступна
+                </div>
+            ) : (
+                <form className="chat-input-form" onSubmit={handleSendMessage}>
+                    <textarea
+                        className="chat-input"
+                        placeholder="Введите сообщение..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyPress={handleKeyPress}
+                        rows="1"
+                        disabled={sending}
+                    />
+                    <button
+                        type="submit"
+                        className="btn-send"
+                        disabled={!newMessage.trim() || sending}
+                        title="Отправить"
+                    >
+                        {sending ? '⏳' : '📤'}
+                    </button>
+                </form>
+            )}
         </div>
     );
 };

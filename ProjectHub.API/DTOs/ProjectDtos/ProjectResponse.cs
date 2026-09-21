@@ -21,6 +21,9 @@ namespace ProjectHub.API.DTOs.ProjectDtos
         public UserProjectStatus UserStatus { get; set; } = UserProjectStatus.NotJoined;
 
         public int FavoritesCount { get; set; }  
-        public bool IsFavorite { get; set; }     
+        public bool IsFavorite { get; set; }
+        public bool IsArchived { get; set; }
+        public DateTime? ArchivedAt { get; set; }
+        public string? ArchivedByName { get; set; }
     }
 }

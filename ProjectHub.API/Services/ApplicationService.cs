@@ -43,6 +43,9 @@ public class ApplicationService
             .FirstOrDefaultAsync(p => p.Id == projectId)
             ?? throw new KeyNotFoundException("Проект не найден");
 
+        // 📌 Архив — блокируем подачу заявок
+        EnsureProjectNotArchived(project);
+
         var user = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.Id == userId)
             ?? throw new KeyNotFoundException("Пользователь не найден");
@@ -155,6 +158,11 @@ public class ApplicationService
 
         if (approve)
         {
+            // 📌 Одобрение заявки в архивный проект блокируем
+            if (application.Project.IsArchived)
+                throw new InvalidOperationException(
+                    "Проект находится в архиве, одобрить заявку нельзя");
+
             application.Status = ApplicationStatus.Approved;
             application.ProcessedAt = DateTime.UtcNow;
             application.ProcessedBy = processedBy;
@@ -335,6 +343,17 @@ public class ApplicationService
             .AnyAsync(pm => pm.ProjectId == projectId
                             && pm.UserId == userId
                             && pm.Role == ProjectMemberRole.Admin);
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  ВСПОМОГАТЕЛЬНЫЕ
+    // ═══════════════════════════════════════════════════════════
+
+    private static void EnsureProjectNotArchived(Project project)
+    {
+        if (project.IsArchived)
+            throw new InvalidOperationException(
+                "Проект находится в архиве, действие недоступно");
     }
 
     // 📌 Маппер

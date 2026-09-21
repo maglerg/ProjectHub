@@ -31,6 +31,7 @@ import {
     deleteTag,
     setTaskTags
 } from '../../services/tasksApi';
+import { searchMyProjectByCode } from '../../services/projectsApi';
 import { useAuth } from '../../context/AuthContext';
 import '../../styles/components/tasks/tasks.css';
 
@@ -45,6 +46,7 @@ export default function TaskDetailsPage() {
 
     // ── Основное состояние ──
     const [task, setTask] = useState(null);
+    const [project, setProject] = useState(null);         // для isArchived
     const [columns, setColumns] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -96,16 +98,18 @@ export default function TaskDetailsPage() {
         setLoading(true);
         setError(null);
         try {
-            const [taskData, board, commentsData, tagsData] = await Promise.all([
+            const [taskData, board, commentsData, tagsData, projectData] = await Promise.all([
                 getTaskById(code, taskId),
                 getTasksBoard(code),
                 getTaskComments(code, taskId),
-                getProjectTags(code)
+                getProjectTags(code),
+                searchMyProjectByCode(code)
             ]);
             setTask(taskData);
             setColumns(board);
             setComments(commentsData);
             setAllTags(tagsData);
+            setProject(projectData);
             setForm({
                 title: taskData.title,
                 description: taskData.description || '',
@@ -117,8 +121,8 @@ export default function TaskDetailsPage() {
                 noDueDate: !taskData.dueDate
             });
 
-            // Открываем форму, если пришли с ?edit=1
-            if (startInEditMode) {
+            // Открываем форму, если пришли с ?edit=1 и проект не архивный
+            if (startInEditMode && !projectData?.isArchived) {
                 setIsEditing(true);
             }
         } catch (e) {
@@ -134,11 +138,15 @@ export default function TaskDetailsPage() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [code, taskId]);
 
+    // 📦 Архив — страница только для чтения
+    const isArchived = !!project?.isArchived;
+
     // ═══════════════════════════════════════════════════════════
     //  ЗАДАЧА — ДЕЙСТВИЯ
     // ═══════════════════════════════════════════════════════════
 
     const handleTake = async () => {
+        if (isArchived) return;
         try {
             setActionError(null);
             const updated = await takeTask(code, taskId);
@@ -149,6 +157,7 @@ export default function TaskDetailsPage() {
     };
 
     const handleRemoveAssignee = async (email) => {
+        if (isArchived) return;
         const isSelf =
             (email || '').toLowerCase() === (user?.email || '').toLowerCase();
         const message = isSelf
@@ -168,9 +177,9 @@ export default function TaskDetailsPage() {
 
     const handleSave = async (e) => {
         e.preventDefault();
+        if (isArchived) return;
         if (!form.title.trim() || saving) return;
 
-        // Клиентская проверка диапазона дат
         const rangeError = validateDateRange(
             form.noStartDate ? null : form.startDate,
             form.noDueDate ? null : form.dueDate,
@@ -221,6 +230,7 @@ export default function TaskDetailsPage() {
     };
 
     const handleDelete = async () => {
+        if (isArchived) return;
         if (!window.confirm('Удалить задачу? Это действие необратимо.')) return;
         try {
             setActionError(null);
@@ -237,6 +247,7 @@ export default function TaskDetailsPage() {
 
     const handleSubmitComment = async (e) => {
         e.preventDefault();
+        if (isArchived) return;
         if (!commentText.trim() || commentSubmitting) return;
 
         setCommentSubmitting(true);
@@ -267,6 +278,7 @@ export default function TaskDetailsPage() {
     };
 
     const handleUploadFile = async (e) => {
+        if (isArchived) return;
         const file = e.target.files?.[0];
         if (!file) return;
 
@@ -302,6 +314,7 @@ export default function TaskDetailsPage() {
     };
 
     const handleDeleteFile = async (att) => {
+        if (isArchived) return;
         if (!window.confirm(`Удалить файл "${att.fileName}"?`)) return;
         try {
             setActionError(null);
@@ -321,6 +334,7 @@ export default function TaskDetailsPage() {
 
     const handleAddSubtask = async (e) => {
         e.preventDefault();
+        if (isArchived) return;
         const title = newSubtaskTitle.trim();
         if (!title || subtaskAdding) return;
 
@@ -350,6 +364,7 @@ export default function TaskDetailsPage() {
     };
 
     const handleToggleSubtask = async (subtask) => {
+        if (isArchived) return;
         if (subtaskBusyId) return;
         setSubtaskBusyId(subtask.id);
         try {
@@ -365,11 +380,13 @@ export default function TaskDetailsPage() {
     };
 
     const handleStartEditSubtask = (subtask) => {
+        if (isArchived) return;
         setEditingSubtaskId(subtask.id);
         setEditingSubtaskTitle(subtask.title);
     };
 
     const handleSaveSubtask = async (subtaskId) => {
+        if (isArchived) return;
         const title = editingSubtaskTitle.trim();
         if (!title) return;
 
@@ -394,6 +411,7 @@ export default function TaskDetailsPage() {
     };
 
     const handleDeleteSubtask = async (subtask) => {
+        if (isArchived) return;
         if (!window.confirm(`Удалить подзадачу "${subtask.title}"?`)) return;
         try {
             setActionError(null);
@@ -410,6 +428,7 @@ export default function TaskDetailsPage() {
     // ═══════════════════════════════════════════════════════════
 
     const handleToggleTag = async (tagId) => {
+        if (isArchived) return;
         if (!task.canEdit) return;
 
         const current = (task.tags || []).map(t => t.id);
@@ -434,6 +453,7 @@ export default function TaskDetailsPage() {
 
     const handleCreateTag = async (e) => {
         e.preventDefault();
+        if (isArchived) return;
         const name = newTagName.trim();
         if (!name || tagSubmitting) return;
 
@@ -449,7 +469,6 @@ export default function TaskDetailsPage() {
                 [...prev, newTag].sort((a, b) => a.name.localeCompare(b.name))
             );
 
-            // Сразу вешаем на задачу
             const current = (task.tags || []).map(t => t.id);
             if (current.length < 10) {
                 const updated = await setTaskTags(code, taskId, [...current, newTag.id]);
@@ -467,6 +486,7 @@ export default function TaskDetailsPage() {
     };
 
     const handleDeleteTag = async (tag) => {
+        if (isArchived) return;
         if (!task.isOwner) return;
         if (!window.confirm(`Удалить тег "${tag.name}" из проекта?`)) return;
         try {
@@ -501,6 +521,13 @@ export default function TaskDetailsPage() {
     const isTaken = assignees.length > 0;
     const isOwnerUser = !!task.isOwner;
 
+    // 📦 Учитываем архив везде, где раньше было task.canEdit / isOwnerUser
+    const canEdit = !isArchived && !!task.canEdit;
+    const canUpload = !isArchived && !!task.canUploadAttachments;
+    const canComment = !isArchived;
+    const canDeleteTask = !isArchived && isOwnerUser;
+    const canTake = !isArchived && !isMine;
+
     const priorityInfo = getPriorityInfo(task.priority);
     const deadlineStatus = getDeadlineStatus(task.effectiveDueDate, !!task.completedAt);
 
@@ -509,6 +536,12 @@ export default function TaskDetailsPage() {
             <button className="btn-back" onClick={() => navigate(-1)}>
                 ← Назад
             </button>
+
+            {isArchived && (
+                <div className="archive-banner">
+                    📦 Этот проект в архиве. Задача доступна только для просмотра.
+                </div>
+            )}
 
             {actionError && (
                 <div className="tasks-action-error">
@@ -534,7 +567,7 @@ export default function TaskDetailsPage() {
                         </h1>
 
                         <div className="task-details-actions">
-                            {task.canEdit && (
+                            {canEdit && (
                                 <button
                                     className="btn-edit"
                                     onClick={() => setIsEditing(true)}
@@ -543,15 +576,17 @@ export default function TaskDetailsPage() {
                                 </button>
                             )}
 
-                            <button
-                                className="btn-comment"
-                                onClick={() => setShowCommentBox(v => !v)}
-                                title="Оставить комментарий"
-                            >
-                                Комментировать
-                            </button>
+                            {canComment && (
+                                <button
+                                    className="btn-comment"
+                                    onClick={() => setShowCommentBox(v => !v)}
+                                    title="Оставить комментарий"
+                                >
+                                    Комментировать
+                                </button>
+                            )}
 
-                            {isOwnerUser && (
+                            {canDeleteTask && (
                                 <button
                                     className="btn-delete-task"
                                     onClick={handleDelete}
@@ -561,7 +596,7 @@ export default function TaskDetailsPage() {
                                 </button>
                             )}
 
-                            {!isMine && (
+                            {canTake && (
                                 <button
                                     className="btn-take-task"
                                     onClick={handleTake}
@@ -573,7 +608,7 @@ export default function TaskDetailsPage() {
                         </div>
                     </header>
 
-                    {showCommentBox && (
+                    {showCommentBox && canComment && (
                         <form className="comment-box" onSubmit={handleSubmitComment}>
                             <textarea
                                 rows={3}
@@ -665,7 +700,7 @@ export default function TaskDetailsPage() {
                                         const isSelf =
                                             (a.email || '').toLowerCase() === emailLower;
 
-                                        const canRemove = isOwnerUser || isSelf;
+                                        const canRemove = !isArchived && (isOwnerUser || isSelf);
 
                                         return (
                                             <li key={a.email} className="assignee-row">
@@ -702,7 +737,7 @@ export default function TaskDetailsPage() {
                             <div className="tags-header">
                                 <h3>Теги ({taskTags.length}/10)</h3>
 
-                                {task.canEdit && (
+                                {canEdit && (
                                     <button
                                         type="button"
                                         className="btn-toggle-tags"
@@ -728,7 +763,7 @@ export default function TaskDetailsPage() {
                                             }}
                                         >
                                             {t.name}
-                                            {task.canEdit && (
+                                            {canEdit && (
                                                 <button
                                                     type="button"
                                                     className="task-tag-remove"
@@ -743,7 +778,7 @@ export default function TaskDetailsPage() {
                                 </div>
                             )}
 
-                            {showTagPicker && task.canEdit && (
+                            {showTagPicker && canEdit && (
                                 <div className="tags-picker">
                                     <div className="tags-picker-list">
                                         {allTags.length === 0 ? (
@@ -771,7 +806,7 @@ export default function TaskDetailsPage() {
                                                         <span className="tag-picker-count">
                                                             {t.tasksCount} задач
                                                         </span>
-                                                        {task.isOwner && (
+                                                        {task.isOwner && !isArchived && (
                                                             <button
                                                                 type="button"
                                                                 className="tag-picker-delete"
@@ -847,7 +882,7 @@ export default function TaskDetailsPage() {
                                             <input
                                                 type="checkbox"
                                                 checked={s.isCompleted}
-                                                disabled={!task.canEdit || subtaskBusyId === s.id}
+                                                disabled={!canEdit || subtaskBusyId === s.id}
                                                 onChange={() => handleToggleSubtask(s)}
                                             />
 
@@ -869,15 +904,15 @@ export default function TaskDetailsPage() {
                                                 <span
                                                     className="subtask-title"
                                                     onDoubleClick={() =>
-                                                        task.canEdit && handleStartEditSubtask(s)
+                                                        canEdit && handleStartEditSubtask(s)
                                                     }
-                                                    title={task.canEdit ? 'Двойной клик — редактировать' : ''}
+                                                    title={canEdit ? 'Двойной клик — редактировать' : ''}
                                                 >
                                                     {s.title}
                                                 </span>
                                             )}
 
-                                            {task.canEdit && editingSubtaskId !== s.id && (
+                                            {canEdit && editingSubtaskId !== s.id && (
                                                 <div className="subtask-actions">
                                                     <button
                                                         type="button"
@@ -902,7 +937,7 @@ export default function TaskDetailsPage() {
                                 </ul>
                             )}
 
-                            {task.canEdit && (
+                            {canEdit && (
                                 <form className="subtask-add-form" onSubmit={handleAddSubtask}>
                                     <input
                                         type="text"
@@ -927,7 +962,7 @@ export default function TaskDetailsPage() {
                             <div className="attachments-header">
                                 <h3>Вложения ({attachments.length})</h3>
 
-                                {task.canUploadAttachments && (
+                                {canUpload && (
                                     <>
                                         <input
                                             type="file"
@@ -969,7 +1004,7 @@ export default function TaskDetailsPage() {
                                                     {new Date(att.uploadedAt).toLocaleString('ru-RU')}
                                                 </span>
                                             </div>
-                                            {att.canDelete && (
+                                            {att.canDelete && !isArchived && (
                                                 <button
                                                     className="btn-remove-attachment"
                                                     title="Удалить файл"

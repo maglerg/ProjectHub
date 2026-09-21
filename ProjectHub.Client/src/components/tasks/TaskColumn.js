@@ -8,6 +8,7 @@ export default function TaskColumn({
     projectCode,
     currentUserEmail,
     isOwner,
+    isArchived = false,
     onTake,
     onMove,
     onUpload,
@@ -17,17 +18,20 @@ export default function TaskColumn({
     const [isDragOver, setIsDragOver] = useState(false);
 
     const handleDragOver = (e) => {
+        if (isArchived) return;   // 📦 архив — не принимаем drag
         e.preventDefault();
         setIsDragOver(true);
     };
 
     const handleDragLeave = (e) => {
+        if (isArchived) return;
         // Игнорируем, если ушли не за пределы колонки
         if (e.currentTarget.contains(e.relatedTarget)) return;
         setIsDragOver(false);
     };
 
     const handleDrop = (e) => {
+        if (isArchived) return;   // 📦 архив — не принимаем drop
         e.preventDefault();
         setIsDragOver(false);
 
@@ -43,7 +47,7 @@ export default function TaskColumn({
 
     return (
         <div
-            className={`task-column ${isDragOver ? 'drag-over' : ''}`}
+            className={`task-column ${isDragOver ? 'drag-over' : ''} ${isArchived ? 'task-column--archived' : ''}`}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
@@ -66,6 +70,7 @@ export default function TaskColumn({
                         projectCode={projectCode}
                         currentUserEmail={currentUserEmail}
                         isOwner={isOwner}
+                        isArchived={isArchived}
                         onTake={onTake}
                         onUpload={onUpload}
                         onRefresh={onRefresh}

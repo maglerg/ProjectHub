@@ -19,6 +19,7 @@ export default function TaskCard({
     projectCode,
     currentUserEmail,
     isOwner,
+    isArchived = false,
     onTake,
     onUpload,
     onRefresh,
@@ -44,8 +45,10 @@ export default function TaskCard({
     const isMine = assignees.some(
         a => (a.email || '').toLowerCase() === emailLower
     );
-    const canDrag = isOwner || isMine;
-    const canUpload = !!task.canUploadAttachments;
+
+    // 📦 В архиве нельзя перетаскивать и прикреплять файлы
+    const canDrag = !isArchived && (isOwner || isMine);
+    const canUpload = !isArchived && !!task.canUploadAttachments;
 
     const hasSubtasks = task.hasSubtasks && task.totalSubtasksCount > 0;
 
@@ -84,6 +87,7 @@ export default function TaskCard({
 
     const handleUploadClick = (e) => {
         e.stopPropagation();
+        if (isArchived) return;
         fileInputRef.current?.click();
     };
 
@@ -127,10 +131,12 @@ export default function TaskCard({
     };
 
     const handleEditFromMenu = () => {
+        if (isArchived) return;
         navigate(`/projects/${code}/tasks/${task.id}?edit=1`);
     };
 
     const handleTakeFromMenu = async () => {
+        if (isArchived) return;
         try {
             await takeTask(projectCode, task.id);
             onRefresh?.();
@@ -141,6 +147,7 @@ export default function TaskCard({
     };
 
     const handleLeaveFromMenu = async () => {
+        if (isArchived) return;
         if (!window.confirm('Снять себя с задачи?')) return;
         try {
             await leaveTask(projectCode, task.id);
@@ -152,6 +159,7 @@ export default function TaskCard({
     };
 
     const handleMoveFromMenu = async (columnId) => {
+        if (isArchived) return;
         try {
             await moveTask(projectCode, task.id, columnId);
             onRefresh?.();
@@ -163,6 +171,7 @@ export default function TaskCard({
     };
 
     const handlePriorityFromMenu = async (priority) => {
+        if (isArchived) return;
         try {
             await updateTask(projectCode, task.id, {
                 title: task.title,
@@ -180,6 +189,7 @@ export default function TaskCard({
     };
 
     const handleDeleteFromMenu = async () => {
+        if (isArchived) return;
         if (!window.confirm(`Удалить задачу "${task.title}"?`)) return;
         try {
             await deleteTask(projectCode, task.id);
@@ -193,7 +203,7 @@ export default function TaskCard({
     return (
         <>
             <div
-                className={`task-card ${canDrag ? 'draggable' : 'locked'}`}
+                className={`task-card ${canDrag ? 'draggable' : 'locked'} ${isArchived ? 'task-card--archived' : ''}`}
                 draggable={canDrag}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
@@ -395,6 +405,7 @@ export default function TaskCard({
                     currentUserEmail={currentUserEmail}
                     isOwner={isOwner}
                     projectCode={projectCode}
+                    isArchived={isArchived}
                     onClose={() => setContextMenu(null)}
                     onOpen={handleOpenFromMenu}
                     onEdit={handleEditFromMenu}

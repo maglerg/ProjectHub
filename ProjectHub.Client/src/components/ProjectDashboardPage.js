@@ -3,7 +3,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { searchMyProjectByCode } from '../services/projectsApi';
 import NotesPanel from './notes/NotesPanel';
 import {
     getCategoryName,
@@ -28,6 +27,12 @@ import ChatPage from './ChatPage';
 import VotingPage from './VotingPage';
 import CreateVotingModal from './CreateVotingPage';
 
+import {
+    searchMyProjectByCode,
+    archiveProject,
+    unarchiveProject
+} from '../services/projectsApi';
+
 import '../styles/components/ProjectDashboardPage.css';
 
 // ── Пункты меню ──
@@ -48,38 +53,36 @@ const ProjectDashboardPage = () => {
     const location = useLocation();
     const { user, logout } = useAuth();
 
+    // ── Основное состояние ──
     const [project, setProject] = useState(null);
     const [members, setMembers] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
     const [notification, setNotification] = useState(null);
     const [userStatus, setUserStatus] = useState('NotJoined');
+
+    // ── Модалки ──
     const [showEditModal, setShowEditModal] = useState(false);
     const [showRoleModal, setShowRoleModal] = useState(false);
     const [showInviteModal, setShowInviteModal] = useState(false);
-
-    // 📌 Модалка создания голосования
     const [showCreateVotingModal, setShowCreateVotingModal] = useState(false);
-
-    // 📌 Модалка просмотра/голосования
     const [selectedVotingId, setSelectedVotingId] = useState(null);
 
-    // 📌 Ключ для принудительного обновления списка голосований
-    const [votingsRefreshKey, setVotingsRefreshKey] = useState(0);
+    // ── Архивация ──
+    const [isArchiving, setIsArchiving] = useState(false);
 
-    // 📌 Активный раздел меню — берём из location.state, если передан
+    // ── Раздел ──
     const [activeSection, setActiveSection] = useState(
         location.state?.section || 'tasks'
     );
 
-    // 📌 Если state.section поменялся — переключаем раздел
     useEffect(() => {
         if (location.state?.section) {
             setActiveSection(location.state.section);
         }
     }, [location.state?.section]);
 
-    // 📌 Фильтры задач (живут на уровне страницы, рендерятся в сайдбаре)
+    // ── Фильтры задач ──
     const [taskFilters, setTaskFilters] = useState({
         onlyMyTasks: false,
         priorityFilter: 'All',
@@ -91,27 +94,30 @@ const ProjectDashboardPage = () => {
     const [taskShowTagDropdown, setTaskShowTagDropdown] = useState(false);
     const [taskAllTags, setTaskAllTags] = useState([]);
 
-    // 📌 Бейдж голосований
+    // ── Бейдж и обновление ──
     const [votingsBadge, setVotingsBadge] = useState(0);
+    const [votingsRefreshKey, setVotingsRefreshKey] = useState(0);
 
-    // 📌 Данные для таймлайна
+    // ── Таймлайн ──
     const [timelineColumns, setTimelineColumns] = useState([]);
     const [timelineLoading, setTimelineLoading] = useState(false);
     const [timelineError, setTimelineError] = useState(null);
 
-    // 📌 Встроенный чат проекта
+    // ── Встроенный чат ──
     const [projectChatId, setProjectChatId] = useState(null);
     const [projectChatLoading, setProjectChatLoading] = useState(false);
     const [projectChatError, setProjectChatError] = useState(null);
 
-    // 📌 Меню пользователя
+    // ── Меню пользователя ──
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const userMenuRef = useRef(null);
 
+    // ── Права ──
+    const isOwnerUser = userStatus === 'Owner';
     const canManageMembers = userStatus === 'Owner' || userStatus === 'Admin';
     const canEdit = userStatus === 'Owner' || userStatus === 'Admin';
 
-    // 📌 Закрытие меню пользователя по клику вне / Escape
+    // ── Закрытие меню по клику вне / Escape ──
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
@@ -129,6 +135,7 @@ const ProjectDashboardPage = () => {
         };
     }, []);
 
+    // ── Формат даты ──
     const formatDate = (dateString) => {
         if (!dateString) return 'Не указана';
         try {
@@ -142,7 +149,7 @@ const ProjectDashboardPage = () => {
         }
     };
 
-    // 📌 Загрузка данных для таймлайна
+    // ── Загрузка таймлайна ──
     const loadTimeline = useCallback(async () => {
         if (!project?.publicCode) return;
         setTimelineLoading(true);
@@ -159,14 +166,13 @@ const ProjectDashboardPage = () => {
         }
     }, [project?.publicCode]);
 
-    // 📌 Когда открыт раздел "timeline" и есть проект — грузим доску
     useEffect(() => {
         if (activeSection === 'timeline' && project?.publicCode) {
             loadTimeline();
         }
     }, [activeSection, project?.publicCode, loadTimeline]);
 
-    // 📌 Загрузка тегов проекта для панели фильтров задач
+    // ── Загрузка тегов проекта для фильтров ──
     const loadTaskTagsForFilters = useCallback(async () => {
         if (!project?.publicCode) return;
         try {
@@ -178,14 +184,13 @@ const ProjectDashboardPage = () => {
         }
     }, [project?.publicCode]);
 
-    // 📌 Когда открыт раздел "tasks" — подгружаем теги для фильтров
     useEffect(() => {
         if (activeSection === 'tasks' && project?.publicCode) {
             loadTaskTagsForFilters();
         }
     }, [activeSection, project?.publicCode, loadTaskTagsForFilters]);
 
-    // 📌 Загрузка chatId проекта для встроенного чата
+    // ── Загрузка chatId проекта ──
     const loadProjectChat = useCallback(async () => {
         if (!project?.publicCode) return;
         setProjectChatLoading(true);
@@ -202,14 +207,13 @@ const ProjectDashboardPage = () => {
         }
     }, [project?.publicCode]);
 
-    // 📌 Когда открыт раздел "chat" и есть проект — грузим chatId
     useEffect(() => {
         if (activeSection === 'chat' && project?.publicCode) {
             loadProjectChat();
         }
     }, [activeSection, project?.publicCode, loadProjectChat]);
 
-    // 📌 Загрузить счётчик голосований
+    // ── Загрузка счётчика голосований ──
     const loadVotingsBadge = useCallback(async (projectCode) => {
         if (!projectCode) return;
         try {
@@ -224,13 +228,7 @@ const ProjectDashboardPage = () => {
         }
     }, []);
 
-    const handleInviteUser = () => setShowInviteModal(true);
-
-    const handleInvitationSent = () => {
-        setNotification({ type: 'success', text: '✅ Приглашение отправлено!' });
-        setTimeout(() => setNotification(null), 3000);
-    };
-
+    // ── Загрузка деталей проекта ──
     const loadProjectDetails = useCallback(async () => {
         setLoading(true);
         setError(null);
@@ -241,7 +239,9 @@ const ProjectDashboardPage = () => {
 
             if (projectData) {
                 const status = projectData.userStatus || 'NotJoined';
-                const isMember = status === 'Owner' || status === 'Admin' || status === 'Member';
+                const isMember = status === 'Owner'
+                    || status === 'Admin'
+                    || status === 'Member';
 
                 if (!isMember) {
                     setError('У вас нет доступа к этой странице');
@@ -268,6 +268,61 @@ const ProjectDashboardPage = () => {
     useEffect(() => {
         loadProjectDetails();
     }, [loadProjectDetails]);
+
+    // ── Архивация ──
+    const handleArchive = async () => {
+        if (!project?.publicCode || isArchiving) return;
+
+        if (!window.confirm(
+            'Архивировать проект? ' +
+            'Ожидающие заявки и приглашения будут отменены, ' +
+            'активные голосования — закрыты. ' +
+            'Проект станет доступен только для чтения.'
+        )) return;
+
+        setIsArchiving(true);
+        try {
+            const updated = await archiveProject(project.publicCode);
+            setProject(updated);
+            setNotification({ type: 'success', text: '📦 Проект архивирован' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (e) {
+            console.error('❌ Ошибка архивации:', e);
+            setNotification({ type: 'error', text: e.message });
+        } finally {
+            setIsArchiving(false);
+        }
+    };
+
+    const handleUnarchive = async () => {
+        if (!project?.publicCode || isArchiving) return;
+
+        if (!window.confirm(
+            'Восстановить проект из архива? ' +
+            'Отменённые заявки и приглашения не восстановятся.'
+        )) return;
+
+        setIsArchiving(true);
+        try {
+            const updated = await unarchiveProject(project.publicCode);
+            setProject(updated);
+            setNotification({ type: 'success', text: '↩️ Проект восстановлен' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (e) {
+            console.error('❌ Ошибка восстановления:', e);
+            setNotification({ type: 'error', text: e.message });
+        } finally {
+            setIsArchiving(false);
+        }
+    };
+
+    // ── Обработчики модалок ──
+    const handleInviteUser = () => setShowInviteModal(true);
+
+    const handleInvitationSent = () => {
+        setNotification({ type: 'success', text: '✅ Приглашение отправлено!' });
+        setTimeout(() => setNotification(null), 3000);
+    };
 
     const handleEditClick = () => setShowEditModal(true);
     const handleRoleManagement = () => setShowRoleModal(true);
@@ -300,6 +355,7 @@ const ProjectDashboardPage = () => {
         }
     };
 
+    // ── Меню пользователя ──
     const handleMenuNavigate = (path) => {
         setUserMenuOpen(false);
         navigate(path);
@@ -309,6 +365,10 @@ const ProjectDashboardPage = () => {
         setUserMenuOpen(false);
         logout();
     };
+
+    // ═══════════════════════════════════════════════════════════
+    //  RENDER
+    // ═══════════════════════════════════════════════════════════
 
     if (loading) {
         return (
@@ -350,7 +410,39 @@ const ProjectDashboardPage = () => {
                 <button className="btn-back" onClick={() => navigate('/projects')}>
                     ← Назад
                 </button>
-                <h1>{project.name}</h1>
+
+                <h1>
+                    {project.name}
+                    {project.isArchived && (
+                        <span className="archive-badge">📦 В архиве</span>
+                    )}
+                </h1>
+
+                {isOwnerUser && (
+                    <div className="archive-actions">
+                        {!project.isArchived ? (
+                            <button
+                                type="button"
+                                className="btn-archive"
+                                onClick={handleArchive}
+                                disabled={isArchiving}
+                                title="Архивировать проект"
+                            >
+                                {isArchiving ? '⏳' : '📦 Архивировать'}
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                className="btn-unarchive"
+                                onClick={handleUnarchive}
+                                disabled={isArchiving}
+                                title="Восстановить из архива"
+                            >
+                                {isArchiving ? '⏳' : '↩️ Восстановить'}
+                            </button>
+                        )}
+                    </div>
+                )}
 
                 <div className="header-right">
                     <NotificationsDropdown />
@@ -421,6 +513,13 @@ const ProjectDashboardPage = () => {
                 </div>
             </header>
 
+            {/* Плашка про архив */}
+            {project.isArchived && (
+                <div className="archive-banner">
+                    📦 Этот проект находится в архиве. Действия недоступны — только просмотр.
+                </div>
+            )}
+
             <div className="dashboard-layout">
 
                 {/* ── ЛЕВАЯ колонка: меню + фильтры задач ── */}
@@ -442,10 +541,8 @@ const ProjectDashboardPage = () => {
                         ))}
                     </nav>
 
-                    {/* 📌 Панель фильтров задач (только в разделе "Задачи") */}
                     {activeSection === 'tasks' && (
                         <div className="sidebar-filters">
-                            {/* ── Поиск по тегам ── */}
                             {taskAllTags.length > 0 && (
                                 <div className="sidebar-filter-block">
                                     <div className="tag-search-wrapper">
@@ -533,7 +630,6 @@ const ProjectDashboardPage = () => {
                                 </div>
                             )}
 
-                            {/* ── Чекбоксы ── */}
                             <div className="sidebar-filter-block">
                                 <label className="sidebar-filter-checkbox">
                                     <input
@@ -569,7 +665,6 @@ const ProjectDashboardPage = () => {
                                 </label>
                             </div>
 
-                            {/* ── Приоритеты ── */}
                             <div className="sidebar-filter-block">
                                 <div className="sidebar-filter-title">Приоритеты</div>
                                 <div className="sidebar-priority-list">
@@ -613,7 +708,7 @@ const ProjectDashboardPage = () => {
                         <section className="dashboard-section">
                             <div className="section-header">
                                 <h2>📋 Информация о проекте</h2>
-                                {canEdit && (
+                                {canEdit && !project.isArchived && (
                                     <button className="btn-edit" onClick={handleEditClick}>
                                         ✏️ Редактировать
                                     </button>
@@ -667,7 +762,7 @@ const ProjectDashboardPage = () => {
                                 <h2>👥 Участники</h2>
                                 <div className="section-header-actions">
                                     <span className="members-count">{members.length} чел.</span>
-                                    {canManageMembers && (
+                                    {canManageMembers && !project.isArchived && (
                                         <>
                                             <button
                                                 className="btn-manage-roles"
@@ -721,9 +816,7 @@ const ProjectDashboardPage = () => {
                             </div>
 
                             {timelineError && (
-                                <div className="timeline-error">
-                                    ❌ {timelineError}
-                                </div>
+                                <div className="timeline-error">❌ {timelineError}</div>
                             )}
 
                             {timelineLoading ? (
@@ -742,9 +835,7 @@ const ProjectDashboardPage = () => {
                     {activeSection === 'chat' && (
                         <section className="dashboard-section dashboard-section--chat">
                             {projectChatError && (
-                                <div className="timeline-error">
-                                    ❌ {projectChatError}
-                                </div>
+                                <div className="timeline-error">❌ {projectChatError}</div>
                             )}
 
                             {projectChatLoading ? (
@@ -780,12 +871,14 @@ const ProjectDashboardPage = () => {
                                             {votingsBadge} активных
                                         </span>
                                     )}
-                                    <button
-                                        className="btn-create-voting"
-                                        onClick={() => setShowCreateVotingModal(true)}
-                                    >
-                                        ➕ Создать голосование
-                                    </button>
+                                    {!project.isArchived && (
+                                        <button
+                                            className="btn-create-voting"
+                                            onClick={() => setShowCreateVotingModal(true)}
+                                        >
+                                            ➕ Создать голосование
+                                        </button>
+                                    )}
                                 </div>
                             </div>
 

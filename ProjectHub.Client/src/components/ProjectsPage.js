@@ -16,6 +16,7 @@ import {
     fetchAllProjects,
     createProject,
     fetchMyProjects,
+    fetchArchivedProjects,
 } from '../services/projectsApi';
 import { getFriends, removeFriend } from '../services/friendsApi';
 
@@ -83,6 +84,27 @@ const ProjectsPage = () => {
         } catch (error) {
             console.error('❌ Ошибка загрузки проектов:', error);
             setMessage(`❌ ${error.message || 'Ошибка загрузки проектов'}`);
+            setProjects([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 📌 Загрузка архивных проектов
+    const loadArchivedProjects = async () => {
+        setLoading(true);
+        setMessage('');
+        try {
+            const data = await fetchArchivedProjects();
+            if (Array.isArray(data)) {
+                setProjects(data);
+            } else {
+                console.error('❌ Данные не являются массивом:', data);
+                setProjects([]);
+            }
+        } catch (error) {
+            console.error('❌ Ошибка загрузки архивных проектов:', error);
+            setMessage(`❌ ${error.message || 'Ошибка загрузки архива'}`);
             setProjects([]);
         } finally {
             setLoading(false);
@@ -213,6 +235,10 @@ const ProjectsPage = () => {
             setShowFavoritesOnly(true);
             setShowMyProjectsOnly(false);
             loadProjects(true, false);
+        } else if (tab === 'archive') {
+            setShowFavoritesOnly(false);
+            setShowMyProjectsOnly(false);
+            loadArchivedProjects();
         }
     };
 
@@ -381,6 +407,12 @@ const ProjectsPage = () => {
                                 ⭐ Избранное
                             </button>
                             <button
+                                className={`tab-btn ${activeTab === 'archive' ? 'active' : ''}`}
+                                onClick={() => handleTabClick('archive')}
+                            >
+                                📦 Архив
+                            </button>
+                            <button
                                 className="tab-btn"
                                 onClick={() => navigate('/chats')}
                                 title="Чаты"
@@ -468,6 +500,20 @@ const ProjectsPage = () => {
                                             >
                                                 👤 Перейти к моим проектам
                                             </button>
+                                        </div>
+                                    ) : (
+                                        <ProjectList {...projectListProps} />
+                                    )}
+                                </div>
+                            )}
+
+                            {activeTab === 'archive' && (
+                                <div className="list-tab-content">
+                                    {projects.length === 0 ? (
+                                        <div className="empty-state-archive">
+                                            <div className="empty-state-icon">📦</div>
+                                            <h3>Архив пуст</h3>
+                                            <p>Здесь будут проекты, которые вы архивировали</p>
                                         </div>
                                     ) : (
                                         <ProjectList {...projectListProps} />

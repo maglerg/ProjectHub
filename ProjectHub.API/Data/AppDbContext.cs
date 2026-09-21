@@ -135,6 +135,11 @@ namespace ProjectHub.API.Data
 
                 entity.HasIndex(e => e.Visibility)
                     .HasDatabaseName("IX_Projects_Visibility");
+
+                entity.Property(p => p.IsArchived)
+                          .HasDefaultValue(false);
+
+                entity.HasIndex(p => p.IsArchived);
             });
             // 📌 Уникальность голоса: один пользователь — один вариант на голосование
             modelBuilder.Entity<VotingVote>()
@@ -351,6 +356,8 @@ namespace ProjectHub.API.Data
 
                 // Быстрый список «мои заметки конкретного проекта»
                 entity.HasIndex(n => new { n.AuthorId, n.ProjectId });
+
+                
             });
         }
     }

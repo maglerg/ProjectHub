@@ -100,6 +100,15 @@ const ProjectDetailsPage = () => {
     const handleSubmitApplication = async () => {
         if (!project?.publicCode) return;
 
+        // 📦 В архиве — заявки не принимаются
+        if (project.isArchived) {
+            setNotification({
+                type: 'error',
+                text: 'Проект находится в архиве — заявки не принимаются'
+            });
+            return;
+        }
+
         setIsSubmitting(true);
         setNotification(null);
 
@@ -158,10 +167,19 @@ const ProjectDetailsPage = () => {
         );
     }
 
+    // 📦 Архив
+    const isArchived = !!project.isArchived;
+
     const canSubmitApplication =
+        !isArchived &&
         userStatus === 'NotJoined' &&
         !justSubmitted &&
         !isSubmitting;
+
+    const isMember =
+        userStatus === 'Owner' ||
+        userStatus === 'Admin' ||
+        userStatus === 'Member';
 
     return (
         <div className="project-details-page">
@@ -169,7 +187,12 @@ const ProjectDetailsPage = () => {
                 <button className="btn-back" onClick={() => navigate('/projects')}>
                     ← Назад
                 </button>
-                <h1>{project.name}</h1>
+                <h1>
+                    {project.name}
+                    {isArchived && (
+                        <span className="archive-badge">📦 В архиве</span>
+                    )}
+                </h1>
                 <div className="header-badges">
                     <span
                         className="status-badge"
@@ -182,6 +205,12 @@ const ProjectDetailsPage = () => {
                     </span>
                 </div>
             </header>
+
+            {isArchived && (
+                <div className="archive-banner">
+                    📦 Этот проект в архиве. Присоединение и подача заявок недоступны.
+                </div>
+            )}
 
             <div className="details-content">
                 <section className="info-section">
@@ -238,8 +267,8 @@ const ProjectDetailsPage = () => {
                     </div>
                 )}
 
-                {/* 📌 Секция присоединения (только для не-участников) */}
-                {userStatus !== 'Owner' && userStatus !== 'Admin' && userStatus !== 'Member' && (
+                {/* 📌 Секция присоединения — только для не-участников и не в архиве */}
+                {!isMember && !isArchived && (
                     <section className="join-section">
                         {userStatus === 'Pending' ? (
                             <div className="pending-application success">
@@ -269,11 +298,24 @@ const ProjectDetailsPage = () => {
                     </section>
                 )}
 
-                {/* 📌 Для участников — просто сообщение */}
-                {(userStatus === 'Owner' || userStatus === 'Admin' || userStatus === 'Member') && (
+                {/* 📌 Если не участник, но проект в архиве — сообщение */}
+                {!isMember && isArchived && (
                     <section className="join-section">
                         <div className="member-actions">
-                            <p>✅ Вы являетесь участником этого проекта</p>
+                            <p>📦 Проект в архиве — присоединиться невозможно</p>
+                        </div>
+                    </section>
+                )}
+
+                {/* 📌 Для участников — сообщение о членстве */}
+                {isMember && (
+                    <section className="join-section">
+                        <div className="member-actions">
+                            <p>
+                                {isArchived
+                                    ? '📦 Вы участник этого проекта (в архиве)'
+                                    : '✅ Вы являетесь участником этого проекта'}
+                            </p>
                         </div>
                     </section>
                 )}

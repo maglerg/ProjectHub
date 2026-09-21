@@ -168,7 +168,55 @@ export const fetchAllProjects = async (favoritesOnly = false, category = null) =
         throw error;
     }
 };
+// Архивировать проект (только owner)
+export const archiveProject = async (code) => {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/projects/code/${code}/archive`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Ошибка архивации проекта');
+    }
+    return response.json();
+};
 
+// Восстановить проект из архива (только owner)
+export const unarchiveProject = async (code) => {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/projects/code/${code}/unarchive`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Ошибка восстановления проекта');
+    }
+    return response.json();
+};
+
+// Получить архивные проекты пользователя
+export const fetchArchivedProjects = async () => {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/projects/my?archived=true`, {
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+        }
+    });
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || 'Ошибка загрузки архивных проектов');
+    }
+    return response.json();
+};
 
 // 📌 Получить проекты с фильтрами
 export const fetchProjectsWithFilters = async (category, visibility, status) => {

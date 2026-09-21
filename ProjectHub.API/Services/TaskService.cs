@@ -125,6 +125,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             if (string.IsNullOrWhiteSpace(dto.Title))
                 throw new InvalidOperationException("Название задачи не может быть пустым");
@@ -189,6 +190,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             var task = await _db.ProjectTasks
                 .Include(t => t.Assignees)
@@ -226,6 +228,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             var task = await _db.ProjectTasks
                 .Include(t => t.Assignees).ThenInclude(a => a.User)
@@ -284,6 +287,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             var task = await _db.ProjectTasks
                 .Include(t => t.Assignees)
@@ -367,6 +371,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             if (project.OwnerId != userId)
                 throw new UnauthorizedAccessException(
@@ -398,6 +403,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             var task = await _db.ProjectTasks
                 .Include(t => t.Assignees)
@@ -597,6 +603,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             if (string.IsNullOrWhiteSpace(dto.Text))
                 throw new InvalidOperationException("Комментарий не может быть пустым");
@@ -665,6 +672,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             var task = await _db.ProjectTasks
                 .Include(t => t.Assignees)
@@ -783,6 +791,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             var task = await _db.ProjectTasks
                 .Include(t => t.Assignees)
@@ -833,6 +842,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             if (string.IsNullOrWhiteSpace(dto.Title))
                 throw new InvalidOperationException("Название подзадачи не может быть пустым");
@@ -902,6 +912,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             if (string.IsNullOrWhiteSpace(dto.Title))
                 throw new InvalidOperationException("Название подзадачи не может быть пустым");
@@ -929,6 +940,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             var task = await GetTaskWithSubtasksAsync(project.Id, taskId);
 
@@ -998,6 +1010,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             var task = await GetTaskWithSubtasksAsync(project.Id, taskId);
 
@@ -1053,6 +1066,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             if (string.IsNullOrWhiteSpace(dto.Name))
                 throw new InvalidOperationException("Название тега не может быть пустым");
@@ -1098,6 +1112,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             if (project.OwnerId != userId)
                 throw new UnauthorizedAccessException(
@@ -1128,6 +1143,7 @@ namespace ProjectHub.API.Services
         {
             var project = await GetProjectByCodeOrThrowAsync(projectCode);
             await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
 
             var task = await _db.ProjectTasks
                 .Include(t => t.Assignees)
@@ -1339,6 +1355,17 @@ namespace ProjectHub.API.Services
                 return task.Priority < TaskPriority.High ? TaskPriority.High : task.Priority;
 
             return task.Priority;
+        }
+
+        /// <summary>
+        /// Проверяет, что проект не в архиве.
+        /// Используется во всех мутирующих методах.
+        /// </summary>
+        private static void EnsureProjectNotArchived(Project project)
+        {
+            if (project.IsArchived)
+                throw new InvalidOperationException(
+                    "Проект находится в архиве, действие недоступно");
         }
 
         private async Task<Project> GetProjectByCodeOrThrowAsync(string code)

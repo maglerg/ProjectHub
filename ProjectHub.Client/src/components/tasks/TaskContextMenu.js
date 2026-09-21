@@ -4,6 +4,7 @@ import { TASK_PRIORITIES } from '../../utils/constants';
 export default function TaskContextMenu({
     x, y,
     task, columns, currentUserEmail, isOwner, projectCode,
+    isArchived = false,
     onClose,
     onOpen, onEdit, onTake, onLeave, onMove, onPriority, onDelete
 }) {
@@ -20,8 +21,14 @@ export default function TaskContextMenu({
         a => (a.email || '').toLowerCase() === emailLower
     );
     const isTaken = assignees.length > 0;
-    const canEdit = !!task.canEdit;
-    const canDelete = isOwner;
+
+    // 📦 В архиве запрещены все изменяющие действия
+    const canEdit = !isArchived && !!task.canEdit;
+    const canDelete = !isArchived && isOwner;
+    const canTake = !isArchived;
+    const canLeave = !isArchived;
+    const canMove = !isArchived && (canEdit || isOwner);
+    const canChangePriority = !isArchived && canEdit;
 
     // ── Закрытие по клику вне, Escape, скроллу ──
     useEffect(() => {
@@ -48,7 +55,6 @@ export default function TaskContextMenu({
     }, [onClose]);
 
     // ── Открытие подменю ──
-    // Отменяет запланированное закрытие и мгновенно переключает на нужное подменю
     const handleSubmenuOpen = (name) => {
         if (closeTimer.current) {
             clearTimeout(closeTimer.current);
@@ -99,7 +105,7 @@ export default function TaskContextMenu({
             onClick={e => e.stopPropagation()}
             onContextMenu={e => e.preventDefault()}
         >
-            {/* Открыть */}
+            {/* Открыть — всегда доступно */}
             <button
                 type="button"
                 className="context-menu-item"
@@ -121,116 +127,120 @@ export default function TaskContextMenu({
                 </button>
             )}
 
-            <div className="context-menu-divider" />
+            {/* Разделитель и блок действий — только если не архив */}
+            {!isArchived && (
+                <>
+                    <div className="context-menu-divider" />
 
-            {/* Взять / Присоединиться / Снять */}
-            {!isMine && (
-                <button
-                    type="button"
-                    className="context-menu-item"
-                    onClick={() => { onTake(); onClose(); }}
-                >
-                    <span className="context-menu-icon">🤝</span>
-                    {isTaken ? 'Присоединиться' : 'Взять задачу'}
-                </button>
-            )}
+                    {/* Взять / Присоединиться / Снять */}
+                    {canTake && !isMine && (
+                        <button
+                            type="button"
+                            className="context-menu-item"
+                            onClick={() => { onTake(); onClose(); }}
+                        >
+                            <span className="context-menu-icon">🤝</span>
+                            {isTaken ? 'Присоединиться' : 'Взять задачу'}
+                        </button>
+                    )}
 
-            {isMine && (
-                <button
-                    type="button"
-                    className="context-menu-item danger"
-                    onClick={() => { onLeave(); onClose(); }}
-                >
-                    <span className="context-menu-icon">↩️</span>
-                    Снять с себя
-                </button>
-            )}
+                    {canLeave && isMine && (
+                        <button
+                            type="button"
+                            className="context-menu-item danger"
+                            onClick={() => { onLeave(); onClose(); }}
+                        >
+                            <span className="context-menu-icon">↩️</span>
+                            Снять с себя
+                        </button>
+                    )}
 
-            {/* Переместить в... */}
-            {(canEdit || isOwner) && (
-                <div
-                    className="context-menu-submenu-wrapper"
-                    onMouseEnter={() => handleSubmenuOpen('move')}
-                    onMouseLeave={handleSubmenuClose}
-                >
-                    <button
-                        type="button"
-                        className="context-menu-item has-submenu"
-                    >
-                        <span className="context-menu-icon">📁</span>
-                        Переместить в…
-                        <span className="context-menu-arrow">›</span>
-                    </button>
-
-                    {openSubmenu === 'move' && (
+                    {/* Переместить в... */}
+                    {canMove && (
                         <div
-                            className="context-submenu context-submenu--left"
+                            className="context-menu-submenu-wrapper"
                             onMouseEnter={() => handleSubmenuOpen('move')}
                             onMouseLeave={handleSubmenuClose}
                         >
-                            {columns
-                                .filter(c => c.id !== task.columnId)
-                                .map(c => (
-                                    <button
-                                        key={c.id}
-                                        type="button"
-                                        className="context-menu-item"
-                                        onClick={() => { onMove(c.id); onClose(); }}
-                                    >
-                                        {c.name}
-                                    </button>
-                                ))
-                            }
+                            <button
+                                type="button"
+                                className="context-menu-item has-submenu"
+                            >
+                                <span className="context-menu-icon">📁</span>
+                                Переместить в…
+                                <span className="context-menu-arrow">›</span>
+                            </button>
+
+                            {openSubmenu === 'move' && (
+                                <div
+                                    className="context-submenu context-submenu--left"
+                                    onMouseEnter={() => handleSubmenuOpen('move')}
+                                    onMouseLeave={handleSubmenuClose}
+                                >
+                                    {columns
+                                        .filter(c => c.id !== task.columnId)
+                                        .map(c => (
+                                            <button
+                                                key={c.id}
+                                                type="button"
+                                                className="context-menu-item"
+                                                onClick={() => { onMove(c.id); onClose(); }}
+                                            >
+                                                {c.name}
+                                            </button>
+                                        ))
+                                    }
+                                </div>
+                            )}
                         </div>
                     )}
-                </div>
-            )}
 
-            {/* Изменить приоритет */}
-            {canEdit && (
-                <div
-                    className="context-menu-submenu-wrapper"
-                    onMouseEnter={() => handleSubmenuOpen('priority')}
-                    onMouseLeave={handleSubmenuClose}
-                >
-                    <button
-                        type="button"
-                        className="context-menu-item has-submenu"
-                    >
-                        <span className="context-menu-icon">🚩</span>
-                        Приоритет
-                        <span className="context-menu-arrow">›</span>
-                    </button>
-
-                    {openSubmenu === 'priority' && (
+                    {/* Изменить приоритет */}
+                    {canChangePriority && (
                         <div
-                            className="context-submenu context-submenu--left"
+                            className="context-menu-submenu-wrapper"
                             onMouseEnter={() => handleSubmenuOpen('priority')}
                             onMouseLeave={handleSubmenuClose}
                         >
-                            {TASK_PRIORITIES.map(p => (
-                                <button
-                                    key={p.value}
-                                    type="button"
-                                    className={`context-menu-item ${task.priority === p.value ? 'active' : ''
-                                        }`}
-                                    onClick={() => { onPriority(p.value); onClose(); }}
+                            <button
+                                type="button"
+                                className="context-menu-item has-submenu"
+                            >
+                                <span className="context-menu-icon">🚩</span>
+                                Приоритет
+                                <span className="context-menu-arrow">›</span>
+                            </button>
+
+                            {openSubmenu === 'priority' && (
+                                <div
+                                    className="context-submenu context-submenu--left"
+                                    onMouseEnter={() => handleSubmenuOpen('priority')}
+                                    onMouseLeave={handleSubmenuClose}
                                 >
-                                    <span className="context-menu-icon">{p.icon}</span>
-                                    {p.label}
-                                    {task.priority === p.value && (
-                                        <span className="context-menu-check">✓</span>
-                                    )}
-                                </button>
-                            ))}
+                                    {TASK_PRIORITIES.map(p => (
+                                        <button
+                                            key={p.value}
+                                            type="button"
+                                            className={`context-menu-item ${task.priority === p.value ? 'active' : ''}`}
+                                            onClick={() => { onPriority(p.value); onClose(); }}
+                                        >
+                                            <span className="context-menu-icon">{p.icon}</span>
+                                            {p.label}
+                                            {task.priority === p.value && (
+                                                <span className="context-menu-check">✓</span>
+                                            )}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     )}
-                </div>
+                </>
             )}
 
             <div className="context-menu-divider" />
 
-            {/* Копировать ссылку */}
+            {/* Копировать ссылку — всегда доступно */}
             <button
                 type="button"
                 className="context-menu-item"
@@ -240,7 +250,7 @@ export default function TaskContextMenu({
                 Копировать ссылку
             </button>
 
-            {/* Удалить */}
+            {/* Удалить — только не в архиве */}
             {canDelete && (
                 <>
                     <div className="context-menu-divider" />
