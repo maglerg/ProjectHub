@@ -92,13 +92,22 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
     const handleCardClick = () => {
         if (!project.publicCode) return;
 
-        // 📌 Архивный проект — не открываем дашборд
+        const userStatus = project.userStatus || 'NotJoined';
+        const isMember =
+            userStatus === 'Owner' ||
+            userStatus === 'Admin' ||
+            userStatus === 'Member';
+
+        // 📦 Архивный проект:
+        //   • участники (Owner/Admin/Member) → открываем дашборд,
+        //     чтобы можно было посмотреть и восстановить из архива;
+        //   • остальные → никуда не идём (публичная страница архивного проекта недоступна).
         if (project.isArchived) {
+            if (isMember) {
+                navigate(`/projects/${project.publicCode}/dashboard`);
+            }
             return;
         }
-
-        const userStatus = project.userStatus || 'NotJoined';
-        const isMember = userStatus === 'Owner' || userStatus === 'Admin' || userStatus === 'Member';
 
         if (isMember) {
             navigate(`/projects/${project.publicCode}/dashboard`);
