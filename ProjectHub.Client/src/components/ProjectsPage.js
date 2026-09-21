@@ -15,7 +15,6 @@ import FriendsList from './FriendsList';
 import {
     fetchAllProjects,
     createProject,
-    fetchProjectsWithFilters,
     fetchMyProjects,
 } from '../services/projectsApi';
 import { getFriends, removeFriend } from '../services/friendsApi';
@@ -31,8 +30,10 @@ const ProjectsPage = () => {
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState('');
     const [activeTab, setActiveTab] = useState(null);
+
+    // 📌 Только категория — без статуса
     const [selectedCategory, setSelectedCategory] = useState('');
-    const [selectedStatus, setSelectedStatus] = useState('');
+
     const [shouldResetForm, setShouldResetForm] = useState(false);
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
     const [showMyProjectsOnly, setShowMyProjectsOnly] = useState(false);
@@ -62,42 +63,22 @@ const ProjectsPage = () => {
     }, []);
 
     // 📌 Загрузка проектов
-    const loadProjects = async (favoritesOnly = false, myProjectsOnly = false) => {
+    const loadProjects = async (favoritesOnly = false, myProjectsOnly = false, category = null) => {
         setLoading(true);
         setMessage('');
         try {
-            let label = '(все)';
-            if (favoritesOnly) label = '(только избранные)';
-            else if (myProjectsOnly) label = '(только мои)';
-
-            console.log('🔍 Загрузка проектов...', label);
-
             let data;
             if (myProjectsOnly) {
                 data = await fetchMyProjects();
             } else {
-                data = await fetchAllProjects(favoritesOnly);
+                data = await fetchAllProjects(favoritesOnly, category);
             }
-
-            console.log('📦 Данные с сервера:', data);
 
             if (Array.isArray(data)) {
                 setProjects(data);
-                if (data.length === 0) {
-                    if (favoritesOnly) {
-                        setMessage('⭐ Нет избранных проектов');
-                    } else if (myProjectsOnly) {
-                        setMessage('📭 Вы не участвуете ни в одном проекте');
-                    } else {
-                        setMessage('📭 Нет созданных проектов');
-                    }
-                } else {
-                    setMessage(`✅ Найдено проектов: ${data.length}`);
-                }
             } else {
                 console.error('❌ Данные не являются массивом:', data);
                 setProjects([]);
-                setMessage('❌ Ошибка: получены некорректные данные');
             }
         } catch (error) {
             console.error('❌ Ошибка загрузки проектов:', error);
@@ -168,24 +149,6 @@ const ProjectsPage = () => {
         onFavoriteToggle: handleFavoriteToggle
     };
 
-    const loadProjectsWithFilters = async (category, visibility, status) => {
-        setLoading(true);
-        setMessage('');
-        try {
-            const data = await fetchProjectsWithFilters(category, visibility, status);
-            setProjects(data);
-            if (data.length === 0) {
-                setMessage('📭 Нет проектов, соответствующих фильтрам');
-            } else {
-                setMessage(`📊 Найдено проектов: ${data.length}`);
-            }
-        } catch (error) {
-            setMessage(`❌ ${error.message}`);
-        } finally {
-            setLoading(false);
-        }
-    };
-
     const handleCreateProject = async (projectData) => {
         setLoading(true);
         try {
@@ -203,22 +166,20 @@ const ProjectsPage = () => {
         }
     };
 
-    const handleFilterChange = (type, value) => {
-        if (type === 'category') {
-            setSelectedCategory(value);
-            loadProjectsWithFilters(value, selectedStatus);
-        } else if (type === 'status') {
-            setSelectedStatus(value);
-            loadProjectsWithFilters(selectedCategory, value);
-        }
+    const handleCategoryChange = (value) => {
+        setSelectedCategory(value);
+    };
+
+    const handleCategorySearch = () => {
+        loadProjects(false, false, selectedCategory || null);
     };
 
     const resetFilters = () => {
         setSelectedCategory('');
-        setSelectedStatus('');
         setShowFavoritesOnly(false);
         setShowMyProjectsOnly(false);
-        loadProjects(false, false);
+        setProjects([]);
+        setMessage('');
     };
 
     // 📌 Обработка табов проектов
@@ -242,7 +203,8 @@ const ProjectsPage = () => {
         if (tab === 'search') {
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(false);
-            loadProjects(false, false);
+            setSelectedCategory('');
+            setProjects([]);
         } else if (tab === 'my') {
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(true);
@@ -254,7 +216,7 @@ const ProjectsPage = () => {
         }
     };
 
-    // 📌 Открыть секцию друзей (из меню пользователя)
+    // 📌 Открыть секцию друзей
     const openFriendsSection = () => {
         setView('friends');
         setActiveTab(null);
@@ -264,17 +226,10 @@ const ProjectsPage = () => {
         loadFriends();
     };
 
-    // 📌 Вернуться к представлению «проекты»
     const backToProjects = () => {
         setView('projects');
         setActiveTab(null);
         setMessage('');
-    };
-
-    const handleCopyCode = (code) => {
-        navigator.clipboard.writeText(code);
-        setMessage('✅ Код скопирован в буфер обмена!');
-        setTimeout(() => setMessage(''), 3000);
     };
 
     // 📌 Меню пользователя
@@ -373,7 +328,6 @@ const ProjectsPage = () => {
             <main className="page-main">
                 {/* ═══════════════════════════════════════════
                     РЕЖИМ: ДРУЗЬЯ
-                    Кнопки-табы скрыты, сразу секция друзей
                    ═══════════════════════════════════════════ */}
                 {view === 'friends' && (
                     <>
@@ -398,7 +352,6 @@ const ProjectsPage = () => {
 
                 {/* ═══════════════════════════════════════════
                     РЕЖИМ: ПРОЕКТЫ
-                    Кнопки-табы + соответствующие секции
                    ═══════════════════════════════════════════ */}
                 {view === 'projects' && (
                     <>
@@ -434,6 +387,13 @@ const ProjectsPage = () => {
                             >
                                 💬 Чаты
                             </button>
+                            <button
+                                className="tab-btn"
+                                onClick={() => navigate('/notes')}
+                                title="Мои заметки"
+                            >
+                                📝 Мои заметки
+                            </button>
                         </div>
 
                         {message && (
@@ -454,20 +414,14 @@ const ProjectsPage = () => {
 
                             {activeTab === 'search' && (
                                 <div className="search-tab-content">
-                                    <SearchSection
-                                        onProjectFound={(project) => {
-                                            if (project) {
-                                                setMessage(`✅ Найден проект: ${project.name}`);
-                                            }
-                                        }}
-                                    />
+                                    <SearchSection />
 
                                     <div className="search-filters">
-                                        <h4>Или ищите по категории:</h4>
+                                        <h4>Или найдите по категории:</h4>
                                         <FilterSection
                                             selectedCategory={selectedCategory}
-                                            selectedStatus={selectedStatus}
-                                            onFilterChange={handleFilterChange}
+                                            onCategoryChange={handleCategoryChange}
+                                            onSearch={handleCategorySearch}
                                             onReset={resetFilters}
                                             loading={loading}
                                         />
@@ -475,7 +429,6 @@ const ProjectsPage = () => {
 
                                     {projects.length > 0 && (
                                         <div className="search-results">
-                                            <h4>Результаты поиска:</h4>
                                             <ProjectList {...projectListProps} />
                                         </div>
                                     )}

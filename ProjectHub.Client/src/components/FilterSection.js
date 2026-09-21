@@ -1,26 +1,27 @@
 // projecthub.client/src/components/FilterSection.js
 
 import React from 'react';
-import { PROJECT_CATEGORIES } from '../utils/constants';  
+import { PROJECT_CATEGORIES } from '../utils/constants';
 import '../styles/components/FilterSection.css';
 
 const FilterSection = ({
     selectedCategory,
-    selectedStatus,
-    onFilterChange,
+    onCategoryChange,
+    onSearch,
     onReset,
     loading
 }) => {
     const handleCategoryChange = (e) => {
-        onFilterChange('category', e.target.value);
+        onCategoryChange(e.target.value);
     };
 
-    const handleStatusChange = (e) => {
-        onFilterChange('status', e.target.value);
+    const handleSubmit = (e) => {
+        e.preventDefault();
+        onSearch();
     };
 
     return (
-        <div className="filter-section">
+        <form className="filter-section" onSubmit={handleSubmit}>
             <div className="filter-group">
                 <label>Категория</label>
                 <select
@@ -28,7 +29,7 @@ const FilterSection = ({
                     onChange={handleCategoryChange}
                     disabled={loading}
                 >
-                    <option value="">Все категории</option>
+                    <option value="">Все проекты</option>
                     {PROJECT_CATEGORIES.map(cat => (
                         <option key={cat.value} value={cat.value}>
                             {cat.label}
@@ -37,27 +38,23 @@ const FilterSection = ({
                 </select>
             </div>
 
-            <div className="filter-group">
-                <label>Статус</label>
-                <select
-                    value={selectedStatus}
-                    onChange={handleStatusChange}
-                    disabled={loading}
-                >
-                    <option value="">Все статусы</option>
-                    <option value="Completed">✅ Завершен</option>
-                    <option value="Uncompleted">⏳ В процессе</option>
-                </select>
-            </div>
+            <button
+                type="submit"
+                className="btn-search-category"
+                disabled={loading}
+            >
+                {loading ? '⏳ Поиск…' : '🔍 Найти'}
+            </button>
 
             <button
+                type="button"
                 className="btn-reset-filters"
                 onClick={onReset}
                 disabled={loading}
             >
                 🔄 Сбросить
             </button>
-        </div>
+        </form>
     );
 };
 

@@ -26,6 +26,7 @@ import VotingPage from './components/VotingPage';
 import TaskDetailsPage from './components/tasks/TaskDetailsPage';
 import ProjectHistoryPage from './components/ProjectHistoryPage';
 import './index.css';
+import NotesPage from './components/notes/NotesPage';
 
 function App() {
     return (
@@ -131,6 +132,11 @@ function App() {
                     } />
                     {/* ─── Fallback ─── */}
                     <Route path="*" element={<Navigate to="/projects" replace />} />
+                    <Route path="/notes" element={
+                        <ProtectedRoute>
+                            <NotesPage />
+                        </ProtectedRoute>
+                    } />
                 </Routes>
             </AuthProvider>
         </Router>

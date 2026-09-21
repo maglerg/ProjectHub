@@ -322,6 +322,51 @@ namespace ProjectHub.API.Migrations
                     b.ToTable("Invitations");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.Note", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("AuthorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(9)
+                        .HasColumnType("character varying(9)");
+
+                    b.Property<string>("Content")
+                        .IsRequired()
+                        .HasMaxLength(5000)
+                        .HasColumnType("character varying(5000)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("IsPinned")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid?>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Title")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProjectId");
+
+                    b.HasIndex("AuthorId", "ProjectId");
+
+                    b.HasIndex("AuthorId", "UpdatedAt");
+
+                    b.ToTable("Notes");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.Notification", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1112,6 +1157,24 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("Invitee");
 
                     b.Navigation("Inviter");
+
+                    b.Navigation("Project");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.Note", b =>
+                {
+                    b.HasOne("ProjectHub.Models.User", "Author")
+                        .WithMany()
+                        .HasForeignKey("AuthorId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.API.Models.Project", "Project")
+                        .WithMany()
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
+                    b.Navigation("Author");
 
                     b.Navigation("Project");
                 });

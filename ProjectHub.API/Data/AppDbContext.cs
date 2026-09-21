@@ -42,6 +42,7 @@ namespace ProjectHub.API.Data
         public DbSet<TaskTagLink> TaskTagLinks { get; set; }
 
         public DbSet<ProjectActivity> ProjectActivities { get; set; }
+        public DbSet<Note> Notes { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -328,6 +329,28 @@ namespace ProjectHub.API.Data
 
                 entity.HasIndex(a => new { a.ProjectId, a.CreatedAt });
                 entity.HasIndex(a => a.Type);
+            });
+            modelBuilder.Entity<Note>(entity =>
+            {
+                entity.HasKey(e => e.Id);
+
+                entity.HasOne(n => n.Author)
+                      .WithMany()
+                      .HasForeignKey(n => n.AuthorId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                // При удалении проекта — заметки НЕ удаляются. Обнуляем ProjectId вручную
+                // через SetNull, чтобы пользовательские данные сохранились.
+                entity.HasOne(n => n.Project)
+                      .WithMany()
+                      .HasForeignKey(n => n.ProjectId)
+                      .OnDelete(DeleteBehavior.SetNull);
+
+                // Быстрый список «мои заметки по дате»
+                entity.HasIndex(n => new { n.AuthorId, n.UpdatedAt });
+
+                // Быстрый список «мои заметки конкретного проекта»
+                entity.HasIndex(n => new { n.AuthorId, n.ProjectId });
             });
         }
     }

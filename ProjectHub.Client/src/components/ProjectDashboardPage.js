@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { searchMyProjectByCode } from '../services/projectsApi';
+import NotesPanel from './notes/NotesPanel';
 import {
     getCategoryName,
     getStatusName,
@@ -36,6 +37,7 @@ const MENU_ITEMS = [
     { key: 'tasks', icon: '🗂️', label: 'Задачи' },
     { key: 'timeline', icon: '📅', label: 'Таймлайн' },
     { key: 'chat', icon: '💬', label: 'Чат проекта' },
+    { key: 'notes', icon: '📝', label: 'Мои заметки' },
     { key: 'votings', icon: '🗳️', label: 'Голосования' },
     { key: 'history', icon: '📜', label: 'История изменений' },
 ];
@@ -92,7 +94,7 @@ const ProjectDashboardPage = () => {
     // 📌 Бейдж голосований
     const [votingsBadge, setVotingsBadge] = useState(0);
 
-    // 📌 Данные для таймлайна (загружаются отдельно, когда открыт раздел "Таймлайн")
+    // 📌 Данные для таймлайна
     const [timelineColumns, setTimelineColumns] = useState([]);
     const [timelineLoading, setTimelineLoading] = useState(false);
     const [timelineError, setTimelineError] = useState(null);
@@ -251,7 +253,6 @@ const ProjectDashboardPage = () => {
                 setMembers(projectData.members || []);
                 setUserStatus(status);
 
-                // 📌 Подгружаем счётчик голосований
                 loadVotingsBadge(projectData.publicCode);
             } else {
                 setError('Проект не найден');
@@ -283,19 +284,15 @@ const ProjectDashboardPage = () => {
         setTimeout(() => setNotification(null), 3000);
     };
 
-    // 📌 Голосование создано (из модалки)
     const handleVotingCreated = () => {
         setNotification({ type: 'success', text: '✅ Голосование создано!' });
         setTimeout(() => setNotification(null), 3000);
-
         setVotingsRefreshKey(k => k + 1);
-
         if (project?.publicCode) {
             loadVotingsBadge(project.publicCode);
         }
     };
 
-    // 📌 Изменения в голосовании (голос/закрытие/удаление) — обновляем список и бейдж
     const handleVotingChanged = () => {
         setVotingsRefreshKey(k => k + 1);
         if (project?.publicCode) {
@@ -303,7 +300,6 @@ const ProjectDashboardPage = () => {
         }
     };
 
-    // 📌 Меню пользователя
     const handleMenuNavigate = (path) => {
         setUserMenuOpen(false);
         navigate(path);
@@ -359,7 +355,6 @@ const ProjectDashboardPage = () => {
                 <div className="header-right">
                     <NotificationsDropdown />
 
-                    {/* 📌 Меню пользователя */}
                     <div className="user-menu-wrapper" ref={userMenuRef}>
                         <button
                             className={`user-menu-trigger ${userMenuOpen ? 'open' : ''}`}
@@ -764,6 +759,16 @@ const ProjectDashboardPage = () => {
                         </section>
                     )}
 
+                    {/* ── МОИ ЗАМЕТКИ ── */}
+                    {activeSection === 'notes' && (
+                        <section className="dashboard-section">
+                            <NotesPanel
+                                projectCode={project.publicCode}
+                                projectName={project.name}
+                            />
+                        </section>
+                    )}
+
                     {/* ── ГОЛОСОВАНИЯ ── */}
                     {activeSection === 'votings' && (
                         <section className="dashboard-section">
@@ -784,7 +789,6 @@ const ProjectDashboardPage = () => {
                                 </div>
                             </div>
 
-                            {/* Встроенный список голосований */}
                             <VotingsListPage
                                 embedded
                                 refreshKey={votingsRefreshKey}
@@ -801,7 +805,6 @@ const ProjectDashboardPage = () => {
                                 <h2>📜 История изменений</h2>
                             </div>
 
-                            {/* Встроенная история проекта */}
                             <ProjectHistoryPage embedded />
                         </section>
                     )}

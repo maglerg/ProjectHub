@@ -100,3 +100,27 @@
         justify-content: center;
     }
 }
+
+.btn-search-category {
+    background: #4a90e2;
+    color: #fff;
+    padding: 10px 24px;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    font-family: inherit;
+    transition: background 0.2s;
+    height: 42px;
+    white-space: nowrap;
+}
+
+    .btn-search-category:hover:not(:disabled) {
+        background: #357abd;
+    }
+
+    .btn-search-category:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }

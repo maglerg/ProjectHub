@@ -129,14 +129,18 @@ export const fetchFavorites = async () => {
     }
 };
 
-export const fetchAllProjects = async (favoritesOnly = false) => {
+// 📌 Получить все проекты (с опциональными фильтрами)
+// 📌 Получить все проекты (с опциональными фильтрами)
+export const fetchAllProjects = async (favoritesOnly = false, category = null) => {
     try {
         const token = getToken();
-        let url = `${API_BASE_URL}/projects`;
+        const params = new URLSearchParams();
 
-        if (favoritesOnly) {
-            url += `?favoritesOnly=true`;
-        }
+        if (favoritesOnly) params.append('favoritesOnly', 'true');
+        if (category) params.append('category', category);
+
+        const query = params.toString();
+        const url = `${API_BASE_URL}/projects${query ? `?${query}` : ''}`;
 
         const response = await fetch(url, {
             method: 'GET',
@@ -146,16 +150,12 @@ export const fetchAllProjects = async (favoritesOnly = false) => {
             }
         });
 
-        console.log('📡 Статус ответа:', response.status);
-
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
-            console.error('❌ Ошибка ответа:', error);
             throw new Error(error.message || `HTTP error! status: ${response.status}`);
         }
 
         const data = await response.json();
-        console.log('📦 Получены данные:', data);
 
         if (!Array.isArray(data)) {
             console.error('❌ Ожидался массив, получено:', data);
@@ -167,7 +167,6 @@ export const fetchAllProjects = async (favoritesOnly = false) => {
         console.error('❌ Ошибка в fetchAllProjects:', error);
         throw error;
     }
-    
 };
 
 
