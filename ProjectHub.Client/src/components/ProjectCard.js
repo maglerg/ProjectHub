@@ -78,7 +78,6 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
             setIsFavorite(result);
             setFavoritesCount(prev => result ? prev + 1 : prev - 1);
 
-            // 📌 Сообщаем родителю, чтобы он обновил стейт projects
             if (onFavoriteToggle) {
                 onFavoriteToggle(project.publicCode, result);
             }
@@ -92,6 +91,11 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
     // 📌 Клик по карточке
     const handleCardClick = () => {
         if (!project.publicCode) return;
+
+        // 📌 Архивный проект — не открываем дашборд
+        if (project.isArchived) {
+            return;
+        }
 
         const userStatus = project.userStatus || 'NotJoined';
         const isMember = userStatus === 'Owner' || userStatus === 'Admin' || userStatus === 'Member';
@@ -118,9 +122,14 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
     const publicCode = project.publicCode || '---';
     const deadline = project.deadline || null;
     const createdAt = project.createdAt || null;
+    const isArchived = !!project.isArchived;
+    const tags = Array.isArray(project.tags) ? project.tags : [];
 
     return (
-        <li className="project-item" onClick={handleCardClick}>
+        <li
+            className={`project-item ${isArchived ? 'project-item--archived' : ''}`}
+            onClick={handleCardClick}
+        >
             <div className="project-header">
                 <h3>{name}</h3>
                 <div className="project-header-right">
@@ -134,6 +143,9 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
                         <span className={`visibility-tag ${visibility === 'Private' ? 'private' : 'public'}`}>
                             {getVisibilityName(visibility)}
                         </span>
+                        {isArchived && (
+                            <span className="archive-tag">📦 В архиве</span>
+                        )}
                     </div>
                     <button
                         className={`favorite-btn ${isFavorite ? 'active' : ''}`}
@@ -174,6 +186,34 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
                     </button>
                 </span>
             </div>
+
+            {/* 🆕 ── Теги проекта ── */}
+            {tags.length > 0 && (
+                <div className="project-card-tags">
+                    {tags.slice(0, 6).map(t => (
+                        <span
+                            key={t.id}
+                            className="project-card-tag"
+                            style={{
+                                backgroundColor: t.color ? `${t.color}22` : '#eef2ff',
+                                color: t.color || '#4f46e5',
+                                borderColor: t.color || '#c7d2fe'
+                            }}
+                            title={t.name}
+                        >
+                            {t.name}
+                        </span>
+                    ))}
+                    {tags.length > 6 && (
+                        <span
+                            className="project-card-tag-more"
+                            title={tags.slice(6).map(t => t.name).join(', ')}
+                        >
+                            +{tags.length - 6}
+                        </span>
+                    )}
+                </div>
+            )}
 
             {createdAt && (
                 <div className="project-footer">

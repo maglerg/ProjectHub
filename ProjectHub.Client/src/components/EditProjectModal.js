@@ -7,6 +7,11 @@ import {
     PROJECT_STATUSES
 } from '../utils/constants';
 import { updateProject } from '../services/projectsApi';
+import {
+    getProjectTags as getProjectTagsApi,
+    setProjectTags as setProjectTagsApi
+} from '../services/projectTagsApi';
+import ProjectTagPicker from './ProjectTagPicker';
 import '../styles/components/EditProjectModal.css';
 
 const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
@@ -22,6 +27,11 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
 
+    // 🆕 Теги проекта
+    const [projectTags, setProjectTags] = useState([]);
+    const [selectedTagIds, setSelectedTagIds] = useState([]);
+    const [tagsLoading, setTagsLoading] = useState(false);
+
     // 📌 Что может редактировать пользователь
     const canEdit = {
         name: userRole === 'Owner',
@@ -29,9 +39,11 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
         visibility: userRole === 'Owner',
         status: userRole === 'Owner',
         deadline: userRole === 'Owner',
-        description: userRole === 'Owner' || userRole === 'Admin'
+        description: userRole === 'Owner' || userRole === 'Admin',
+        tags: userRole === 'Owner'   // 🆕 только владелец
     };
 
+    // 📌 Форма
     useEffect(() => {
         if (project) {
             setFormData({
@@ -47,11 +59,40 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
         }
     }, [project]);
 
+    // 🆕 Загрузка тегов проекта (только для владельца)
+    useEffect(() => {
+        if (!project?.publicCode || !canEdit.tags) return;
+
+        let cancelled = false;
+
+        (async () => {
+            setTagsLoading(true);
+            try {
+                const tags = await getProjectTagsApi(project.publicCode);
+                if (cancelled) return;
+                setProjectTags(tags || []);
+                setSelectedTagIds((tags || []).map(t => t.id));
+            } catch (err) {
+                console.warn('Не удалось загрузить теги проекта:', err);
+                if (!cancelled) {
+                    setProjectTags([]);
+                    setSelectedTagIds([]);
+                }
+            } finally {
+                if (!cancelled) setTagsLoading(false);
+            }
+        })();
+
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [project?.publicCode, canEdit.tags]);
+
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
     };
 
+    // 🆕 Сохранение: сначала updateProject, потом setProjectTags (если нужно)
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
@@ -68,12 +109,28 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
             if (canEdit.deadline)
                 updateData.deadline = new Date(formData.deadline).toISOString();
 
+            // 1. Обновление базовых полей проекта
             await updateProject(project.publicCode, updateData);
-            setSuccess('✅ Проект успешно обновлен!');
+
+            // 2. Обновление тегов (только владелец)
+            if (canEdit.tags) {
+                const initialIds = projectTags.map(t => t.id).sort();
+                const currentIds = [...selectedTagIds].sort();
+
+                const changed =
+                    initialIds.length !== currentIds.length ||
+                    initialIds.some((id, i) => id !== currentIds[i]);
+
+                if (changed) {
+                    await setProjectTagsApi(project.publicCode, selectedTagIds);
+                }
+            }
+
+            setSuccess('✅ Проект успешно обновлён!');
             setTimeout(() => {
                 if (onUpdated) onUpdated();
                 onClose();
-            }, 1500);
+            }, 1000);
         } catch (err) {
             setError(err.message || 'Ошибка обновления проекта');
         } finally {
@@ -87,6 +144,8 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
         if (!canEdit[field]) {
             if (field === 'description')
                 return '✏️ Только владелец и администратор могут редактировать описание';
+            if (field === 'tags')
+                return '🔒 Только владелец может управлять тегами проекта';
             return '🔒 Только владелец может редактировать это поле';
         }
         return null;
@@ -214,15 +273,48 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                         </div>
                     </div>
 
-                    <div className="edit-modal-footer">
-                        <button type="button" className="btn-cancel" onClick={onClose}>
-                            Отмена
-                        </button>
-                        <button type="submit" className="btn-save" disabled={loading}>
-                            {loading ? '⏳ Сохранение...' : '💾 Сохранить'}
-                        </button>
-                    </div>
+                    {/* 🆕 ── Теги проекта (только владелец) ── */}
+                    {canEdit.tags && (
+                        <div className="form-group edit-modal-tags-group">
+                            <label>🏷️ Теги проекта</label>
+
+                            {tagsLoading ? (
+                                <div className="edit-modal-tags-loading">
+                                    ⏳ Загрузка тегов…
+                                </div>
+                            ) : (
+                                <ProjectTagPicker
+                                    selectedTagIds={selectedTagIds}
+                                    onChange={setSelectedTagIds}
+                                    disabled={loading}
+                                />
+                            )}
+
+                            <span className="field-hint">
+                                🏷️ Пользователи смогут найти проект по этим тегам
+                            </span>
+                        </div>
+                    )}
                 </form>
+
+                <div className="edit-modal-footer">
+                    <button
+                        type="button"
+                        className="btn-cancel"
+                        onClick={onClose}
+                        disabled={loading}
+                    >
+                        Отмена
+                    </button>
+                    <button
+                        type="submit"
+                        className="btn-save"
+                        onClick={handleSubmit}
+                        disabled={loading}
+                    >
+                        {loading ? '⏳ Сохранение...' : '💾 Сохранить'}
+                    </button>
+                </div>
             </div>
         </div>
     );

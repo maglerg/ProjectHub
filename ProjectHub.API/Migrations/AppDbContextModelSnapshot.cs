@@ -554,6 +554,67 @@ namespace ProjectHub.API.Migrations
                     b.ToTable("ProjectMembers");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.ProjectTag", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Color")
+                        .HasMaxLength(9)
+                        .HasColumnType("character varying(9)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("CreatedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("ProjectTags");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.ProjectTagLink", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("AddedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("AddedById")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("ProjectId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid>("TagId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("AddedById");
+
+                    b.HasIndex("TagId");
+
+                    b.HasIndex("ProjectId", "TagId")
+                        .IsUnique();
+
+                    b.ToTable("ProjectTagLinks");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.ProjectTask", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1260,6 +1321,44 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.ProjectTag", b =>
+                {
+                    b.HasOne("ProjectHub.Models.User", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("CreatedBy");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.ProjectTagLink", b =>
+                {
+                    b.HasOne("ProjectHub.Models.User", "AddedBy")
+                        .WithMany()
+                        .HasForeignKey("AddedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.API.Models.Project", "Project")
+                        .WithMany("TagLinks")
+                        .HasForeignKey("ProjectId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("ProjectHub.API.Models.ProjectTag", "Tag")
+                        .WithMany("ProjectLinks")
+                        .HasForeignKey("TagId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("AddedBy");
+
+                    b.Navigation("Project");
+
+                    b.Navigation("Tag");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.ProjectTask", b =>
                 {
                     b.HasOne("ProjectHub.API.Models.TaskColumn", "Column")
@@ -1493,6 +1592,13 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("Favorites");
 
                     b.Navigation("Members");
+
+                    b.Navigation("TagLinks");
+                });
+
+            modelBuilder.Entity("ProjectHub.API.Models.ProjectTag", b =>
+                {
+                    b.Navigation("ProjectLinks");
                 });
 
             modelBuilder.Entity("ProjectHub.API.Models.ProjectTask", b =>

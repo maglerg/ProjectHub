@@ -278,6 +278,51 @@
         max-width: 100%;
     }
 
+/* 🆕 ══════════════════════════════════════════════
+   Теги проекта в разделе "Информация"
+   ══════════════════════════════════════════════ */
+.project-tags-section {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid #f0f0f0;
+}
+
+    .project-tags-section h3 {
+        font-size: 15px;
+        color: #555;
+        margin: 0 0 12px 0;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+/* Режим просмотра (не-редактор) */
+.project-tags-view {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.project-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 500;
+    border: 1px solid transparent;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.no-project-tags {
+    color: #9ca3af;
+    font-size: 14px;
+    font-style: italic;
+    margin: 0;
+}
+
 /* ══════════════════════════════════════════════
    Участники
    ══════════════════════════════════════════════ */
@@ -729,6 +774,7 @@
     justify-content: flex-end;
     margin-bottom: 12px;
 }
+
 .btn-create-voting {
     background: #4a90e2;
     color: #fff;

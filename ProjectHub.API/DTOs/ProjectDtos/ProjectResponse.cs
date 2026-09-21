@@ -2,6 +2,7 @@
 
 using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
+using ProjectHub.API.DTOs.ProjectTagDtos;
 
 namespace ProjectHub.API.DTOs.ProjectDtos
 {
@@ -25,5 +26,6 @@ namespace ProjectHub.API.DTOs.ProjectDtos
         public bool IsArchived { get; set; }
         public DateTime? ArchivedAt { get; set; }
         public string? ArchivedByName { get; set; }
+        public List<ProjectTagBriefDto> Tags { get; set; } = new();
     }
 }

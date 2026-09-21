@@ -188,6 +188,38 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+        // GET /api/projects/search-by-tags?tagIds=...&tagIds=...
+        [HttpGet("search-by-tags")]
+        public async Task<IActionResult> SearchByTags(
+            [FromQuery] List<Guid> tagIds,
+            [FromQuery] int take = 100)
+        {
+            try
+            {
+                if (tagIds == null || tagIds.Count == 0)
+                    return BadRequest(new { error = "Укажите хотя бы один тег" });
+
+                if (take <= 0) take = 100;
+                if (take > 200) take = 200;
+
+                Guid? userId = null;
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var parsed))
+                {
+                    userId = parsed;
+                }
+
+                var projects = await _projectsService
+                    .SearchPublicProjectsByTagsAsync(tagIds, userId, take);
+
+                return Ok(projects);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка поиска проектов по тегам");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
         // 📌 PUT /api/projects/code/{code}/members/{email}/role — изменить роль участника по публичному коду и email
         [HttpPut("code/{code}/members/{email}/role")]
         [Authorize]

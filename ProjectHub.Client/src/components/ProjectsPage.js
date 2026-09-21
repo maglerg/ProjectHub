@@ -11,6 +11,7 @@ import ProjectList from './ProjectList';
 import FilterSection from './FilterSection';
 import NotificationsDropdown from './NotificationsDropdown';
 import FriendsList from './FriendsList';
+import ProjectTagsFilter from './ProjectTagsFilter';
 
 import {
     fetchAllProjects,
@@ -18,6 +19,7 @@ import {
     fetchMyProjects,
     fetchArchivedProjects,
 } from '../services/projectsApi';
+import { searchProjectsByTags } from '../services/projectTagsApi';
 import { getFriends, removeFriend } from '../services/friendsApi';
 
 const ProjectsPage = () => {
@@ -34,6 +36,9 @@ const ProjectsPage = () => {
 
     // 📌 Только категория — без статуса
     const [selectedCategory, setSelectedCategory] = useState('');
+
+    // 🆕 Фильтр по тегам (для вкладки "Найти проект")
+    const [selectedTagIds, setSelectedTagIds] = useState([]);
 
     const [shouldResetForm, setShouldResetForm] = useState(false);
     const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -109,6 +114,45 @@ const ProjectsPage = () => {
         } finally {
             setLoading(false);
         }
+    };
+
+    // 🆕 📌 Поиск проектов по тегам
+    const searchByTags = async () => {
+        if (selectedTagIds.length === 0) {
+            setMessage('❌ Выберите хотя бы один тег');
+            return;
+        }
+
+        setLoading(true);
+        setMessage('');
+        try {
+            const data = await searchProjectsByTags(selectedTagIds);
+
+            if (Array.isArray(data)) {
+                setProjects(data);
+                setMessage(
+                    data.length > 0
+                        ? `✅ Найдено проектов: ${data.length}`
+                        : '🔍 По выбранным тегам проектов не найдено'
+                );
+            } else {
+                console.error('❌ Данные не являются массивом:', data);
+                setProjects([]);
+            }
+        } catch (error) {
+            console.error('❌ Ошибка поиска по тегам:', error);
+            setMessage(`❌ ${error.message || 'Ошибка поиска по тегам'}`);
+            setProjects([]);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // 🆕 📌 Сброс фильтра тегов
+    const resetTagsFilter = () => {
+        setSelectedTagIds([]);
+        setProjects([]);
+        setMessage('');
     };
 
     // 📌 Загрузить друзей
@@ -193,6 +237,8 @@ const ProjectsPage = () => {
     };
 
     const handleCategorySearch = () => {
+        // При поиске по категории сбрасываем теги, чтобы не путаться
+        setSelectedTagIds([]);
         loadProjects(false, false, selectedCategory || null);
     };
 
@@ -200,6 +246,7 @@ const ProjectsPage = () => {
         setSelectedCategory('');
         setShowFavoritesOnly(false);
         setShowMyProjectsOnly(false);
+        setSelectedTagIds([]);   // 🆕 сбрасываем теги
         setProjects([]);
         setMessage('');
     };
@@ -212,6 +259,8 @@ const ProjectsPage = () => {
             setProjects([]);
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(false);
+            setSelectedTagIds([]);   // 🆕
+            setSelectedCategory(''); // 🆕
             return;
         }
 
@@ -226,18 +275,25 @@ const ProjectsPage = () => {
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(false);
             setSelectedCategory('');
+            setSelectedTagIds([]);   // 🆕 очищаем теги при входе на вкладку
             setProjects([]);
         } else if (tab === 'my') {
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(true);
+            setSelectedTagIds([]);   // 🆕
+            setSelectedCategory(''); // 🆕
             loadProjects(false, true);
         } else if (tab === 'favorites') {
             setShowFavoritesOnly(true);
             setShowMyProjectsOnly(false);
+            setSelectedTagIds([]);   // 🆕
+            setSelectedCategory(''); // 🆕
             loadProjects(true, false);
         } else if (tab === 'archive') {
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(false);
+            setSelectedTagIds([]);   // 🆕
+            setSelectedCategory(''); // 🆕
             loadArchivedProjects();
         }
     };
@@ -249,6 +305,8 @@ const ProjectsPage = () => {
         setMessage('');
         setShowFavoritesOnly(false);
         setShowMyProjectsOnly(false);
+        setSelectedTagIds([]);   // 🆕
+        setSelectedCategory(''); // 🆕
         loadFriends();
     };
 
@@ -446,6 +504,16 @@ const ProjectsPage = () => {
 
                             {activeTab === 'search' && (
                                 <div className="search-tab-content">
+                                    {/* 🆕 Фильтр по тегам */}
+                                    <div className="search-tags-filter-wrap">
+                                        <ProjectTagsFilter
+                                            selectedTagIds={selectedTagIds}
+                                            onChange={setSelectedTagIds}
+                                            onSearch={searchByTags}
+                                            disabled={loading}
+                                        />
+                                    </div>
+
                                     <SearchSection />
 
                                     <div className="search-filters">

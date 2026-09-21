@@ -44,6 +44,9 @@ namespace ProjectHub.API.Data
         public DbSet<ProjectActivity> ProjectActivities { get; set; }
         public DbSet<Note> Notes { get; set; }
 
+        public DbSet<ProjectTag> ProjectTags { get; set; }
+        public DbSet<ProjectTagLink> ProjectTagLinks { get; set; }
+
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
@@ -358,6 +361,39 @@ namespace ProjectHub.API.Data
                 entity.HasIndex(n => new { n.AuthorId, n.ProjectId });
 
                 
+            });
+            // ── ProjectTag ──
+            modelBuilder.Entity<ProjectTag>(entity =>
+            {
+                // Уникальное имя тега (регистронезависимо — через collation или вручную)
+                entity.HasIndex(t => t.Name).IsUnique();
+
+                entity.HasOne(t => t.CreatedBy)
+                    .WithMany()
+                    .HasForeignKey(t => t.CreatedById)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // ── ProjectTagLink ──
+            modelBuilder.Entity<ProjectTagLink>(entity =>
+            {
+                // Уникальная пара (ProjectId, TagId)
+                entity.HasIndex(l => new { l.ProjectId, l.TagId }).IsUnique();
+
+                entity.HasOne(l => l.Project)
+                    .WithMany(p => p.TagLinks)
+                    .HasForeignKey(l => l.ProjectId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(l => l.Tag)
+                    .WithMany(t => t.ProjectLinks)
+                    .HasForeignKey(l => l.TagId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(l => l.AddedBy)
+                    .WithMany()
+                    .HasForeignKey(l => l.AddedById)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
         }
     }

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using ProjectHub.API.Data;
 using ProjectHub.API.DTOs.ProjectDtos;
+using ProjectHub.API.DTOs.ProjectTagDtos;
 using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
 using ProjectHub.Models;
@@ -16,6 +17,7 @@ namespace ProjectHub.API.Services
         private readonly CodeGeneratorService _codeGenerator;
         private readonly NotificationService _notificationService;
         private readonly ActivityService _activity;
+        private readonly ProjectTagsService _projectTags;
 
         private const int MaxAttempts = 100;
 
@@ -24,13 +26,15 @@ namespace ProjectHub.API.Services
             ILogger<ProjectsService> logger,
             CodeGeneratorService codeGenerator,
             NotificationService notificationService,
-            ActivityService activity)
+            ActivityService activity,
+            ProjectTagsService projectTags)
         {
             _dbContext = dbContext;
             _logger = logger;
             _codeGenerator = codeGenerator;
             _notificationService = notificationService;
             _activity = activity;
+            _projectTags = projectTags;
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -97,6 +101,7 @@ namespace ProjectHub.API.Services
 
             var projectWithMembers = await _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
+                .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .FirstAsync(p => p.Id == projectEntity.Id);
 
             return MapToResponse(projectWithMembers);
@@ -203,6 +208,7 @@ namespace ProjectHub.API.Services
                 .Select(f => f.Project)
                 .Include(p => p.Members).ThenInclude(m => m.User)
                 .Include(p => p.Favorites)
+                .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .Where(p => !p.IsArchived)   // ← архивные не показываем в избранном
                 .OrderByDescending(p => p.FavoritesCount)
                 .ToListAsync();
@@ -226,12 +232,14 @@ namespace ProjectHub.API.Services
             var ownedProjects = await _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
                 .Include(p => p.Favorites)
+                .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .Where(p => p.OwnerId == userId && p.IsArchived == archived)
                 .ToListAsync();
 
             var memberProjects = await _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
                 .Include(p => p.Favorites)
+                .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .Where(p => p.Members.Any(m => m.UserId == userId)
                             && p.IsArchived == archived)
                 .ToListAsync();
@@ -269,6 +277,7 @@ namespace ProjectHub.API.Services
         {
             var query = _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
+                .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .Where(p => !p.IsArchived)
                 .AsQueryable();
 
@@ -307,6 +316,60 @@ namespace ProjectHub.API.Services
         }
 
         // ═══════════════════════════════════════════════════════════
+        //  ПОИСК ПРОЕКТОВ ПО ТЕГАМ
+        // ═══════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Поиск публичных проектов по тегам.
+        /// Проект должен содержать ВСЕ указанные теги (логика И).
+        /// </summary>
+        public async Task<List<ProjectResponse>> SearchPublicProjectsByTagsAsync(
+            List<Guid> tagIds,
+            Guid? currentUserId = null,
+            int take = 100)
+        {
+            if (tagIds == null || tagIds.Count == 0)
+                return new List<ProjectResponse>();
+
+            if (take <= 0) take = 100;
+            if (take > 200) take = 200;
+
+            var projectIds = await _projectTags.SearchPublicProjectIdsByTagsAsync(
+                tagIds, take);
+
+            if (projectIds.Count == 0)
+                return new List<ProjectResponse>();
+
+            var projects = await _dbContext.Projects
+                .Include(p => p.Members).ThenInclude(m => m.User)
+                .Include(p => p.Favorites)
+                .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
+                .Where(p => projectIds.Contains(p.Id))
+                .OrderByDescending(p => p.CreatedAt)
+                .ToListAsync();
+
+            var responses = projects.Select(MapToResponse).ToList();
+
+            if (currentUserId.HasValue)
+            {
+                foreach (var project in projects)
+                {
+                    var response = responses.FirstOrDefault(
+                        r => r.PublicCode == project.PublicCode);
+
+                    if (response == null) continue;
+
+                    response.IsFavorite = await IsProjectFavoriteAsync(
+                        project.Id, currentUserId.Value);
+                    response.UserStatus = await GetUserProjectStatusAsync(
+                        project.Id, currentUserId.Value);
+                }
+            }
+
+            return responses;
+        }
+
+        // ═══════════════════════════════════════════════════════════
         //  ПОЛУЧЕНИЕ ПРОЕКТА ПО КОДУ
         // ═══════════════════════════════════════════════════════════
 
@@ -315,6 +378,7 @@ namespace ProjectHub.API.Services
             var projectEntity = await _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
                 .Include(p => p.Favorites)
+                .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .FirstOrDefaultAsync(p => p.PublicCode == code
                                           && p.Visibility == ProjectVisibility.Public
                                           && !p.IsArchived);
@@ -338,6 +402,7 @@ namespace ProjectHub.API.Services
             var projectEntity = await _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
                 .Include(p => p.Favorites)
+                .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .FirstOrDefaultAsync(p => p.PublicCode == code);
 
             if (projectEntity == null)
@@ -442,6 +507,7 @@ namespace ProjectHub.API.Services
         {
             var project = await _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
+                .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .FirstOrDefaultAsync(p => p.PublicCode == code)
                 ?? throw new KeyNotFoundException("Проект с таким кодом не найден");
 
@@ -642,6 +708,7 @@ namespace ProjectHub.API.Services
 
             var withMembers = await _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
+                .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .FirstAsync(p => p.Id == project.Id);
 
             return MapToResponse(withMembers);
@@ -685,6 +752,7 @@ namespace ProjectHub.API.Services
 
             var withMembers = await _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
+                .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .FirstAsync(p => p.Id == project.Id);
 
             return MapToResponse(withMembers);
@@ -869,7 +937,18 @@ namespace ProjectHub.API.Services
                     Specialization = m.User.Specialization.ToString(),
                     Role = m.Role.ToString(),
                     JoinedAt = m.JoinedAt
-                }).ToList()
+                }).ToList(),
+
+                // 📌 Теги проекта
+                Tags = entity.TagLinks?
+                    .Select(l => new ProjectTagBriefDto
+                    {
+                        Id = l.Tag.Id,
+                        Name = l.Tag.Name,
+                        Color = l.Tag.Color
+                    })
+                    .OrderBy(t => t.Name)
+                    .ToList() ?? new List<ProjectTagBriefDto>()
             };
         }
     }

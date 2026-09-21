@@ -188,3 +188,68 @@
     text-align: center;
     font-weight: 600;
 }
+/* ── Теги на карточке проекта ── */
+.project-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #e5e7eb;
+}
+
+.project-card-tag {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid transparent;
+    line-height: 1.4;
+    white-space: nowrap;
+}
+
+.project-card-tag-more {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: #6b7280;
+    background: #f3f4f6;
+    border-radius: 10px;
+}
+/* ── Теги на карточке проекта ── */
+.project-card-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed #e5e7eb;
+}
+
+.project-card-tag {
+    display: inline-block;
+    padding: 3px 8px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 500;
+    border: 1px solid transparent;
+    line-height: 1.4;
+    white-space: nowrap;
+    cursor: default;
+    transition: transform 0.1s;
+}
+
+    .project-card-tag:hover {
+        transform: translateY(-1px);
+    }
+
+.project-card-tag-more {
+    display: inline-block;
+    padding: 3px 8px;
+    font-size: 11px;
+    color: #6b7280;
+    background: #f3f4f6;
+    border-radius: 10px;
+    cursor: help;
+}

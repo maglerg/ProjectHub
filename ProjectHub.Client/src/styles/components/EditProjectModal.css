@@ -218,3 +218,45 @@
             width: 100%;
         }
 }
+/* ── Группа тегов в модалке редактирования ── */
+.edit-modal-tags-group {
+    margin-top: 4px;
+    padding-top: 16px;
+    border-top: 1px dashed #e5e7eb;
+}
+
+    .edit-modal-tags-group > label {
+        display: block;
+        margin-bottom: 10px;
+    }
+
+.edit-modal-tags-loading {
+    padding: 12px 14px;
+    background: #f9fafb;
+    border-radius: 8px;
+    color: #6b7280;
+    font-size: 13px;
+    text-align: center;
+    border: 1px dashed #e5e7eb;
+}
+/* ── Группа тегов в модалке редактирования ── */
+.edit-modal-tags-group {
+    margin-top: 4px;
+    padding-top: 16px;
+    border-top: 1px dashed #e5e7eb;
+}
+
+    .edit-modal-tags-group > label {
+        display: block;
+        margin-bottom: 10px;
+    }
+
+.edit-modal-tags-loading {
+    padding: 12px 14px;
+    background: #f9fafb;
+    border-radius: 8px;
+    color: #6b7280;
+    font-size: 13px;
+    text-align: center;
+    border: 1px dashed #e5e7eb;
+}

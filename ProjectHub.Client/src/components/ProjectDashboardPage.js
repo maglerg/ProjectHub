@@ -12,10 +12,16 @@ import {
 } from '../utils/constants';
 import { getProjectChatByCode } from '../services/chatsApi';
 import { getVotingsSummary } from '../services/votingsApi';
-import { getTasksBoard, getProjectTags } from '../services/tasksApi';
+import { getTasksBoard, getProjectTags as getTaskTags } from '../services/tasksApi';
+import {
+    getProjectTags as getProjectTagsApi,
+    setProjectTags as setProjectTagsApi
+} from '../services/projectTagsApi';
+
 import TasksBoard from './tasks/TasksBoard';
 import TaskTimeline from './tasks/TaskTimeline';
 import NotificationsDropdown from './NotificationsDropdown';
+import ProjectTagPicker from './ProjectTagPicker';
 
 import MemberCard from './MemberCard';
 import RoleManagementModal from './RoleManagementModal';
@@ -82,7 +88,7 @@ const ProjectDashboardPage = () => {
         }
     }, [location.state?.section]);
 
-    // ── Фильтры задач ──
+    // ── Фильтры задач (теги задач — taskAllTags) ──
     const [taskFilters, setTaskFilters] = useState({
         onlyMyTasks: false,
         priorityFilter: 'All',
@@ -93,6 +99,10 @@ const ProjectDashboardPage = () => {
     const [taskTagSearch, setTaskTagSearch] = useState('');
     const [taskShowTagDropdown, setTaskShowTagDropdown] = useState(false);
     const [taskAllTags, setTaskAllTags] = useState([]);
+
+    // 🆕 ── Теги проекта (для раздела "Информация") ──
+    const [projectTags, setProjectTags] = useState([]);
+    const [savingProjectTags, setSavingProjectTags] = useState(false);
 
     // ── Бейдж и обновление ──
     const [votingsBadge, setVotingsBadge] = useState(0);
@@ -172,14 +182,14 @@ const ProjectDashboardPage = () => {
         }
     }, [activeSection, project?.publicCode, loadTimeline]);
 
-    // ── Загрузка тегов проекта для фильтров ──
+    // ── Загрузка ТЕГОВ ЗАДАЧ (для фильтров в сайдбаре) ──
     const loadTaskTagsForFilters = useCallback(async () => {
         if (!project?.publicCode) return;
         try {
-            const tags = await getProjectTags(project.publicCode);
+            const tags = await getTaskTags(project.publicCode);
             setTaskAllTags(tags || []);
         } catch (err) {
-            console.warn('Не удалось загрузить теги для фильтров:', err);
+            console.warn('Не удалось загрузить теги задач для фильтров:', err);
             setTaskAllTags([]);
         }
     }, [project?.publicCode]);
@@ -189,6 +199,24 @@ const ProjectDashboardPage = () => {
             loadTaskTagsForFilters();
         }
     }, [activeSection, project?.publicCode, loadTaskTagsForFilters]);
+
+    // 🆕 ── Загрузка ТЕГОВ ПРОЕКТА (для раздела "Информация") ──
+    const loadProjectTags = useCallback(async () => {
+        if (!project?.publicCode) return;
+        try {
+            const tags = await getProjectTagsApi(project.publicCode);
+            setProjectTags(tags || []);
+        } catch (err) {
+            console.warn('Не удалось загрузить теги проекта:', err);
+            setProjectTags([]);
+        }
+    }, [project?.publicCode]);
+
+    useEffect(() => {
+        if (project?.publicCode) {
+            loadProjectTags();
+        }
+    }, [project?.publicCode, loadProjectTags]);
 
     // ── Загрузка chatId проекта ──
     const loadProjectChat = useCallback(async () => {
@@ -352,6 +380,33 @@ const ProjectDashboardPage = () => {
         setVotingsRefreshKey(k => k + 1);
         if (project?.publicCode) {
             loadVotingsBadge(project.publicCode);
+        }
+    };
+
+    // 🆕 ── Сохранить теги проекта ──
+    const handleSaveProjectTags = async (newTagIds) => {
+        if (!project?.publicCode) return;
+        if (project.isArchived) return;
+
+        setSavingProjectTags(true);
+        try {
+            const updated = await setProjectTagsApi(project.publicCode, newTagIds);
+            setProjectTags(updated || []);
+
+            // Обновляем project.tags, чтобы связанные места сразу видели изменения
+            setProject(prev => ({
+                ...prev,
+                tags: updated || []
+            }));
+
+            setNotification({ type: 'success', text: '🏷️ Теги проекта обновлены' });
+            setTimeout(() => setNotification(null), 2000);
+        } catch (err) {
+            console.error('❌ Ошибка сохранения тегов проекта:', err);
+            setNotification({ type: 'error', text: err.message || 'Не удалось сохранить теги' });
+            setTimeout(() => setNotification(null), 3000);
+        } finally {
+            setSavingProjectTags(false);
         }
     };
 
@@ -752,6 +807,39 @@ const ProjectDashboardPage = () => {
                                     <p>{project.description}</p>
                                 </div>
                             )}
+
+                            {/* 🆕 ── ТЕГИ ПРОЕКТА ── */}
+                            <div className="project-tags-section">
+                                <h3>🏷️ Теги проекта</h3>
+
+                                {canEdit && !project.isArchived ? (
+                                    <ProjectTagPicker
+                                        selectedTagIds={projectTags.map(t => t.id)}
+                                        onChange={handleSaveProjectTags}
+                                        disabled={savingProjectTags}
+                                    />
+                                ) : (
+                                    <div className="project-tags-view">
+                                        {projectTags.length === 0 ? (
+                                            <p className="no-project-tags">Теги не заданы</p>
+                                        ) : (
+                                            projectTags.map(t => (
+                                                <span
+                                                    key={t.id}
+                                                    className="project-tag-chip"
+                                                    style={{
+                                                        backgroundColor: t.color ? `${t.color}22` : '#eef2ff',
+                                                        color: t.color || '#4f46e5',
+                                                        borderColor: t.color || '#c7d2fe'
+                                                    }}
+                                                >
+                                                    {t.name}
+                                                </span>
+                                            ))
+                                        )}
+                                    </div>
+                                )}
+                            </div>
                         </section>
                     )}
 
@@ -804,6 +892,7 @@ const ProjectDashboardPage = () => {
                                 currentUserEmail={user.email}
                                 isOwner={userStatus === 'Owner'}
                                 filters={taskFilters}
+                                isArchived={project.isArchived}
                             />
                         </section>
                     )}
@@ -845,7 +934,11 @@ const ProjectDashboardPage = () => {
                                     Чат пока недоступен.
                                 </div>
                             ) : (
-                                <ChatPage chatId={projectChatId} embedded />
+                                <ChatPage
+                                    chatId={projectChatId}
+                                    embedded
+                                    isArchived={project.isArchived}
+                                />
                             )}
                         </section>
                     )}
@@ -887,6 +980,7 @@ const ProjectDashboardPage = () => {
                                 refreshKey={votingsRefreshKey}
                                 onOpenVoting={setSelectedVotingId}
                                 onCreateVoting={() => setShowCreateVotingModal(true)}
+                                isArchived={project.isArchived}
                             />
                         </section>
                     )}
