@@ -1,6 +1,7 @@
 // projecthub.client/src/components/tasks/TasksBoard.js
 
 import React, { useEffect, useState } from 'react';
+import { Plus, Archive, X, AlertTriangle } from 'lucide-react';
 import {
     getTasksBoard,
     takeTask,
@@ -256,10 +257,12 @@ export default function TasksBoard({
                 <div className="tasks-board-actions">
                     {!isArchived && (
                         <button
-                            className="btn-create-task"
+                            type="button"
+                            className="btn btn--primary"
                             onClick={() => setIsModalOpen(true)}
                         >
-                            + Создать задачу
+                            <Plus size={16} />
+                            Создать задачу
                         </button>
                     )}
                 </div>
@@ -268,7 +271,8 @@ export default function TasksBoard({
             {/* 📌 Плашка «Проект в архиве» */}
             {isArchived && (
                 <div className="tasks-archive-banner">
-                    📦 Проект в архиве. Задачи доступны только для просмотра.
+                    <Archive size={16} />
+                    Проект в архиве. Задачи доступны только для просмотра.
                 </div>
             )}
 
@@ -298,8 +302,16 @@ export default function TasksBoard({
 
             {actionError && (
                 <div className="tasks-action-error">
+                    <AlertTriangle size={14} />
                     {actionError}
-                    <button onClick={() => setActionError(null)}>×</button>
+                    <button
+                        type="button"
+                        className="btn btn--ghost btn--icon btn--sm"
+                        onClick={() => setActionError(null)}
+                        aria-label="Закрыть"
+                    >
+                        <X size={14} />
+                    </button>
                 </div>
             )}
 
@@ -329,11 +341,13 @@ export default function TasksBoard({
                     <div className="tasks-column-add">
                         <button
                             type="button"
-                            className="btn-add-column"
+                            className="btn btn--ghost tasks-column-add-btn"
                             onClick={handleOpenCreateColumn}
                             title="Создать новую колонку"
                         >
-                            <span className="btn-add-column-icon">＋</span>
+                            <span className="btn-add-column-icon">
+                                <Plus size={24} />
+                            </span>
                             <span className="btn-add-column-text">Колонка</span>
                         </button>
                     </div>

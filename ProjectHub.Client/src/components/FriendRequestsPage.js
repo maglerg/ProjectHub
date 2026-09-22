@@ -2,6 +2,19 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    ArrowLeft,
+    UserPlus,
+    Loader2,
+    X,
+    Check,
+    Undo2,
+    Inbox,
+    Mail,
+    MessageCircle,
+    Calendar,
+    ClipboardList,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getIncomingFriendRequests, processFriendRequest } from '../services/friendRequestsApi';
 import '../styles/components/FriendRequestsPage.css';
@@ -91,7 +104,9 @@ const FriendRequestsPage = () => {
     if (loading) {
         return (
             <div className="friend-requests-loading">
-                <div className="spinner">⏳</div>
+                <div className="spinner">
+                    <Loader2 size={32} className="icon-spin" />
+                </div>
                 <p>Загрузка заявок...</p>
             </div>
         );
@@ -100,11 +115,18 @@ const FriendRequestsPage = () => {
     if (error && requests.length === 0) {
         return (
             <div className="friend-requests-error">
-                <div className="error-icon">❌</div>
+                <div className="error-icon">
+                    <X size={32} />
+                </div>
                 <h3>Ошибка</h3>
                 <p>{error}</p>
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Вернуться к проектам
+                <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Вернуться к проектам
                 </button>
             </div>
         );
@@ -116,10 +138,18 @@ const FriendRequestsPage = () => {
     return (
         <div className="friend-requests-page">
             <header className="friend-requests-header">
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Назад
+                <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Назад
                 </button>
-                <h1>👋 Заявки в друзья</h1>
+                <h1>
+                    <UserPlus size={24} />
+                    Заявки в друзья
+                </h1>
                 <span className="requests-count">
                     {pendingRequests.length} новых
                 </span>
@@ -128,16 +158,20 @@ const FriendRequestsPage = () => {
             <div className="friend-requests-content">
                 <div className="friend-requests-filters">
                     <button
-                        className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
+                        type="button"
+                        className={`btn btn--sm friend-requests-filter-btn ${filter === 'pending' ? 'active' : ''}`}
                         onClick={() => setFilter('pending')}
                     >
-                        ⏳ Ожидают ({pendingRequests.length})
+                        <Loader2 size={14} />
+                        Ожидают ({pendingRequests.length})
                     </button>
                     <button
-                        className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+                        type="button"
+                        className={`btn btn--sm friend-requests-filter-btn ${filter === 'all' ? 'active' : ''}`}
                         onClick={() => setFilter('all')}
                     >
-                        📋 Все ({allRequests.length})
+                        <ClipboardList size={14} />
+                        Все ({allRequests.length})
                     </button>
                 </div>
 
@@ -151,7 +185,9 @@ const FriendRequestsPage = () => {
                 <div className="friend-requests-list">
                     {(filter === 'pending' ? pendingRequests : allRequests).length === 0 ? (
                         <div className="no-requests">
-                            <div className="no-icon">📭</div>
+                            <div className="no-icon">
+                                <Inbox size={32} />
+                            </div>
                             <h3>Нет заявок</h3>
                             <p>Все заявки обработаны</p>
                         </div>
@@ -161,32 +197,57 @@ const FriendRequestsPage = () => {
                                 <div className="request-header">
                                     <div className="request-user">
                                         <div className="request-avatar">
-                                            {request.senderName ? request.senderName[0].toUpperCase() : '👤'}
+                                            {request.senderName
+                                                ? request.senderName[0].toUpperCase()
+                                                : <UserPlus size={20} />}
                                         </div>
                                         <div className="request-info">
                                             <div className="request-title">
                                                 {request.senderName} хочет добавить вас в друзья
                                             </div>
                                             <div className="request-sender-email">
-                                                📧 {request.senderEmail}
+                                                <Mail size={12} />
+                                                {request.senderEmail}
                                             </div>
                                             {request.message && (
                                                 <div className="request-message">
-                                                    💬 {request.message}
+                                                    <MessageCircle size={12} />
+                                                    {request.message}
                                                 </div>
                                             )}
                                             <div className="request-time">
-                                                📅 {formatDate(request.createdAt)}
+                                                <Calendar size={12} />
+                                                {formatDate(request.createdAt)}
                                             </div>
                                         </div>
                                     </div>
                                     <div className="request-status">
                                         <span className={`status-badge ${request.status.toLowerCase()}`}>
-                                            {request.status === 'Pending' ? '⏳ Ожидает' :
-                                                request.status === 'Accepted' ? '✅ Принята' :
-                                                    request.status === 'Rejected' ? '❌ Отклонена' :
-                                                        request.status === 'Canceled' ? '↩️ Отменена' :
-                                                            request.status}
+                                            {request.status === 'Pending' && (
+                                                <>
+                                                    <Loader2 size={12} />
+                                                    Ожидает
+                                                </>
+                                            )}
+                                            {request.status === 'Accepted' && (
+                                                <>
+                                                    <Check size={12} />
+                                                    Принята
+                                                </>
+                                            )}
+                                            {request.status === 'Rejected' && (
+                                                <>
+                                                    <X size={12} />
+                                                    Отклонена
+                                                </>
+                                            )}
+                                            {request.status === 'Canceled' && (
+                                                <>
+                                                    <Undo2 size={12} />
+                                                    Отменена
+                                                </>
+                                            )}
+                                            {!['Pending', 'Accepted', 'Rejected', 'Canceled'].includes(request.status) && request.status}
                                         </span>
                                     </div>
                                 </div>
@@ -194,18 +255,40 @@ const FriendRequestsPage = () => {
                                 {request.status === 'Pending' && (
                                     <div className="request-actions">
                                         <button
-                                            className="btn-approve"
+                                            type="button"
+                                            className="btn btn--primary btn--sm"
                                             onClick={() => handleProcess(request.id, true)}
                                             disabled={processing === request.id}
                                         >
-                                            {processing === request.id ? '⏳' : '✅ Принять'}
+                                            {processing === request.id ? (
+                                                <>
+                                                    <Loader2 size={14} className="icon-spin" />
+                                                    Обработка…
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Check size={14} />
+                                                    Принять
+                                                </>
+                                            )}
                                         </button>
                                         <button
-                                            className="btn-reject"
+                                            type="button"
+                                            className="btn btn--danger-outline btn--sm"
                                             onClick={() => handleProcess(request.id, false)}
                                             disabled={processing === request.id}
                                         >
-                                            {processing === request.id ? '⏳' : '❌ Отклонить'}
+                                            {processing === request.id ? (
+                                                <>
+                                                    <Loader2 size={14} className="icon-spin" />
+                                                    Обработка…
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <X size={14} />
+                                                    Отклонить
+                                                </>
+                                            )}
                                         </button>
                                     </div>
                                 )}

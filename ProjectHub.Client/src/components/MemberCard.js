@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Crown, Zap, User, Mail, Calendar, X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
 import UserContextMenu from './UserContextMenu';
@@ -37,12 +38,13 @@ const MemberCard = ({
         }
     };
 
+    // 🆕 Возвращает Lucide-компонент вместо эмодзи
     const getRoleIcon = (role) => {
         switch (role?.toLowerCase()) {
-            case 'owner': return '👑';
-            case 'admin': return '⚡';
-            case 'member': return '👤';
-            default: return '👤';
+            case 'owner': return Crown;
+            case 'admin': return Zap;
+            case 'member': return User;
+            default: return User;
         }
     };
 
@@ -67,12 +69,22 @@ const MemberCard = ({
         setContextMenu({ x: e.clientX, y: e.clientY });
     };
 
+    const RoleIcon = getRoleIcon(member.role);
+
     return (
         <>
             <div
                 className="member-card clickable"
                 onClick={handleCardClick}
                 onContextMenu={handleContextMenu}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleCardClick();
+                    }
+                }}
             >
                 <div className="member-card-content">
                     <div className="member-avatar-wrapper">
@@ -83,7 +95,9 @@ const MemberCard = ({
                             size="md"
                         />
                         {member.role?.toLowerCase() === 'owner' && (
-                            <div className="member-owner-crown">👑</div>
+                            <div className="member-owner-crown">
+                                <Crown size={12} />
+                            </div>
                         )}
                     </div>
 
@@ -94,20 +108,25 @@ const MemberCard = ({
                                 className="member-role-badge"
                                 style={{ backgroundColor: getRoleColor(member.role) }}
                             >
-                                {getRoleIcon(member.role)} {member.role || 'Участник'}
+                                <RoleIcon size={12} />
+                                {member.role || 'Участник'}
                             </span>
                         </div>
 
                         <div className="member-details">
-                            <span className="member-email">📧 {member.email || '—'}</span>
+                            <span className="member-email">
+                                <Mail size={12} />
+                                {member.email || '—'}
+                            </span>
                             <span className="member-specialization">
                                 {member.specialization || '—'}
                             </span>
                         </div>
 
                         <div className="member-joined">
-                            📅 {member.joinedAt ?
-                                `Присоединился: ${new Date(member.joinedAt).toLocaleDateString('ru-RU', {
+                            <Calendar size={12} />
+                            {member.joinedAt
+                                ? `Присоединился: ${new Date(member.joinedAt).toLocaleDateString('ru-RU', {
                                     day: '2-digit',
                                     month: '2-digit',
                                     year: 'numeric'
@@ -118,11 +137,13 @@ const MemberCard = ({
 
                     {onRemove && (
                         <button
-                            className="member-remove-btn"
+                            type="button"
+                            className="btn btn--ghost btn--icon btn--sm"
                             onClick={handleRemove}
                             title="Удалить"
+                            aria-label="Удалить участника"
                         >
-                            ✕
+                            <X size={14} />
                         </button>
                     )}
                 </div>

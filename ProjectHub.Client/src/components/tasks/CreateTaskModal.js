@@ -1,6 +1,10 @@
+// projecthub.client/src/components/tasks/CreateTaskModal.js
+
 import React, { useState } from 'react';
+import { X, Plus, Loader2, AlertCircle } from 'lucide-react';
 import { TASK_PRIORITIES } from '../../utils/constants';
 import { toLocalInputValue, validateDateRange } from '../../utils/datetime';
+import '../../styles/components/tasks/tasks.css';
 
 export default function CreateTaskModal({
     columns,
@@ -8,7 +12,7 @@ export default function CreateTaskModal({
     allTags = [],
     onCreate,
     onClose,
-    onCreateTag          // опциональный колбэк: создать тег в проекте
+    onCreateTag
 }) {
     const [title, setTitle] = useState('');
     const [description, setDescription] = useState('');
@@ -51,7 +55,7 @@ export default function CreateTaskModal({
         );
     };
 
-    // ── Создание нового тега (если передан onCreateTag) ──
+    // ── Создание нового тега ──
     const handleCreateTag = async (e) => {
         e.preventDefault();
         const name = newTagName.trim();
@@ -61,7 +65,6 @@ export default function CreateTaskModal({
         setTagError(null);
         try {
             const newTag = await onCreateTag({ name, color: newTagColor || null });
-            // сразу выбираем его
             setSelectedTagIds(prev =>
                 prev.length >= 10 ? prev : [...prev, newTag.id]
             );
@@ -113,50 +116,95 @@ export default function CreateTaskModal({
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal-content" onClick={e => e.stopPropagation()}>
-                <h3>Создать задачу</h3>
+            <div
+                className="modal-content modal-content--task"
+                onClick={e => e.stopPropagation()}
+            >
+                <div className="modal-header-row">
+                    <h3 className="modal-title">Создать задачу</h3>
+                    <button
+                        type="button"
+                        className="btn btn--ghost btn--icon btn--sm"
+                        onClick={onClose}
+                        title="Закрыть"
+                        aria-label="Закрыть"
+                    >
+                        <X size={16} />
+                    </button>
+                </div>
 
-                <form onSubmit={handleSubmit}>
-                    <label>
-                        Название *
+                <form onSubmit={handleSubmit} className="task-form">
+                    {/* ── Название ── */}
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="task-title">
+                            Название <span className="form-required">*</span>
+                        </label>
                         <input
+                            id="task-title"
                             type="text"
+                            className="input"
                             value={title}
                             onChange={e => setTitle(e.target.value)}
                             maxLength={255}
                             autoFocus
                             required
+                            disabled={submitting}
                         />
-                    </label>
+                    </div>
 
-                    <label>
-                        Описание
+                    {/* ── Описание ── */}
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="task-description">
+                            Описание
+                        </label>
                         <textarea
+                            id="task-description"
+                            className="input"
                             value={description}
                             onChange={e => setDescription(e.target.value)}
                             rows={4}
+                            disabled={submitting}
                         />
-                    </label>
+                    </div>
 
-                    <label>
-                        Блок
-                        <select value={columnId} onChange={e => setColumnId(e.target.value)}>
-                            {columns.map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
-                    </label>
+                    {/* ── Блок + Приоритет ── */}
+                    <div className="form-row">
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="task-column">
+                                Блок
+                            </label>
+                            <select
+                                id="task-column"
+                                className="input"
+                                value={columnId}
+                                onChange={e => setColumnId(e.target.value)}
+                                disabled={submitting}
+                            >
+                                {columns.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                        </div>
 
-                    <label>
-                        Приоритет
-                        <select value={priority} onChange={e => setPriority(e.target.value)}>
-                            {TASK_PRIORITIES.map(p => (
-                                <option key={p.value} value={p.value}>
-                                    {p.icon} {p.label}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                        <div className="form-group">
+                            <label className="form-label" htmlFor="task-priority">
+                                Приоритет
+                            </label>
+                            <select
+                                id="task-priority"
+                                className="input"
+                                value={priority}
+                                onChange={e => setPriority(e.target.value)}
+                                disabled={submitting}
+                            >
+                                {TASK_PRIORITIES.map(p => (
+                                    <option key={p.value} value={p.value}>
+                                        {p.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </div>
+                    </div>
 
                     {/* ── Дата начала ── */}
                     <div className="form-group">
@@ -168,21 +216,27 @@ export default function CreateTaskModal({
                                     setNoStartDate(e.target.checked);
                                     if (e.target.checked) setStartDate('');
                                 }}
+                                disabled={submitting}
                             />
-                            Без даты начала
+                            <span>Без даты начала</span>
                         </label>
 
                         {!noStartDate && (
-                            <label>
-                                Дата начала
+                            <div className="form-group form-group--nested">
+                                <label className="form-label" htmlFor="task-start">
+                                    Дата начала
+                                </label>
                                 <input
+                                    id="task-start"
                                     type="datetime-local"
+                                    className="input"
                                     value={startDate}
                                     max={maxDate || undefined}
                                     onChange={e => setStartDate(e.target.value)}
                                     required
+                                    disabled={submitting}
                                 />
-                            </label>
+                            </div>
                         )}
                     </div>
 
@@ -196,28 +250,34 @@ export default function CreateTaskModal({
                                     setNoDueDate(e.target.checked);
                                     if (e.target.checked) setDueDate('');
                                 }}
+                                disabled={submitting}
                             />
-                            Без дедлайна (до конца проекта)
+                            <span>Без дедлайна (до конца проекта)</span>
                         </label>
 
                         {!noDueDate && (
-                            <label>
-                                Дедлайн задачи
+                            <div className="form-group form-group--nested">
+                                <label className="form-label" htmlFor="task-due">
+                                    Дедлайн задачи
+                                </label>
                                 <input
+                                    id="task-due"
                                     type="datetime-local"
+                                    className="input"
                                     value={dueDate}
                                     max={maxDate || undefined}
                                     min={!noStartDate && startDate ? startDate : undefined}
                                     onChange={e => setDueDate(e.target.value)}
                                     required
+                                    disabled={submitting}
                                 />
                                 {projectDeadline && (
                                     <small className="form-hint">
-                                        Не позднее дедлайна проекта: {' '}
+                                        Не позднее дедлайна проекта:{' '}
                                         {new Date(projectDeadline).toLocaleString('ru-RU')}
                                     </small>
                                 )}
-                            </label>
+                            </div>
                         )}
                     </div>
 
@@ -229,10 +289,11 @@ export default function CreateTaskModal({
                             </span>
                             <button
                                 type="button"
-                                className="btn-toggle-tag-picker"
+                                className="btn btn--ghost btn--sm"
                                 onClick={() => setShowTagPicker(v => !v)}
+                                disabled={submitting}
                             >
-                                {showTagPicker ? 'Скрыть' : '🏷 Добавить теги'}
+                                {showTagPicker ? 'Скрыть' : 'Добавить теги'}
                             </button>
                         </div>
 
@@ -255,11 +316,12 @@ export default function CreateTaskModal({
                                             {tag.name}
                                             <button
                                                 type="button"
-                                                className="task-tag-remove"
+                                                className="btn btn--ghost btn--icon btn--sm task-tag-remove"
                                                 onClick={() => toggleTag(id)}
                                                 title="Убрать тег"
+                                                aria-label="Убрать тег"
                                             >
-                                                ×
+                                                <X size={12} />
                                             </button>
                                         </span>
                                     );
@@ -284,8 +346,7 @@ export default function CreateTaskModal({
                                             return (
                                                 <label
                                                     key={t.id}
-                                                    className={`tag-picker-item ${checked ? 'checked' : ''
-                                                        } ${disabled ? 'disabled' : ''}`}
+                                                    className={`tag-picker-item ${checked ? 'checked' : ''} ${disabled ? 'disabled' : ''}`}
                                                 >
                                                     <input
                                                         type="checkbox"
@@ -323,6 +384,7 @@ export default function CreateTaskModal({
                                         />
                                         <input
                                             type="text"
+                                            className="input"
                                             placeholder="Новый тег…"
                                             value={newTagName}
                                             onChange={e => setNewTagName(e.target.value)}
@@ -331,30 +393,50 @@ export default function CreateTaskModal({
                                         />
                                         <button
                                             type="submit"
+                                            className="btn btn--primary btn--sm"
                                             disabled={tagSubmitting || !newTagName.trim()}
                                         >
-                                            {tagSubmitting ? '…' : '+ Создать'}
+                                            {tagSubmitting ? (
+                                                <Loader2 size={14} className="icon-spin" />
+                                            ) : (
+                                                <>
+                                                    <Plus size={14} />
+                                                    Создать
+                                                </>
+                                            )}
                                         </button>
                                     </form>
                                 )}
 
                                 {tagError && (
-                                    <div className="modal-error">{tagError}</div>
+                                    <div className="form-error">
+                                        <AlertCircle size={14} />
+                                        {tagError}
+                                    </div>
                                 )}
                             </div>
                         )}
                     </div>
 
                     {localError && (
-                        <div className="modal-error">{localError}</div>
+                        <div className="form-error">
+                            <AlertCircle size={14} />
+                            {localError}
+                        </div>
                     )}
 
                     <div className="modal-actions">
-                        <button type="button" onClick={onClose} disabled={submitting}>
+                        <button
+                            type="button"
+                            className="btn btn--secondary"
+                            onClick={onClose}
+                            disabled={submitting}
+                        >
                             Отмена
                         </button>
                         <button
                             type="submit"
+                            className="btn btn--primary"
                             disabled={
                                 submitting ||
                                 !title.trim() ||
@@ -362,7 +444,17 @@ export default function CreateTaskModal({
                                 (!noDueDate && !dueDate)
                             }
                         >
-                            {submitting ? 'Создание…' : 'Создать'}
+                            {submitting ? (
+                                <>
+                                    <Loader2 size={16} className="icon-spin" />
+                                    Создание…
+                                </>
+                            ) : (
+                                <>
+                                    <Plus size={16} />
+                                    Создать
+                                </>
+                            )}
                         </button>
                     </div>
                 </form>

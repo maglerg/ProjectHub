@@ -1,6 +1,7 @@
 // projecthub.client/src/components/tasks/ColumnEditorModal.js
 
 import React, { useState, useEffect } from 'react';
+import { X, Lightbulb } from 'lucide-react';
 import { createColumn, updateColumn } from '../../services/tasksApi';
 import '../../styles/components/tasks/tasks.css';
 
@@ -25,7 +26,7 @@ export default function ColumnEditorModal({
         setError(null);
     }, [name, progressWeight]);
 
-    // 🆕 Защита: если пришла системная колонка — закрываем
+    // Защита: если пришла системная колонка — закрываем
     useEffect(() => {
         if (column && (column.isDefault || column.systemKey)) {
             console.warn(
@@ -90,24 +91,36 @@ export default function ColumnEditorModal({
                 onClick={(e) => e.stopPropagation()}
             >
                 <div className="modal-header-row">
-                    <h3>{isEdit ? 'Редактировать колонку' : 'Новая колонка'}</h3>
+                    <h3 className="modal-title">
+                        {isEdit ? 'Редактировать колонку' : 'Новая колонка'}
+                    </h3>
                     <button
                         type="button"
-                        className="modal-close-x"
+                        className="btn btn--ghost btn--icon btn--sm"
                         onClick={onClose}
                         title="Закрыть"
+                        aria-label="Закрыть"
                     >
-                        ✕
+                        <X size={16} />
                     </button>
                 </div>
 
                 <form onSubmit={handleSubmit} className="column-form">
-                    {error && <div className="form-error">❌ {error}</div>}
+                    {error && (
+                        <div className="form-error">
+                            <X size={14} />
+                            {error}
+                        </div>
+                    )}
 
                     <div className="form-group">
-                        <label>Название *</label>
+                        <label className="form-label" htmlFor="column-name">
+                            Название <span className="form-required">*</span>
+                        </label>
                         <input
+                            id="column-name"
                             type="text"
+                            className="input"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="Например: Code Review"
@@ -118,7 +131,7 @@ export default function ColumnEditorModal({
                     </div>
 
                     <div className="form-group">
-                        <label>
+                        <label className="form-label">
                             Вес в прогрессе проекта
                             <span className="column-form__weight-value">
                                 {Math.round(progressWeight * 100)}%
@@ -126,6 +139,7 @@ export default function ColumnEditorModal({
                         </label>
                         <input
                             type="range"
+                            className="column-form__range"
                             min="0"
                             max="1"
                             step="0.05"
@@ -139,7 +153,8 @@ export default function ColumnEditorModal({
                             <span>100% — готово</span>
                         </div>
                         <div className="column-form__weight-tip">
-                            💡 Вес влияет на общий прогресс проекта.
+                            <Lightbulb size={14} />
+                            Вес влияет на общий прогресс проекта.
                             Задачи в этой колонке «вносят» этот процент
                             в итоговую цифру прогресса.
                         </div>
@@ -148,6 +163,7 @@ export default function ColumnEditorModal({
                     <div className="modal-actions">
                         <button
                             type="button"
+                            className="btn btn--secondary"
                             onClick={onClose}
                             disabled={saving}
                         >
@@ -155,9 +171,10 @@ export default function ColumnEditorModal({
                         </button>
                         <button
                             type="submit"
+                            className="btn btn--primary"
                             disabled={saving || !name.trim()}
                         >
-                            {saving ? '⏳ Сохранение…' : '💾 Сохранить'}
+                            {saving ? 'Сохранение…' : 'Сохранить'}
                         </button>
                     </div>
                 </form>

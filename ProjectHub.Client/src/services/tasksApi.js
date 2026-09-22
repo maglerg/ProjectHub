@@ -157,11 +157,12 @@ export const getTaskComments = (projectCode, taskId) =>
         headers: authHeaders()
     }).then(handleResponse);
 
-export const addTaskComment = (projectCode, taskId, text) =>
+// Добавить комментарий (или ответ на комментарий)
+export const addTaskComment = (projectCode, taskId, text, parentCommentId = null) =>
     fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/${taskId}/comments`, {
         method: 'POST',
         headers: authHeaders(),
-        body: JSON.stringify({ text })
+        body: JSON.stringify({ text, parentCommentId })
     }).then(handleResponse);
 
 // ═══════════════════════════════════════════════════════════

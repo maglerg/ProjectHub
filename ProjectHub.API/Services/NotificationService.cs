@@ -48,7 +48,65 @@ public class NotificationService
 
         return MapToDto(notification);
     }
+    public async Task<NotificationDto> UpsertChatNotificationAsync(
+    Guid userId,
+    Guid chatId,
+    string senderName,
+    int unreadCount,
+    string link)
+    {
+        // Ищем существующее непрочитанное уведомление по этому чату
+        var existing = await _dbContext.Notifications
+            .FirstOrDefaultAsync(n => n.UserId == userId
+                                       && n.RelatedId == chatId
+                                       && n.Type == NotificationType.NewMessage);
 
+        var title = "💬 Новые сообщения";
+        var message = unreadCount == 1
+            ? $"{senderName}: новое сообщение"
+            : $"У вас {unreadCount} непрочитанных сообщений";
+
+        if (existing != null)
+        {
+            // 🆕 Обновляем существующее — не создаём новое
+            existing.Title = title;
+            existing.Message = message;
+            existing.IsRead = false;   // если было прочитано, снова становится непрочитанным
+            existing.CreatedAt = DateTime.UtcNow;
+            existing.Link = link;
+
+            await _dbContext.SaveChangesAsync();
+
+            _logger.LogInformation(
+                $"Обновлено уведомление о чате {chatId} у пользователя {userId}: " +
+                $"{unreadCount} непрочитанных");
+
+            return MapToDto(existing);
+        }
+
+        // 🆕 Создаём новое
+        var notification = new Notification
+        {
+            Id = Guid.NewGuid(),
+            UserId = userId,
+            Title = title,
+            Message = message,
+            Type = NotificationType.NewMessage,
+            IsRead = false,
+            Link = link,
+            RelatedId = chatId,
+            CreatedAt = DateTime.UtcNow
+        };
+
+        await _dbContext.Notifications.AddAsync(notification);
+        await _dbContext.SaveChangesAsync();
+
+        _logger.LogInformation(
+            $"Создано уведомление о чате {chatId} у пользователя {userId}: " +
+            $"{unreadCount} непрочитанных");
+
+        return MapToDto(notification);
+    }
     // 📌 Получить все уведомления пользователя
     public async Task<List<NotificationDto>> GetUserNotificationsAsync(Guid userId)
     {

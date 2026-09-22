@@ -1,6 +1,7 @@
 // projecthub.client/src/components/CreateVotingModal.js
 
 import React, { useState } from 'react';
+import { Vote, X, Plus, Loader2, AlertCircle } from 'lucide-react';
 import { createVoting } from '../services/votingsApi';
 import '../styles/components/CreateVotingPage.css';
 
@@ -86,10 +87,18 @@ export default function CreateVotingModal({
                 className="modal-content modal-content--voting"
                 onClick={e => e.stopPropagation()}
             >
-                <h3>🗳️ Новое голосование</h3>
+                <h3>
+                    <Vote size={20} />
+                    Новое голосование
+                </h3>
 
                 <form onSubmit={handleSubmit} className="create-voting-form">
-                    {error && <div className="form-error">❌ {error}</div>}
+                    {error && (
+                        <div className="form-error">
+                            <AlertCircle size={14} />
+                            {error}
+                        </div>
+                    )}
 
                     <div className="form-group">
                         <label>Вопрос голосования *</label>
@@ -124,12 +133,13 @@ export default function CreateVotingModal({
                                     />
                                     <button
                                         type="button"
-                                        className="btn-remove-option"
+                                        className="btn btn--ghost btn--icon btn--sm"
                                         onClick={() => handleRemoveOption(index)}
                                         disabled={options.length <= MIN_OPTIONS}
                                         title="Удалить вариант"
+                                        aria-label="Удалить вариант"
                                     >
-                                        ✕
+                                        <X size={14} />
                                     </button>
                                 </div>
                             ))}
@@ -137,11 +147,12 @@ export default function CreateVotingModal({
 
                         <button
                             type="button"
-                            className="btn-add-option"
+                            className="btn btn--secondary btn--sm"
                             onClick={handleAddOption}
                             disabled={options.length >= MAX_OPTIONS}
                         >
-                            ➕ Добавить вариант
+                            <Plus size={14} />
+                            Добавить вариант
                         </button>
                     </div>
 
@@ -195,13 +206,28 @@ export default function CreateVotingModal({
                     <div className="modal-actions">
                         <button
                             type="button"
+                            className="btn btn--secondary"
                             onClick={onClose}
                             disabled={creating}
                         >
                             Отмена
                         </button>
-                        <button type="submit" disabled={creating}>
-                            {creating ? '⏳ Создание…' : '🗳️ Создать голосование'}
+                        <button
+                            type="submit"
+                            className="btn btn--primary"
+                            disabled={creating}
+                        >
+                            {creating ? (
+                                <>
+                                    <Loader2 size={16} className="icon-spin" />
+                                    Создание…
+                                </>
+                            ) : (
+                                <>
+                                    <Vote size={16} />
+                                    Создать голосование
+                                </>
+                            )}
                         </button>
                     </div>
                 </form>

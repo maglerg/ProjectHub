@@ -422,19 +422,22 @@ public class ChatService
 
         foreach (var participant in chat.Participants.Where(p => p.UserId != senderId))
         {
-            if (participant.LastReadAt.HasValue
-                && participant.LastReadAt.Value >= activeThreshold)
-            {
-                continue;
-            }
+            var unreadCount = await _dbContext.ChatMessages
+                .Where(m => m.ChatId == chatId
+                            && m.SenderId != participant.UserId
+                            && !m.IsDeleted)
+                .Where(m => participant.LastReadAt == null
+                            || m.CreatedAt > participant.LastReadAt)
+                .CountAsync();
 
-            await _notificationService.CreateNotificationAsync(
+            if (unreadCount == 0) continue;   // 🆕 не создаём уведомление, если нет непрочитанных
+
+            await _notificationService.UpsertChatNotificationAsync(
                 participant.UserId,
-                "💬 Новое сообщение",
-                $"{sender?.Name}: {preview}",
-                NotificationType.NewMessage,
-                $"/chats/{chatId}",
-                chatId
+                chatId,
+                sender?.Name ?? "Пользователь",
+                unreadCount,
+                $"/chats/{chatId}"
             );
         }
 

@@ -1,8 +1,8 @@
 // src/components/ProjectTagsFilter.js
 
 import React, { useState, useEffect, useRef } from 'react';
+import { Tag, Search, X } from 'lucide-react';
 import { getAllProjectTags } from '../services/projectTagsApi';
-import '../styles/components/ProjectTagsFilter.css';
 import '../styles/components/ProjectTagsFilter.css';
 
 const MAX_TAGS = 5;
@@ -59,7 +59,8 @@ export default function ProjectTagsFilter({
     return (
         <div className="project-tags-filter" ref={wrapperRef}>
             <div className="project-tags-filter__label">
-                🏷️ Фильтр по тегам
+                <Tag size={14} />
+                Фильтр по тегам
                 {selectedTagIds.length > 0 && (
                     <span className="project-tags-filter__count">
                         {selectedTagIds.length}/{MAX_TAGS}
@@ -82,11 +83,12 @@ export default function ProjectTagsFilter({
                             {t.name}
                             <button
                                 type="button"
-                                className="project-tag-chip__remove"
+                                className="btn btn--ghost btn--icon btn--sm project-tag-chip__remove"
                                 onClick={() => toggleTag(t.id)}
                                 title="Убрать тег"
+                                aria-label="Убрать тег"
                             >
-                                ×
+                                <X size={12} />
                             </button>
                         </span>
                     ))}
@@ -97,7 +99,9 @@ export default function ProjectTagsFilter({
                 className={`project-tag-picker__input-wrap ${isOpen ? 'open' : ''}`}
                 onClick={() => !disabled && setIsOpen(v => !v)}
             >
-                <span className="project-tag-picker__icon">🔍</span>
+                <span className="project-tag-picker__icon">
+                    <Search size={14} />
+                </span>
                 <input
                     type="text"
                     className="project-tag-picker__input"
@@ -154,16 +158,17 @@ export default function ProjectTagsFilter({
             <div className="project-tags-filter__actions">
                 <button
                     type="button"
-                    className="project-tags-filter__search-btn"
+                    className="btn btn--primary btn--sm"
                     onClick={onSearch}
                     disabled={disabled || selectedTagIds.length === 0}
                 >
-                    🔍 Найти проекты
+                    <Search size={14} />
+                    Найти проекты
                 </button>
                 {selectedTagIds.length > 0 && (
                     <button
                         type="button"
-                        className="project-tags-filter__reset-btn"
+                        className="btn btn--secondary btn--sm"
                         onClick={() => onChange([])}
                         disabled={disabled}
                     >

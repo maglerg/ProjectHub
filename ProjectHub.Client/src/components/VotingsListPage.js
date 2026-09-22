@@ -2,6 +2,19 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import {
+    ArrowLeft,
+    Vote,
+    Plus,
+    X,
+    Loader2,
+    Trash2,
+    User,
+    Calendar,
+    Clock,
+    Users,
+    ListChecks,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getProjectVotings, deleteVoting } from '../services/votingsApi';
 import { searchMyProjectByCode } from '../services/projectsApi';
@@ -146,7 +159,9 @@ const VotingsListPage = ({
     if (loading) {
         return (
             <div className="votings-page-loading">
-                <div className="spinner">⏳</div>
+                <div className="spinner">
+                    <Loader2 size={32} className="icon-spin" />
+                </div>
                 <p>Загрузка голосований...</p>
             </div>
         );
@@ -155,12 +170,19 @@ const VotingsListPage = ({
     if (error && votings.length === 0) {
         return (
             <div className="votings-page-error">
-                <div className="error-icon">❌</div>
+                <div className="error-icon">
+                    <X size={32} />
+                </div>
                 <h3>Ошибка</h3>
                 <p>{error}</p>
                 {!embedded && (
-                    <button className="btn-back" onClick={() => navigate(`/projects/${code}/dashboard`)}>
-                        ← К проекту
+                    <button
+                        type="button"
+                        className="btn btn--secondary"
+                        onClick={() => navigate(`/projects/${code}/dashboard`)}
+                    >
+                        <ArrowLeft size={16} />
+                        К проекту
                     </button>
                 )}
             </div>
@@ -173,21 +195,28 @@ const VotingsListPage = ({
             {!embedded && (
                 <header className="votings-page-header">
                     <button
-                        className="btn-back"
+                        type="button"
+                        className="btn btn--ghost btn--sm"
                         onClick={() => navigate(`/projects/${code}/dashboard`)}
                     >
-                        ← К проекту
+                        <ArrowLeft size={16} />
+                        К проекту
                     </button>
                     <div className="votings-page-title">
-                        <h1>🗳️ Голосования</h1>
+                        <h1>
+                            <Vote size={24} />
+                            Голосования
+                        </h1>
                         {project && <p className="votings-page-subtitle">{project.name}</p>}
                     </div>
                     {!isArchived && (
                         <button
-                            className="btn-primary btn-create-voting-page"
+                            type="button"
+                            className="btn btn--primary"
                             onClick={handleCreateVoting}
                         >
-                            ➕ Создать голосование
+                            <Plus size={16} />
+                            Создать голосование
                         </button>
                     )}
                 </header>
@@ -196,13 +225,16 @@ const VotingsListPage = ({
             <div className="votings-page-content">
                 {error && votings.length > 0 && (
                     <div className="form-error" style={{ marginBottom: 16 }}>
-                        ❌ {error}
+                        <X size={14} />
+                        {error}
                     </div>
                 )}
 
                 {votings.length === 0 ? (
                     <div className="votings-page-empty">
-                        <div className="empty-icon">🗳️</div>
+                        <div className="empty-icon">
+                            <Vote size={48} />
+                        </div>
                         <h3>Пока нет голосований</h3>
                         <p>
                             {isArchived
@@ -211,10 +243,12 @@ const VotingsListPage = ({
                         </p>
                         {!isArchived && (
                             <button
-                                className="btn-primary"
+                                type="button"
+                                className="btn btn--primary"
                                 onClick={handleCreateVoting}
                             >
-                                ➕ Создать голосование
+                                <Plus size={16} />
+                                Создать голосование
                             </button>
                         )}
                     </div>
@@ -230,6 +264,15 @@ const VotingsListPage = ({
                                     key={v.id}
                                     className="voting-card-page"
                                     onClick={() => !isDeleting && handleOpenVoting(v.id)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (isDeleting) return;
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            handleOpenVoting(v.id);
+                                        }
+                                    }}
                                 >
                                     <div className="voting-card-header">
                                         <div className="voting-title">{v.title}</div>
@@ -240,24 +283,46 @@ const VotingsListPage = ({
                                             {canDelete && (
                                                 <button
                                                     type="button"
-                                                    className="btn-delete-voting"
+                                                    className="btn btn--ghost btn--icon btn--sm"
                                                     onClick={(e) => handleDelete(e, v)}
                                                     disabled={isDeleting}
                                                     title="Удалить голосование"
+                                                    aria-label="Удалить голосование"
                                                 >
-                                                    {isDeleting ? '⏳' : '🗑️'}
+                                                    {isDeleting ? (
+                                                        <Loader2 size={14} className="icon-spin" />
+                                                    ) : (
+                                                        <Trash2 size={14} />
+                                                    )}
                                                 </button>
                                             )}
                                         </div>
                                     </div>
                                     <div className="voting-card-meta">
-                                        <span>👤 {v.createdByName}</span>
-                                        <span>📅 {formatDate(v.createdAt)}</span>
-                                        {v.endsAt && <span>⏰ до {formatDate(v.endsAt)}</span>}
+                                        <span>
+                                            <User size={12} />
+                                            {v.createdByName}
+                                        </span>
+                                        <span>
+                                            <Calendar size={12} />
+                                            {formatDate(v.createdAt)}
+                                        </span>
+                                        {v.endsAt && (
+                                            <span>
+                                                <Clock size={12} />
+                                                до {formatDate(v.endsAt)}
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="voting-card-footer">
-                                        <span>🗳️ {v.options.length} вариантов</span>
-                                        <span>👥 {v.totalVoters} проголосовало</span>
+                                        <span>
+                                            <ListChecks size={12} />
+                                            {v.options.length} вариантов
+                                        </span>
+                                        <span>
+                                            <Users size={12} />
+                                            {v.totalVoters} проголосовало
+                                        </span>
                                     </div>
                                 </div>
                             );

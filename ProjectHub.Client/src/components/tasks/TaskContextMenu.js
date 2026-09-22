@@ -1,4 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
+import {
+    Link as LinkIcon,
+    Pencil,
+    Handshake,
+    Undo2,
+    FolderInput,
+    Flag,
+    Copy,
+    Trash2,
+    ChevronRight,
+    Check,
+} from 'lucide-react';
 import { TASK_PRIORITIES } from '../../utils/constants';
 
 export default function TaskContextMenu({
@@ -108,10 +120,10 @@ export default function TaskContextMenu({
             {/* Открыть — всегда доступно */}
             <button
                 type="button"
-                className="context-menu-item"
+                className="btn btn--ghost btn--sm context-menu-item"
                 onClick={() => { onOpen(); onClose(); }}
             >
-                <span className="context-menu-icon">🔗</span>
+                <span className="context-menu-icon"><LinkIcon size={14} /></span>
                 Открыть задачу
             </button>
 
@@ -119,10 +131,10 @@ export default function TaskContextMenu({
             {canEdit && (
                 <button
                     type="button"
-                    className="context-menu-item"
+                    className="btn btn--ghost btn--sm context-menu-item"
                     onClick={() => { onEdit(); onClose(); }}
                 >
-                    <span className="context-menu-icon">✏️</span>
+                    <span className="context-menu-icon"><Pencil size={14} /></span>
                     Редактировать
                 </button>
             )}
@@ -136,10 +148,10 @@ export default function TaskContextMenu({
                     {canTake && !isMine && (
                         <button
                             type="button"
-                            className="context-menu-item"
+                            className="btn btn--ghost btn--sm context-menu-item"
                             onClick={() => { onTake(); onClose(); }}
                         >
-                            <span className="context-menu-icon">🤝</span>
+                            <span className="context-menu-icon"><Handshake size={14} /></span>
                             {isTaken ? 'Присоединиться' : 'Взять задачу'}
                         </button>
                     )}
@@ -147,10 +159,10 @@ export default function TaskContextMenu({
                     {canLeave && isMine && (
                         <button
                             type="button"
-                            className="context-menu-item danger"
+                            className="btn btn--ghost btn--sm context-menu-item context-menu-item--danger"
                             onClick={() => { onLeave(); onClose(); }}
                         >
-                            <span className="context-menu-icon">↩️</span>
+                            <span className="context-menu-icon"><Undo2 size={14} /></span>
                             Снять с себя
                         </button>
                     )}
@@ -164,11 +176,11 @@ export default function TaskContextMenu({
                         >
                             <button
                                 type="button"
-                                className="context-menu-item has-submenu"
+                                className="btn btn--ghost btn--sm context-menu-item has-submenu"
                             >
-                                <span className="context-menu-icon">📁</span>
+                                <span className="context-menu-icon"><FolderInput size={14} /></span>
                                 Переместить в…
-                                <span className="context-menu-arrow">›</span>
+                                <span className="context-menu-arrow"><ChevronRight size={14} /></span>
                             </button>
 
                             {openSubmenu === 'move' && (
@@ -183,7 +195,7 @@ export default function TaskContextMenu({
                                             <button
                                                 key={c.id}
                                                 type="button"
-                                                className="context-menu-item"
+                                                className="btn btn--ghost btn--sm context-menu-item"
                                                 onClick={() => { onMove(c.id); onClose(); }}
                                             >
                                                 {c.name}
@@ -204,11 +216,11 @@ export default function TaskContextMenu({
                         >
                             <button
                                 type="button"
-                                className="context-menu-item has-submenu"
+                                className="btn btn--ghost btn--sm context-menu-item has-submenu"
                             >
-                                <span className="context-menu-icon">🚩</span>
+                                <span className="context-menu-icon"><Flag size={14} /></span>
                                 Приоритет
-                                <span className="context-menu-arrow">›</span>
+                                <span className="context-menu-arrow"><ChevronRight size={14} /></span>
                             </button>
 
                             {openSubmenu === 'priority' && (
@@ -217,20 +229,31 @@ export default function TaskContextMenu({
                                     onMouseEnter={() => handleSubmenuOpen('priority')}
                                     onMouseLeave={handleSubmenuClose}
                                 >
-                                    {TASK_PRIORITIES.map(p => (
-                                        <button
-                                            key={p.value}
-                                            type="button"
-                                            className={`context-menu-item ${task.priority === p.value ? 'active' : ''}`}
-                                            onClick={() => { onPriority(p.value); onClose(); }}
-                                        >
-                                            <span className="context-menu-icon">{p.icon}</span>
-                                            {p.label}
-                                            {task.priority === p.value && (
-                                                <span className="context-menu-check">✓</span>
-                                            )}
-                                        </button>
-                                    ))}
+                                    {TASK_PRIORITIES.map(p => {
+                                        const PriorityIcon = p.lucideIcon;
+                                        return (
+                                            <button
+                                                key={p.value}
+                                                type="button"
+                                                className={`btn btn--ghost btn--sm context-menu-item ${task.priority === p.value ? 'active' : ''}`}
+                                                onClick={() => { onPriority(p.value); onClose(); }}
+                                            >
+                                                <span className="context-menu-icon">
+                                                    {PriorityIcon ? (
+                                                        <PriorityIcon size={14} />
+                                                    ) : (
+                                                        <span style={{ display: 'inline-block', width: 14 }} />
+                                                    )}
+                                                </span>
+                                                {p.label}
+                                                {task.priority === p.value && (
+                                                    <span className="context-menu-check">
+                                                        <Check size={14} />
+                                                    </span>
+                                                )}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             )}
                         </div>
@@ -243,10 +266,10 @@ export default function TaskContextMenu({
             {/* Копировать ссылку — всегда доступно */}
             <button
                 type="button"
-                className="context-menu-item"
+                className="btn btn--ghost btn--sm context-menu-item"
                 onClick={handleCopyLink}
             >
-                <span className="context-menu-icon">📋</span>
+                <span className="context-menu-icon"><Copy size={14} /></span>
                 Копировать ссылку
             </button>
 
@@ -256,10 +279,10 @@ export default function TaskContextMenu({
                     <div className="context-menu-divider" />
                     <button
                         type="button"
-                        className="context-menu-item danger"
+                        className="btn btn--ghost btn--sm context-menu-item context-menu-item--danger"
                         onClick={() => { onDelete(); onClose(); }}
                     >
-                        <span className="context-menu-icon">🗑️</span>
+                        <span className="context-menu-icon"><Trash2 size={14} /></span>
                         Удалить задачу
                     </button>
                 </>

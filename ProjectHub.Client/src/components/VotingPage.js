@@ -1,6 +1,21 @@
 // projecthub.client/src/components/VotingPage.js
 
 import React, { useState, useEffect, useCallback } from 'react';
+import {
+    Vote,
+    X,
+    Loader2,
+    User,
+    Lock,
+    Clock,
+    CheckSquare,
+    RotateCcw,
+    Users,
+    Eye,
+    EyeOff,
+    Vote as VoteIcon,
+    Trash2,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getVotingById, vote, closeVoting, deleteVoting } from '../services/votingsApi';
 import '../styles/components/VotingPage.css';
@@ -137,7 +152,7 @@ export default function VotingPage({
 
     // 📌 Инициал имени для аватарки
     const getInitial = (name) => {
-        if (!name) return '👤';
+        if (!name) return null;
         return name.trim().charAt(0).toUpperCase();
     };
 
@@ -148,40 +163,77 @@ export default function VotingPage({
                 onClick={e => e.stopPropagation()}
             >
                 <div className="modal-header-row">
-                    <h3>🗳️ Голосование</h3>
+                    <h3>
+                        <Vote size={20} />
+                        Голосование
+                    </h3>
                     <button
                         type="button"
-                        className="modal-close-x"
+                        className="btn btn--ghost btn--icon btn--sm"
                         onClick={onClose}
                         title="Закрыть"
+                        aria-label="Закрыть"
                     >
-                        ✕
+                        <X size={16} />
                     </button>
                 </div>
 
                 {loading ? (
                     <div className="votings-page-loading">
-                        <div className="spinner">⏳</div>
+                        <div className="spinner">
+                            <Loader2 size={32} className="icon-spin" />
+                        </div>
                         <p>Загрузка голосования...</p>
                     </div>
                 ) : error && !voting ? (
-                    <div className="form-error">❌ {error}</div>
+                    <div className="form-error">
+                        <X size={14} />
+                        {error}
+                    </div>
                 ) : !voting ? null : (
                     <div className="voting-page-card voting-page-card--modal">
                         <h2 className="voting-question">{voting.title}</h2>
 
                         <div className="voting-meta">
-                            <span>👤 {voting.createdByName}</span>
-                            {voting.isClosed && <span className="badge closed">🔒 Закрыто</span>}
-                            {voting.isExpired && !voting.isClosed && <span className="badge expired">⏰ Истекло</span>}
-                            {voting.isMultipleChoice && <span className="badge info">☑️ Мультивыбор</span>}
-                            {voting.allowRevote && isActive && <span className="badge info">🔁 Можно переголосовать</span>}
+                            <span>
+                                <User size={14} />
+                                {voting.createdByName}
+                            </span>
+                            {voting.isClosed && (
+                                <span className="badge closed">
+                                    <Lock size={12} />
+                                    Закрыто
+                                </span>
+                            )}
+                            {voting.isExpired && !voting.isClosed && (
+                                <span className="badge expired">
+                                    <Clock size={12} />
+                                    Истекло
+                                </span>
+                            )}
+                            {voting.isMultipleChoice && (
+                                <span className="badge info">
+                                    <CheckSquare size={12} />
+                                    Мультивыбор
+                                </span>
+                            )}
+                            {voting.allowRevote && isActive && (
+                                <span className="badge info">
+                                    <RotateCcw size={12} />
+                                    Можно переголосовать
+                                </span>
+                            )}
                             {voting.isAnonymous && (
                                 <span className="badge anonymous">Анонимное</span>
                             )}
                         </div>
 
-                        {error && <div className="form-error">❌ {error}</div>}
+                        {error && (
+                            <div className="form-error">
+                                <X size={14} />
+                                {error}
+                            </div>
+                        )}
 
                         <div className="voting-options">
                             {voting.options.map(option => {
@@ -224,20 +276,23 @@ export default function VotingPage({
                                         {/* Кто голосовал */}
                                         {showVoters && canSeeResults && !voting.isAnonymous && voters.length > 0 && (
                                             <div className="option-voters">
-                                                {voters.map(voter => (
-                                                    <div key={voter.userId} className="voter-item">
-                                                        <span className="voter-avatar">
-                                                            {getInitial(voter.name)}
-                                                        </span>
-                                                        <span className="voter-name">{voter.name}</span>
-                                                        <span className="voter-date">
-                                                            {new Date(voter.votedAt).toLocaleDateString('ru-RU', {
-                                                                day: '2-digit', month: '2-digit',
-                                                                hour: '2-digit', minute: '2-digit'
-                                                            })}
-                                                        </span>
-                                                    </div>
-                                                ))}
+                                                {voters.map(voter => {
+                                                    const initial = getInitial(voter.name);
+                                                    return (
+                                                        <div key={voter.userId} className="voter-item">
+                                                            <span className="voter-avatar">
+                                                                {initial ?? <User size={14} />}
+                                                            </span>
+                                                            <span className="voter-name">{voter.name}</span>
+                                                            <span className="voter-date">
+                                                                {new Date(voter.votedAt).toLocaleDateString('ru-RU', {
+                                                                    day: '2-digit', month: '2-digit',
+                                                                    hour: '2-digit', minute: '2-digit'
+                                                                })}
+                                                            </span>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         )}
 
@@ -253,7 +308,8 @@ export default function VotingPage({
 
                         {canSeeResults ? (
                             <div className="voting-summary">
-                                👥 Проголосовало: {voting.totalVoters} из {voting.totalProjectMembers}
+                                <Users size={14} />
+                                Проголосовало: {voting.totalVoters} из {voting.totalProjectMembers}
                             </div>
                         ) : (
                             <div className="voting-summary muted">
@@ -265,45 +321,71 @@ export default function VotingPage({
                         {canSeeResults && !voting.isAnonymous && (
                             <button
                                 type="button"
-                                className="btn-show-voters"
+                                className="btn btn--ghost btn--sm"
                                 onClick={() => setShowVoters(v => !v)}
                             >
-                                {showVoters ? '🙈 Скрыть, кто голосовал' : '👥 Показать, кто голосовал'}
+                                {showVoters ? (
+                                    <>
+                                        <EyeOff size={14} />
+                                        Скрыть, кто голосовал
+                                    </>
+                                ) : (
+                                    <>
+                                        <Eye size={14} />
+                                        Показать, кто голосовал
+                                    </>
+                                )}
                             </button>
                         )}
 
                         <div className="voting-actions">
                             {isActive && (
                                 <button
-                                    className="btn-primary"
+                                    type="button"
+                                    className="btn btn--primary"
                                     onClick={handleVote}
                                     disabled={submitting || selectedIds.length === 0}
                                 >
-                                    {submitting
-                                        ? '⏳'
-                                        : voting.hasVoted
-                                            ? '🔁 Переголосовать'
-                                            : '🗳️ Проголосовать'}
+                                    {submitting ? (
+                                        <>
+                                            <Loader2 size={16} className="icon-spin" />
+                                            Голосование…
+                                        </>
+                                    ) : voting.hasVoted ? (
+                                        <>
+                                            <RotateCcw size={16} />
+                                            Переголосовать
+                                        </>
+                                    ) : (
+                                        <>
+                                            <VoteIcon size={16} />
+                                            Проголосовать
+                                        </>
+                                    )}
                                 </button>
                             )}
 
                             {canManage && !voting.isClosed && (
                                 <button
-                                    className="btn-secondary"
+                                    type="button"
+                                    className="btn btn--secondary"
                                     onClick={handleClose}
                                     disabled={submitting}
                                 >
-                                    🔒 Закрыть
+                                    <Lock size={16} />
+                                    Закрыть
                                 </button>
                             )}
 
                             {canManage && (
                                 <button
-                                    className="btn-danger"
+                                    type="button"
+                                    className="btn btn--danger-outline"
                                     onClick={handleDelete}
                                     disabled={submitting}
                                 >
-                                    🗑️ Удалить
+                                    <Trash2 size={16} />
+                                    Удалить
                                 </button>
                             )}
                         </div>

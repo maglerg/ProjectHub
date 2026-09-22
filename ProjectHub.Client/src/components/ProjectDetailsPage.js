@@ -2,6 +2,23 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import {
+    ArrowLeft,
+    Archive,
+    Loader2,
+    X,
+    Inbox,
+    Star,
+    ClipboardList,
+    Folder,
+    KeyRound,
+    Calendar,
+    FileText,
+    Tag as TagIcon,
+    Users,
+    Check,
+    Mail,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { searchProjectByCode, toggleFavoriteByCode } from '../services/projectsApi';
 import { createApplicationByCode } from '../services/applicationsApi';
@@ -163,7 +180,9 @@ const ProjectDetailsPage = () => {
     if (loading) {
         return (
             <div className="project-details-loading">
-                <div className="spinner">⏳</div>
+                <div className="spinner">
+                    <Loader2 size={32} className="icon-spin" />
+                </div>
                 <p>Загрузка проекта...</p>
             </div>
         );
@@ -172,11 +191,18 @@ const ProjectDetailsPage = () => {
     if (error) {
         return (
             <div className="project-details-error">
-                <div className="error-icon">❌</div>
+                <div className="error-icon">
+                    <X size={32} />
+                </div>
                 <h3>Ошибка загрузки</h3>
                 <p>{error}</p>
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Вернуться к проектам
+                <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Вернуться к проектам
                 </button>
             </div>
         );
@@ -185,11 +211,18 @@ const ProjectDetailsPage = () => {
     if (!project) {
         return (
             <div className="project-details-not-found">
-                <div className="not-found-icon">📭</div>
+                <div className="not-found-icon">
+                    <Inbox size={32} />
+                </div>
                 <h3>Проект не найден</h3>
                 <p>Возможно, проект был удален или у вас нет доступа</p>
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Вернуться к проектам
+                <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Вернуться к проектам
                 </button>
             </div>
         );
@@ -217,13 +250,21 @@ const ProjectDetailsPage = () => {
     return (
         <div className="project-details-page">
             <header className="details-header">
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Назад
+                <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Назад
                 </button>
                 <h1>
                     {project.name}
                     {isArchived && (
-                        <span className="archive-badge">📦 В архиве</span>
+                        <span className="archive-badge">
+                            <Archive size={12} />
+                            В архиве
+                        </span>
                     )}
                 </h1>
                 <div className="header-badges">
@@ -240,12 +281,16 @@ const ProjectDetailsPage = () => {
                     {/* 🆕 Избранное */}
                     <button
                         type="button"
-                        className={`favorite-btn-lg ${isFavorite ? 'active' : ''}`}
+                        className={`btn btn--ghost btn--icon project-favorite-btn-lg ${isFavorite ? 'active' : ''}`}
                         onClick={handleFavoriteClick}
                         disabled={isTogglingFavorite}
                         title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}
+                        aria-label={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}
                     >
-                        {isFavorite ? '⭐' : '☆'}
+                        <Star
+                            size={18}
+                            fill={isFavorite ? 'currentColor' : 'none'}
+                        />
                         {favoritesCount > 0 && (
                             <span className="favorites-count-lg">{favoritesCount}</span>
                         )}
@@ -255,7 +300,8 @@ const ProjectDetailsPage = () => {
 
             {isArchived && (
                 <div className="archive-banner">
-                    📦 Этот проект в архиве. Присоединение и подача заявок недоступны.
+                    <Archive size={16} />
+                    Этот проект в архиве. Присоединение и подача заявок недоступны.
                 </div>
             )}
 
@@ -271,29 +317,47 @@ const ProjectDetailsPage = () => {
                 </div>
 
                 <section className="info-section">
-                    <h2>📋 Информация о проекте</h2>
+                    <h2>
+                        <ClipboardList size={20} />
+                        Информация о проекте
+                    </h2>
                     <div className="info-grid">
                         <div className="info-item">
-                            <span className="info-label">📂 Категория</span>
+                            <span className="info-label">
+                                <Folder size={14} />
+                                Категория
+                            </span>
                             <span className="info-value">{getCategoryName(project.category)}</span>
                         </div>
                         <div className="info-item">
-                            <span className="info-label">🔑 Код проекта</span>
+                            <span className="info-label">
+                                <KeyRound size={14} />
+                                Код проекта
+                            </span>
                             <span className="info-value code-value">{project.publicCode}</span>
                         </div>
                         <div className="info-item">
-                            <span className="info-label">📅 Дедлайн</span>
+                            <span className="info-label">
+                                <Calendar size={14} />
+                                Дедлайн
+                            </span>
                             <span className="info-value">{formatDate(project.deadline)}</span>
                         </div>
                         <div className="info-item">
-                            <span className="info-label">📅 Создан</span>
+                            <span className="info-label">
+                                <Calendar size={14} />
+                                Создан
+                            </span>
                             <span className="info-value">{formatDate(project.createdAt)}</span>
                         </div>
                     </div>
 
                     {project.description && (
                         <div className="description-section">
-                            <h3>📝 Описание</h3>
+                            <h3>
+                                <FileText size={16} />
+                                Описание
+                            </h3>
                             <p>{project.description}</p>
                         </div>
                     )}
@@ -301,7 +365,10 @@ const ProjectDetailsPage = () => {
                     {/* 🆕 ── ТЕГИ ПРОЕКТА ── */}
                     {tagsToRender.length > 0 && (
                         <div className="details-tags-section">
-                            <h3>🏷️ Теги проекта</h3>
+                            <h3>
+                                <TagIcon size={16} />
+                                Теги проекта
+                            </h3>
                             <div className="details-tags-view">
                                 {tagsToRender.map(t => (
                                     <span
@@ -323,7 +390,10 @@ const ProjectDetailsPage = () => {
 
                 <section className="members-section">
                     <div className="members-header">
-                        <h2>👥 Участники</h2>
+                        <h2>
+                            <Users size={20} />
+                            Участники
+                        </h2>
                         <span className="members-count">{members.length} чел.</span>
                     </div>
 
@@ -351,11 +421,15 @@ const ProjectDetailsPage = () => {
                     <section className="join-section">
                         {userStatus === 'Pending' ? (
                             <div className="pending-application success">
-                                ✅ Заявка успешно отправлена! Ожидайте ответа от владельца проекта.
+                                <Check size={16} />
+                                Заявка успешно отправлена! Ожидайте ответа от владельца проекта.
                             </div>
                         ) : (
                             <div className="join-form-wrapper">
-                                <h3>🤝 Присоединиться к проекту</h3>
+                                <h3>
+                                    <Users size={18} />
+                                    Присоединиться к проекту
+                                </h3>
                                 <div className="join-form">
                                     <textarea
                                         placeholder="Напишите сообщение владельцу проекта (необязательно)"
@@ -365,11 +439,22 @@ const ProjectDetailsPage = () => {
                                         disabled={!canSubmitApplication || isSubmitting}
                                     />
                                     <button
-                                        className="btn-join"
+                                        type="button"
+                                        className="btn btn--primary"
                                         onClick={handleSubmitApplication}
                                         disabled={!canSubmitApplication || isSubmitting}
                                     >
-                                        {isSubmitting ? '⏳ Отправка...' : '📩 Отправить заявку'}
+                                        {isSubmitting ? (
+                                            <>
+                                                <Loader2 size={16} className="icon-spin" />
+                                                Отправка...
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Mail size={16} />
+                                                Отправить заявку
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             </div>
@@ -381,7 +466,10 @@ const ProjectDetailsPage = () => {
                 {!isMember && isArchived && (
                     <section className="join-section">
                         <div className="member-actions">
-                            <p>📦 Проект в архиве — присоединиться невозможно</p>
+                            <p>
+                                <Archive size={16} />
+                                Проект в архиве — присоединиться невозможно
+                            </p>
                         </div>
                     </section>
                 )}
@@ -391,9 +479,17 @@ const ProjectDetailsPage = () => {
                     <section className="join-section">
                         <div className="member-actions">
                             <p>
-                                {isArchived
-                                    ? '📦 Вы участник этого проекта (в архиве)'
-                                    : '✅ Вы являетесь участником этого проекта'}
+                                {isArchived ? (
+                                    <>
+                                        <Archive size={16} />
+                                        Вы участник этого проекта (в архиве)
+                                    </>
+                                ) : (
+                                    <>
+                                        <Check size={16} />
+                                        Вы являетесь участником этого проекта
+                                    </>
+                                )}
                             </p>
                         </div>
                     </section>

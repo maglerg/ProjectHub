@@ -1,9 +1,25 @@
 // projecthub.client/src/components/ProjectsPage.js
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import {
+    Folder,
+    Plus,
+    Search,
+    User,
+    Users,       // ← добавить
+    Star,
+    Archive,
+    MessageCircle,
+    FileText,
+    Settings,
+    LogOut,
+    ChevronDown,
+    ArrowLeft,
+    Rocket,      // ← добавить
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/components/ProjectsPage.css';
-import { useNavigate } from 'react-router-dom';
 
 import CreateProjectForm from './CreateProjectForm';
 import SearchSection from './SearchSection';
@@ -193,7 +209,7 @@ const ProjectsPage = () => {
         );
     };
 
-    // 🆕 ── Обработчики контекстного меню ──
+    // ── Обработчики контекстного меню ──
 
     const handleContextEdit = (project) => {
         setEditingProject(project);
@@ -217,7 +233,6 @@ const ProjectsPage = () => {
             setMessage('📦 Проект архивирован');
             setTimeout(() => setMessage(''), 3000);
 
-            // Перезагружаем текущий список
             if (activeTab === 'archive') {
                 await loadArchivedProjects();
             } else if (activeTab === 'my') {
@@ -255,8 +270,6 @@ const ProjectsPage = () => {
         }
     };
 
-    // 🗑 Удаление пока не подключено на бэке — оставляем null
-    // (если включите — передайте handleContextDelete)
     const handleContextDelete = null;
 
     // ── projectListProps ──
@@ -269,7 +282,6 @@ const ProjectsPage = () => {
             setTimeout(() => setMessage(''), 3000);
         },
         onFavoriteToggle: handleFavoriteToggle,
-        // 🆕 Колбэки контекстного меню
         onEdit: handleContextEdit,
         onInvite: handleContextInvite,
         onArchive: handleContextArchive,
@@ -387,7 +399,7 @@ const ProjectsPage = () => {
         setEditingProject(null);
         setMessage('✅ Проект обновлён');
         setTimeout(() => setMessage(''), 2500);
-        // Перезагружаем текущий список
+
         if (activeTab === 'archive') {
             await loadArchivedProjects();
         } else if (activeTab === 'my') {
@@ -414,13 +426,17 @@ const ProjectsPage = () => {
         <div className="projects-page">
             <header className="page-header">
                 <div className="header-left">
-                    <h1>📁 ProjectHub</h1>
+                    <h1>
+                        <Folder size={28} />
+                        ProjectHub
+                    </h1>
                 </div>
                 <div className="header-right">
                     <NotificationsDropdown />
 
                     <div className="user-menu-wrapper" ref={userMenuRef}>
                         <button
+                            type="button"
                             className={`user-menu-trigger ${userMenuOpen ? 'open' : ''}`}
                             onClick={() => setUserMenuOpen((v) => !v)}
                             title="Меню пользователя"
@@ -431,7 +447,9 @@ const ProjectsPage = () => {
                                 email={user?.email}
                                 size="sm"
                             />
-                            <span className="user-menu-caret">▾</span>
+                            <span className="user-menu-caret">
+                                <ChevronDown size={14} />
+                            </span>
                         </button>
 
                         {userMenuOpen && (
@@ -456,40 +474,44 @@ const ProjectsPage = () => {
                                 <div className="user-menu-divider" />
 
                                 <button
+                                    type="button"
                                     className="user-menu-item"
                                     onClick={() => handleMenuNavigate('/profile')}
                                 >
-                                    <span className="user-menu-icon">👤</span>
+                                    <span className="user-menu-icon"><User size={14} /></span>
                                     Профиль
                                 </button>
 
                                 <button
+                                    type="button"
                                     className="user-menu-item"
                                     onClick={() => {
                                         setUserMenuOpen(false);
                                         openFriendsSection();
                                     }}
                                 >
-                                    <span className="user-menu-icon">👥</span>
+                                    <span className="user-menu-icon"><Users size={14} /></span>
                                     Друзья
                                 </button>
 
                                 <button
+                                    type="button"
                                     className="user-menu-item"
                                     onClick={() => handleMenuNavigate('/settings')}
                                     title="Скоро"
                                 >
-                                    <span className="user-menu-icon">⚙️</span>
+                                    <span className="user-menu-icon"><Settings size={14} /></span>
                                     Настройки
                                 </button>
 
                                 <div className="user-menu-divider" />
 
                                 <button
+                                    type="button"
                                     className="user-menu-item danger"
                                     onClick={handleLogout}
                                 >
-                                    <span className="user-menu-icon">🚪</span>
+                                    <span className="user-menu-icon"><LogOut size={14} /></span>
                                     Выйти
                                 </button>
                             </div>
@@ -504,10 +526,12 @@ const ProjectsPage = () => {
                     <>
                         <div className="view-header">
                             <button
-                                className="btn-back-to-projects"
+                                type="button"
+                                className="btn btn--ghost btn--sm"
                                 onClick={backToProjects}
                             >
-                                ← Назад
+                                <ArrowLeft size={16} />
+                                Назад
                             </button>
                             <h2 className="view-title"> </h2>
                         </div>
@@ -526,48 +550,62 @@ const ProjectsPage = () => {
                     <>
                         <div className="tabs-container">
                             <button
+                                type="button"
                                 className={`tab-btn ${activeTab === 'create' ? 'active' : ''}`}
                                 onClick={() => handleTabClick('create')}
                             >
-                                ➕ Создать проект
+                                <Plus size={16} />
+                                Создать проект
                             </button>
                             <button
+                                type="button"
                                 className={`tab-btn ${activeTab === 'search' ? 'active' : ''}`}
                                 onClick={() => handleTabClick('search')}
                             >
-                                🔍 Найти проект
+                                <Search size={16} />
+                                Найти проект
                             </button>
                             <button
+                                type="button"
                                 className={`tab-btn ${activeTab === 'my' ? 'active' : ''}`}
                                 onClick={() => handleTabClick('my')}
                             >
-                                👤 Мои проекты
+                                <User size={16} />
+                                Мои проекты
                             </button>
                             <button
+                                type="button"
                                 className={`tab-btn ${activeTab === 'favorites' ? 'active' : ''}`}
                                 onClick={() => handleTabClick('favorites')}
                             >
-                                ⭐ Избранное
+                                <Star size={16} />
+                                Избранное
                             </button>
                             <button
+                                type="button"
                                 className={`tab-btn ${activeTab === 'archive' ? 'active' : ''}`}
                                 onClick={() => handleTabClick('archive')}
                             >
-                                📦 Архив
+                                <Archive size={16} />
+                                Архив
                             </button>
                             <button
+                                type="button"
                                 className="tab-btn"
                                 onClick={() => navigate('/chats')}
                                 title="Чаты"
                             >
-                                💬 Чаты
+                                <MessageCircle size={16} />
+                                Чаты
                             </button>
                             <button
+                                type="button"
                                 className="tab-btn"
                                 onClick={() => navigate('/notes')}
                                 title="Мои заметки"
                             >
-                                📝 Мои заметки
+                                <FileText size={16} />
+                                Мои заметки
                             </button>
                         </div>
 
@@ -622,15 +660,18 @@ const ProjectsPage = () => {
                             {activeTab === 'my' && (
                                 <div className="list-tab-content">
                                     {projects.length === 0 ? (
-                                        <div className="empty-state-my">
-                                            <div className="empty-state-icon">👤</div>
+                                        <div className="empty-state">
+                                            <div className="empty-state-icon">
+                                                <User size={48} />
+                                            </div>
                                             <h3>Нет проектов</h3>
                                             <p>Вы пока не участвуете ни в одном проекте</p>
                                             <button
-                                                className="btn-primary"
+                                                type="button"
+                                                className="btn btn--primary"
                                                 onClick={() => handleTabClick('search')}
                                             >
-                                                🔍 Найти проект
+                                                Найти проект
                                             </button>
                                         </div>
                                     ) : (
@@ -642,15 +683,18 @@ const ProjectsPage = () => {
                             {activeTab === 'favorites' && (
                                 <div className="list-tab-content">
                                     {projects.length === 0 ? (
-                                        <div className="empty-state-favorites">
-                                            <div className="empty-state-icon">⭐</div>
+                                        <div className="empty-state">
+                                            <div className="empty-state-icon">
+                                                <Star size={48} />
+                                            </div>
                                             <h3>Нет избранных проектов</h3>
                                             <p>Добавляйте проекты в избранное, чтобы быстро находить их здесь</p>
                                             <button
-                                                className="btn-primary"
+                                                type="button"
+                                                className="btn btn--primary"
                                                 onClick={() => handleTabClick('my')}
                                             >
-                                                👤 Перейти к моим проектам
+                                                Перейти к моим проектам
                                             </button>
                                         </div>
                                     ) : (
@@ -662,8 +706,10 @@ const ProjectsPage = () => {
                             {activeTab === 'archive' && (
                                 <div className="list-tab-content">
                                     {projects.length === 0 ? (
-                                        <div className="empty-state-archive">
-                                            <div className="empty-state-icon">📦</div>
+                                        <div className="empty-state">
+                                            <div className="empty-state-icon">
+                                                <Archive size={48} />
+                                            </div>
                                             <h3>Архив пуст</h3>
                                             <p>Здесь будут проекты, которые вы архивировали</p>
                                         </div>
@@ -675,7 +721,9 @@ const ProjectsPage = () => {
 
                             {!activeTab && (
                                 <div className="empty-state">
-                                    <div className="empty-state-icon">🚀</div>
+                                    <div className="empty-state-icon">
+                                        <Rocket size={48} />
+                                    </div>
                                     <h3>Добро пожаловать в ProjectHub!</h3>
                                     <p>Выберите действие в меню выше, чтобы начать работу</p>
                                 </div>
@@ -685,7 +733,7 @@ const ProjectsPage = () => {
                 )}
             </main>
 
-            {/* 🆕 Модалка редактирования, вызванная из контекстного меню */}
+            {/* Модалка редактирования, вызванная из контекстного меню */}
             {editingProject && (
                 <EditProjectModal
                     project={editingProject}
@@ -695,7 +743,7 @@ const ProjectsPage = () => {
                 />
             )}
 
-            {/* 🆕 Модалка приглашения, вызванная из контекстного меню */}
+            {/* Модалка приглашения, вызванная из контекстного меню */}
             {invitingProject && (
                 <InviteUserModal
                     project={invitingProject}

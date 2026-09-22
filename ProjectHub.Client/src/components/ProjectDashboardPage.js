@@ -2,6 +2,37 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import {
+    ArrowLeft,
+    Archive,
+    Loader2,
+    X,
+    Inbox,
+    ClipboardList,
+    Users,
+    ListTodo,
+    Calendar,
+    MessageCircle,
+    FileText,
+    Vote,
+    History,
+    User,
+    Settings,
+    LogOut,
+    Search,
+    ChevronDown,
+    Folder,
+    KeyRound,
+    UserCircle,
+    BarChart3,
+    Lock,
+    Image as ImageIcon,
+    Trash2,
+    Pencil,
+    UserPlus,
+    Plus,
+    Undo2,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import NotesPanel from './notes/NotesPanel';
 import {
@@ -55,16 +86,16 @@ import {
 
 import '../styles/components/ProjectDashboardPage.css';
 
-// ── Пункты меню ──
+// ── Пункты меню (Lucide-компоненты вместо эмодзи) ──
 const MENU_ITEMS = [
-    { key: 'info', icon: '📋', label: 'Информация' },
-    { key: 'members', icon: '👥', label: 'Участники' },
-    { key: 'tasks', icon: '🗂️', label: 'Задачи' },
-    { key: 'timeline', icon: '📅', label: 'Таймлайн' },
-    { key: 'chat', icon: '💬', label: 'Чат проекта' },
-    { key: 'notes', icon: '📝', label: 'Мои заметки' },
-    { key: 'votings', icon: '🗳️', label: 'Голосования' },
-    { key: 'history', icon: '📜', label: 'История изменений' },
+    { key: 'info', icon: ClipboardList, label: 'Информация' },
+    { key: 'members', icon: Users, label: 'Участники' },
+    { key: 'tasks', icon: ListTodo, label: 'Задачи' },
+    { key: 'timeline', icon: Calendar, label: 'Таймлайн' },
+    { key: 'chat', icon: MessageCircle, label: 'Чат проекта' },
+    { key: 'notes', icon: FileText, label: 'Мои заметки' },
+    { key: 'votings', icon: Vote, label: 'Голосования' },
+    { key: 'history', icon: History, label: 'История изменений' },
 ];
 
 const ProjectDashboardPage = () => {
@@ -101,9 +132,7 @@ const ProjectDashboardPage = () => {
             setActiveSection(location.state.section);
         }
     }, [location.state?.section]);
-    useEffect(() => {
-        console.log('🟢 ProjectDashboardPage rendered. activeSection =', activeSection);
-    });
+
     // ── Фильтры задач ──
     const [taskFilters, setTaskFilters] = useState({
         onlyMyTasks: false,
@@ -331,7 +360,7 @@ const ProjectDashboardPage = () => {
         try {
             const updated = await archiveProject(project.publicCode);
             setProject(updated);
-            setNotification({ type: 'success', text: '📦 Проект архивирован' });
+            setNotification({ type: 'success', text: 'Проект архивирован' });
             setTimeout(() => setNotification(null), 3000);
         } catch (e) {
             console.error('❌ Ошибка архивации:', e);
@@ -353,7 +382,7 @@ const ProjectDashboardPage = () => {
         try {
             const updated = await unarchiveProject(project.publicCode);
             setProject(updated);
-            setNotification({ type: 'success', text: '↩️ Проект восстановлен' });
+            setNotification({ type: 'success', text: 'Проект восстановлен' });
             setTimeout(() => setNotification(null), 3000);
         } catch (e) {
             console.error('❌ Ошибка восстановления:', e);
@@ -367,7 +396,7 @@ const ProjectDashboardPage = () => {
     const handleInviteUser = () => setShowInviteModal(true);
 
     const handleInvitationSent = () => {
-        setNotification({ type: 'success', text: '✅ Приглашение отправлено!' });
+        setNotification({ type: 'success', text: 'Приглашение отправлено' });
         setTimeout(() => setNotification(null), 3000);
     };
 
@@ -376,18 +405,18 @@ const ProjectDashboardPage = () => {
 
     const handleProjectUpdated = async () => {
         await loadProjectDetails();
-        setNotification({ type: 'success', text: '✅ Проект обновлен!' });
+        setNotification({ type: 'success', text: 'Проект обновлён' });
         setTimeout(() => setNotification(null), 3000);
     };
 
     const handleRoleChanged = async () => {
         await loadProjectDetails();
-        setNotification({ type: 'success', text: '✅ Роли обновлены!' });
+        setNotification({ type: 'success', text: 'Роли обновлены' });
         setTimeout(() => setNotification(null), 3000);
     };
 
     const handleVotingCreated = () => {
-        setNotification({ type: 'success', text: '✅ Голосование создано!' });
+        setNotification({ type: 'success', text: 'Голосование создано' });
         setTimeout(() => setNotification(null), 3000);
         setVotingsRefreshKey(k => k + 1);
         if (project?.publicCode) {
@@ -417,7 +446,7 @@ const ProjectDashboardPage = () => {
                 tags: updated || []
             }));
 
-            setNotification({ type: 'success', text: '🏷️ Теги проекта обновлены' });
+            setNotification({ type: 'success', text: 'Теги проекта обновлены' });
             setTimeout(() => setNotification(null), 2000);
         } catch (err) {
             console.error('❌ Ошибка сохранения тегов проекта:', err);
@@ -445,7 +474,7 @@ const ProjectDashboardPage = () => {
     const handleMemberAddFriend = async (member) => {
         try {
             await sendFriendRequest(member.email);
-            setNotification({ type: 'success', text: '✅ Заявка отправлена' });
+            setNotification({ type: 'success', text: 'Заявка отправлена' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
             setNotification({ type: 'error', text: err.message || 'Ошибка' });
@@ -456,7 +485,7 @@ const ProjectDashboardPage = () => {
     const handleMemberCancelRequest = async (member, requestId) => {
         try {
             await cancelFriendRequest(requestId);
-            setNotification({ type: 'success', text: '✅ Заявка отменена' });
+            setNotification({ type: 'success', text: 'Заявка отменена' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
             setNotification({ type: 'error', text: err.message || 'Ошибка' });
@@ -467,7 +496,7 @@ const ProjectDashboardPage = () => {
     const handleMemberAcceptRequest = async (member, requestId) => {
         try {
             await processFriendRequest(requestId, true);
-            setNotification({ type: 'success', text: '✅ Заявка принята' });
+            setNotification({ type: 'success', text: 'Заявка принята' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
             setNotification({ type: 'error', text: err.message || 'Ошибка' });
@@ -478,7 +507,7 @@ const ProjectDashboardPage = () => {
     const handleMemberRejectRequest = async (member, requestId) => {
         try {
             await processFriendRequest(requestId, false);
-            setNotification({ type: 'success', text: '✅ Заявка отклонена' });
+            setNotification({ type: 'success', text: 'Заявка отклонена' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
             setNotification({ type: 'error', text: err.message || 'Ошибка' });
@@ -494,7 +523,7 @@ const ProjectDashboardPage = () => {
             const friend = list.find((f) => f.email === member.email);
             if (friend) {
                 await removeFriend(friend.id);
-                setNotification({ type: 'success', text: '✅ Удалён из друзей' });
+                setNotification({ type: 'success', text: 'Удалён из друзей' });
                 setTimeout(() => setNotification(null), 3000);
             }
         } catch (err) {
@@ -513,7 +542,7 @@ const ProjectDashboardPage = () => {
         try {
             await changeMemberRoleByCodeAndEmail(project.publicCode, member.email, newRole);
             await loadProjectDetails();
-            setNotification({ type: 'success', text: '✅ Роль обновлена' });
+            setNotification({ type: 'success', text: 'Роль обновлена' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
             setNotification({ type: 'error', text: err.message || 'Ошибка' });
@@ -527,7 +556,7 @@ const ProjectDashboardPage = () => {
         try {
             await removeMemberFromProject(project.publicCode, member.email);
             await loadProjectDetails();
-            setNotification({ type: 'success', text: '✅ Участник удалён' });
+            setNotification({ type: 'success', text: 'Участник удалён' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
             setNotification({ type: 'error', text: err.message || 'Ошибка' });
@@ -559,7 +588,7 @@ const ProjectDashboardPage = () => {
         try {
             const updated = await uploadProjectCover(project.publicCode, file);
             setProject(updated);
-            setNotification({ type: 'success', text: '✅ Обложка обновлена' });
+            setNotification({ type: 'success', text: 'Обложка обновлена' });
             setTimeout(() => setNotification(null), 2500);
         } catch (err) {
             console.error('❌ Ошибка загрузки обложки:', err);
@@ -581,7 +610,7 @@ const ProjectDashboardPage = () => {
         try {
             const updated = await deleteProjectCover(project.publicCode);
             setProject(updated);
-            setNotification({ type: 'success', text: '✅ Обложка удалена' });
+            setNotification({ type: 'success', text: 'Обложка удалена' });
             setTimeout(() => setNotification(null), 2500);
         } catch (err) {
             console.error('❌ Ошибка удаления обложки:', err);
@@ -610,8 +639,10 @@ const ProjectDashboardPage = () => {
     if (loading) {
         return (
             <div className="dashboard-loading">
-                <div className="spinner">⏳</div>
-                <p>Загрузка проекта...</p>
+                <div className="spinner">
+                    <Loader2 size={32} className="icon-spin" />
+                </div>
+                <p>Загрузка проекта…</p>
             </div>
         );
     }
@@ -619,11 +650,18 @@ const ProjectDashboardPage = () => {
     if (error) {
         return (
             <div className="dashboard-error">
-                <div className="error-icon">❌</div>
+                <div className="error-icon">
+                    <X size={32} />
+                </div>
                 <h3>Ошибка доступа</h3>
                 <p>{error}</p>
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Вернуться к проектам
+                <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Вернуться к проектам
                 </button>
             </div>
         );
@@ -632,10 +670,17 @@ const ProjectDashboardPage = () => {
     if (!project) {
         return (
             <div className="dashboard-not-found">
-                <div className="not-found-icon">📭</div>
+                <div className="not-found-icon">
+                    <Inbox size={32} />
+                </div>
                 <h3>Проект не найден</h3>
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Вернуться к проектам
+                <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Вернуться к проектам
                 </button>
             </div>
         );
@@ -644,14 +689,22 @@ const ProjectDashboardPage = () => {
     return (
         <div className="project-dashboard">
             <header className="dashboard-header">
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Назад
+                <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Назад
                 </button>
 
-                <h1>
+                <h1 className="dashboard-title">
                     {project.name}
                     {project.isArchived && (
-                        <span className="archive-badge">📦 В архиве</span>
+                        <span className="archive-badge">
+                            <Archive size={12} />
+                            В архиве
+                        </span>
                     )}
                 </h1>
 
@@ -660,22 +713,42 @@ const ProjectDashboardPage = () => {
                         {!project.isArchived ? (
                             <button
                                 type="button"
-                                className="btn-archive"
+                                className="btn btn--secondary btn--sm"
                                 onClick={handleArchive}
                                 disabled={isArchiving}
                                 title="Архивировать проект"
                             >
-                                {isArchiving ? '⏳' : '📦 Архивировать'}
+                                {isArchiving ? (
+                                    <>
+                                        <Loader2 size={14} className="icon-spin" />
+                                        Архивация…
+                                    </>
+                                ) : (
+                                    <>
+                                        <Archive size={14} />
+                                        Архивировать
+                                    </>
+                                )}
                             </button>
                         ) : (
                             <button
                                 type="button"
-                                className="btn-unarchive"
+                                className="btn btn--primary btn--sm"
                                 onClick={handleUnarchive}
                                 disabled={isArchiving}
                                 title="Восстановить из архива"
                             >
-                                {isArchiving ? '⏳' : '↩️ Восстановить'}
+                                {isArchiving ? (
+                                    <>
+                                        <Loader2 size={14} className="icon-spin" />
+                                        Восстановление…
+                                    </>
+                                ) : (
+                                    <>
+                                        <Undo2 size={14} />
+                                        Восстановить
+                                    </>
+                                )}
                             </button>
                         )}
                     </div>
@@ -686,6 +759,7 @@ const ProjectDashboardPage = () => {
 
                     <div className="user-menu-wrapper" ref={userMenuRef}>
                         <button
+                            type="button"
                             className={`user-menu-trigger ${userMenuOpen ? 'open' : ''}`}
                             onClick={() => setUserMenuOpen(v => !v)}
                             title="Меню пользователя"
@@ -696,7 +770,9 @@ const ProjectDashboardPage = () => {
                                 email={user?.email}
                                 size="sm"
                             />
-                            <span className="user-menu-caret">▾</span>
+                            <span className="user-menu-caret">
+                                <ChevronDown size={14} />
+                            </span>
                         </button>
 
                         {userMenuOpen && (
@@ -721,38 +797,42 @@ const ProjectDashboardPage = () => {
                                 <div className="user-menu-divider" />
 
                                 <button
+                                    type="button"
                                     className="user-menu-item"
                                     onClick={() => handleMenuNavigate('/profile')}
                                 >
-                                    <span className="user-menu-icon">👤</span>
+                                    <span className="user-menu-icon"><User size={14} /></span>
                                     Профиль
                                 </button>
 
                                 <button
+                                    type="button"
                                     className="user-menu-item"
                                     onClick={() => handleMenuNavigate('/projects')}
                                     title="Друзья — открываются в разделе проектов"
                                 >
-                                    <span className="user-menu-icon">👥</span>
+                                    <span className="user-menu-icon"><Users size={14} /></span>
                                     Друзья
                                 </button>
 
                                 <button
+                                    type="button"
                                     className="user-menu-item"
                                     onClick={() => handleMenuNavigate('/settings')}
                                     title="Скоро"
                                 >
-                                    <span className="user-menu-icon">⚙️</span>
+                                    <span className="user-menu-icon"><Settings size={14} /></span>
                                     Настройки
                                 </button>
 
                                 <div className="user-menu-divider" />
 
                                 <button
+                                    type="button"
                                     className="user-menu-item danger"
                                     onClick={handleLogout}
                                 >
-                                    <span className="user-menu-icon">🚪</span>
+                                    <span className="user-menu-icon"><LogOut size={14} /></span>
                                     Выйти
                                 </button>
                             </div>
@@ -764,7 +844,8 @@ const ProjectDashboardPage = () => {
             {/* Плашка про архив */}
             {project.isArchived && (
                 <div className="archive-banner">
-                    📦 Этот проект находится в архиве. Действия недоступны — только просмотр.
+                    <Archive size={16} />
+                    Этот проект находится в архиве. Действия недоступны — только просмотр.
                 </div>
             )}
 
@@ -773,20 +854,25 @@ const ProjectDashboardPage = () => {
                 {/* ── ЛЕВАЯ колонка: меню + фильтры задач ── */}
                 <aside className="dashboard-sidebar">
                     <nav className="sidebar-nav">
-                        {MENU_ITEMS.map(item => (
-                            <button
-                                key={item.key}
-                                type="button"
-                                className={`sidebar-nav-item ${activeSection === item.key ? 'active' : ''}`}
-                                onClick={() => setActiveSection(item.key)}
-                            >
-                                <span className="sidebar-nav-icon">{item.icon}</span>
-                                <span className="sidebar-nav-label">{item.label}</span>
-                                {item.key === 'votings' && votingsBadge > 0 && (
-                                    <span className="sidebar-nav-badge">{votingsBadge}</span>
-                                )}
-                            </button>
-                        ))}
+                        {MENU_ITEMS.map(item => {
+                            const Icon = item.icon;
+                            return (
+                                <button
+                                    key={item.key}
+                                    type="button"
+                                    className={`sidebar-nav-item ${activeSection === item.key ? 'active' : ''}`}
+                                    onClick={() => setActiveSection(item.key)}
+                                >
+                                    <span className="sidebar-nav-icon">
+                                        <Icon size={16} />
+                                    </span>
+                                    <span className="sidebar-nav-label">{item.label}</span>
+                                    {item.key === 'votings' && votingsBadge > 0 && (
+                                        <span className="sidebar-nav-badge">{votingsBadge}</span>
+                                    )}
+                                </button>
+                            );
+                        })}
                     </nav>
 
                     {activeSection === 'tasks' && (
@@ -797,7 +883,9 @@ const ProjectDashboardPage = () => {
                                         <div
                                             className={`tag-search-input-wrap ${taskFilters.tagFilters.length > 0 ? 'active' : ''}`}
                                         >
-                                            <span className="tag-search-icon">🔍</span>
+                                            <span className="tag-search-icon">
+                                                <Search size={14} />
+                                            </span>
                                             <input
                                                 type="text"
                                                 className="tag-search-input"
@@ -816,13 +904,14 @@ const ProjectDashboardPage = () => {
                                             {taskFilters.tagFilters.length > 0 && (
                                                 <button
                                                     type="button"
-                                                    className="tag-search-clear"
+                                                    className="btn btn--ghost btn--icon btn--sm tag-search-clear"
                                                     title="Сбросить теги"
+                                                    aria-label="Сбросить теги"
                                                     onClick={() =>
                                                         setTaskFilters(f => ({ ...f, tagFilters: [] }))
                                                     }
                                                 >
-                                                    ×
+                                                    <X size={12} />
                                                 </button>
                                             )}
                                         </div>
@@ -925,18 +1014,22 @@ const ProjectDashboardPage = () => {
                                     >
                                         Все
                                     </button>
-                                    {TASK_PRIORITIES.map(p => (
-                                        <button
-                                            key={p.value}
-                                            type="button"
-                                            className={`sidebar-priority-item ${taskFilters.priorityFilter === p.value ? 'active' : ''}`}
-                                            onClick={() =>
-                                                setTaskFilters(f => ({ ...f, priorityFilter: p.value }))
-                                            }
-                                        >
-                                            {p.icon} {p.label}
-                                        </button>
-                                    ))}
+                                    {TASK_PRIORITIES.map(p => {
+                                        const PriorityIcon = p.lucideIcon;
+                                        return (
+                                            <button
+                                                key={p.value}
+                                                type="button"
+                                                className={`sidebar-priority-item ${taskFilters.priorityFilter === p.value ? 'active' : ''}`}
+                                                onClick={() =>
+                                                    setTaskFilters(f => ({ ...f, priorityFilter: p.value }))
+                                                }
+                                            >
+                                                {PriorityIcon && <PriorityIcon size={12} />}
+                                                {p.label}
+                                            </button>
+                                        );
+                                    })}
                                 </div>
                             </div>
                         </div>
@@ -964,8 +1057,18 @@ const ProjectDashboardPage = () => {
 
                                 {canEdit && !project.isArchived && (
                                     <div className="project-cover-actions">
-                                        <label className="btn-cover-upload">
-                                            {uploadingCover ? '⏳ Загрузка…' : '📷 Сменить обложку'}
+                                        <label className="btn btn--secondary btn--sm">
+                                            {uploadingCover ? (
+                                                <>
+                                                    <Loader2 size={14} className="icon-spin" />
+                                                    Загрузка…
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <ImageIcon size={14} />
+                                                    Сменить обложку
+                                                </>
+                                            )}
                                             <input
                                                 type="file"
                                                 accept="image/png,image/jpeg,image/gif,image/webp"
@@ -978,11 +1081,12 @@ const ProjectDashboardPage = () => {
                                         {project.coverImageUrl && (
                                             <button
                                                 type="button"
-                                                className="btn-cover-delete"
+                                                className="btn btn--danger-outline btn--sm"
                                                 onClick={handleCoverDelete}
                                                 disabled={uploadingCover}
                                             >
-                                                🗑 Удалить
+                                                <Trash2 size={14} />
+                                                Удалить
                                             </button>
                                         )}
                                     </div>
@@ -990,54 +1094,80 @@ const ProjectDashboardPage = () => {
                             </div>
 
                             <div className="section-header">
-                                <h2>📋 Информация о проекте</h2>
+                                <h2 className="section-title">Информация о проекте</h2>
                                 {canEdit && !project.isArchived && (
-                                    <button className="btn-edit" onClick={handleEditClick}>
-                                        ✏️ Редактировать
+                                    <button
+                                        type="button"
+                                        className="btn btn--secondary btn--sm"
+                                        onClick={handleEditClick}
+                                    >
+                                        <Pencil size={14} />
+                                        Редактировать
                                     </button>
                                 )}
                             </div>
 
                             <div className="info-grid">
                                 <div className="info-item">
-                                    <span className="info-label">📂 Категория</span>
+                                    <span className="info-label">
+                                        <Folder size={14} />
+                                        Категория
+                                    </span>
                                     <span className="info-value">{getCategoryName(project.category)}</span>
                                 </div>
                                 <div className="info-item">
-                                    <span className="info-label">🔑 Код проекта</span>
+                                    <span className="info-label">
+                                        <KeyRound size={14} />
+                                        Код проекта
+                                    </span>
                                     <span className="info-value code-value">{project.publicCode}</span>
                                 </div>
                                 <div className="info-item">
-                                    <span className="info-label">📅 Дедлайн</span>
+                                    <span className="info-label">
+                                        <Calendar size={14} />
+                                        Дедлайн
+                                    </span>
                                     <span className="info-value">{formatDate(project.deadline)}</span>
                                 </div>
                                 <div className="info-item">
-                                    <span className="info-label">📅 Создан</span>
+                                    <span className="info-label">
+                                        <Calendar size={14} />
+                                        Создан
+                                    </span>
                                     <span className="info-value">{formatDate(project.createdAt)}</span>
                                 </div>
                                 <div className="info-item">
-                                    <span className="info-label">👤 Ваша роль</span>
+                                    <span className="info-label">
+                                        <UserCircle size={14} />
+                                        Ваша роль
+                                    </span>
                                     <span className="info-value role-badge">{userStatus}</span>
                                 </div>
                                 <div className="info-item">
-                                    <span className="info-label">📊 Статус</span>
+                                    <span className="info-label">
+                                        <BarChart3 size={14} />
+                                        Статус
+                                    </span>
                                     <span className="info-value">{getStatusName(project.status)}</span>
                                 </div>
                                 <div className="info-item">
-                                    <span className="info-label">🔒 Видимость</span>
+                                    <span className="info-label">
+                                        <Lock size={14} />
+                                        Видимость
+                                    </span>
                                     <span className="info-value">{getVisibilityName(project.visibility)}</span>
                                 </div>
                             </div>
 
                             {project.description && (
                                 <div className="description-section">
-                                    <h3>📝 Описание</h3>
+                                    <h3 className="subsection-title">Описание</h3>
                                     <p>{project.description}</p>
                                 </div>
                             )}
 
                             <div className="project-tags-section">
-                                <h3>🏷️ Теги проекта</h3>
+                                <h3 className="subsection-title">Теги проекта</h3>
 
                                 {canEdit && !project.isArchived ? (
                                     <ProjectTagPicker
@@ -1074,22 +1204,26 @@ const ProjectDashboardPage = () => {
                     {activeSection === 'members' && (
                         <section className="dashboard-section">
                             <div className="section-header">
-                                <h2>👥 Участники</h2>
+                                <h2 className="section-title">Участники</h2>
                                 <div className="section-header-actions">
                                     <span className="members-count">{members.length} чел.</span>
                                     {canManageMembers && !project.isArchived && (
                                         <>
                                             <button
-                                                className="btn-manage-roles"
+                                                type="button"
+                                                className="btn btn--secondary btn--sm"
                                                 onClick={handleRoleManagement}
                                             >
-                                                ⚙️ Управление
+                                                <Settings size={14} />
+                                                Управление
                                             </button>
                                             <button
-                                                className="btn-invite"
+                                                type="button"
+                                                className="btn btn--primary btn--sm"
                                                 onClick={handleInviteUser}
                                             >
-                                                📩 Пригласить
+                                                <UserPlus size={14} />
+                                                Пригласить
                                             </button>
                                         </>
                                     )}
@@ -1153,15 +1287,21 @@ const ProjectDashboardPage = () => {
                     {activeSection === 'timeline' && (
                         <section className="dashboard-section">
                             <div className="section-header">
-                                <h2>📅 Таймлайн задач</h2>
+                                <h2 className="section-title">Таймлайн задач</h2>
                             </div>
 
                             {timelineError && (
-                                <div className="timeline-error">❌ {timelineError}</div>
+                                <div className="timeline-error">
+                                    <X size={14} />
+                                    {timelineError}
+                                </div>
                             )}
 
                             {timelineLoading ? (
-                                <div className="timeline-loading">⏳ Загрузка таймлайна…</div>
+                                <div className="timeline-loading">
+                                    <Loader2 size={16} className="icon-spin" />
+                                    Загрузка таймлайна…
+                                </div>
                             ) : timelineColumns.length === 0 ? (
                                 <div className="timeline-empty-state">
                                     Нет задач для отображения на таймлайне.
@@ -1176,11 +1316,17 @@ const ProjectDashboardPage = () => {
                     {activeSection === 'chat' && (
                         <section className="dashboard-section dashboard-section--chat">
                             {projectChatError && (
-                                <div className="timeline-error">❌ {projectChatError}</div>
+                                <div className="timeline-error">
+                                    <X size={14} />
+                                    {projectChatError}
+                                </div>
                             )}
 
                             {projectChatLoading ? (
-                                <div className="timeline-loading">⏳ Загрузка чата…</div>
+                                <div className="timeline-loading">
+                                    <Loader2 size={16} className="icon-spin" />
+                                    Загрузка чата…
+                                </div>
                             ) : !projectChatId ? (
                                 <div className="timeline-empty-state">
                                     Чат пока недоступен.
@@ -1209,7 +1355,7 @@ const ProjectDashboardPage = () => {
                     {activeSection === 'votings' && (
                         <section className="dashboard-section">
                             <div className="section-header">
-                                <h2>🗳️ Голосования</h2>
+                                <h2 className="section-title">Голосования</h2>
                                 <div className="section-header-actions">
                                     {votingsBadge > 0 && (
                                         <span className="section-badge">
@@ -1218,10 +1364,12 @@ const ProjectDashboardPage = () => {
                                     )}
                                     {!project.isArchived && (
                                         <button
-                                            className="btn-create-voting"
+                                            type="button"
+                                            className="btn btn--primary btn--sm"
                                             onClick={() => setShowCreateVotingModal(true)}
                                         >
-                                            ➕ Создать голосование
+                                            <Plus size={14} />
+                                            Создать голосование
                                         </button>
                                     )}
                                 </div>
@@ -1241,7 +1389,7 @@ const ProjectDashboardPage = () => {
                     {activeSection === 'history' && (
                         <section className="dashboard-section">
                             <div className="section-header">
-                                <h2>📜 История изменений</h2>
+                                <h2 className="section-title">История изменений</h2>
                             </div>
 
                             <ProjectHistoryPage embedded />

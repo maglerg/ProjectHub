@@ -1,4 +1,6 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿// Services/TaskService.cs
+
+using Microsoft.EntityFrameworkCore;
 using ProjectHub.API.Data;
 using ProjectHub.API.DTOs.TaskDtos;
 using ProjectHub.API.Models;
@@ -522,6 +524,7 @@ namespace ProjectHub.API.Services
 
             return await BuildTaskDtoAsync(task.Id, userId);
         }
+
         // ═══════════════════════════════════════════════════════════
         //  УПРАВЛЕНИЕ КОЛОНКАМИ
         // ═══════════════════════════════════════════════════════════
@@ -548,7 +551,6 @@ namespace ProjectHub.API.Services
 
             var weight = Math.Clamp(dto.ProgressWeight, 0.0, 1.0);
 
-            // Проверка дубликата имени (регистронезависимо)
             var exists = await _db.TaskColumns
                 .AnyAsync(c => c.ProjectId == project.Id
                                && c.Name.ToLower() == name.ToLower());
@@ -557,7 +559,6 @@ namespace ProjectHub.API.Services
                 throw new InvalidOperationException(
                     $"Колонка с названием «{name}» уже существует");
 
-            // Находим системные крайние колонки
             var notStartedColumn = await _db.TaskColumns
                 .FirstOrDefaultAsync(c => c.ProjectId == project.Id
                                            && c.SystemKey == KeyNotStarted);
@@ -566,17 +567,14 @@ namespace ProjectHub.API.Services
                 .FirstOrDefaultAsync(c => c.ProjectId == project.Id
                                            && c.SystemKey == KeyCompleted);
 
-            // Определяем позицию
             int newOrder;
             if (dto.Order.HasValue)
             {
-                // Нельзя поставить перед NotStarted или после Completed
                 var minOrder = (notStartedColumn?.Order ?? 0) + 1;
                 var maxOrder = (completedColumn?.Order ?? int.MaxValue) - 1;
 
                 newOrder = Math.Clamp(dto.Order.Value, minOrder, Math.Max(minOrder, maxOrder));
 
-                // Сдвигаем всё, что >= newOrder
                 var toShift = await _db.TaskColumns
                     .Where(c => c.ProjectId == project.Id && c.Order >= newOrder)
                     .ToListAsync();
@@ -586,7 +584,6 @@ namespace ProjectHub.API.Services
             }
             else
             {
-                // В конец, перед Completed
                 newOrder = (completedColumn?.Order ?? 999);
 
                 if (completedColumn != null)
@@ -617,7 +614,6 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
-            // Пересобираем Order (на случай, если образовались дырки)
             await NormalizeColumnOrderAsync(project.Id);
 
             _logger.LogInformation(
@@ -664,7 +660,6 @@ namespace ProjectHub.API.Services
                 throw new InvalidOperationException(
                     "Название колонки не длиннее 100 символов");
 
-            // Проверка дубликата имени (кроме самой колонки)
             var exists = await _db.TaskColumns
                 .AnyAsync(c => c.ProjectId == project.Id
                                && c.Id != columnId
@@ -732,7 +727,6 @@ namespace ProjectHub.API.Services
             var tasksCount = column.Tasks.Count;
             var targetColumn = (TaskColumn?)null;
 
-            // Если есть задачи — обязателен перенос
             if (tasksCount > 0)
             {
                 if (!dto.MoveTasksToColumnId.HasValue)
@@ -748,7 +742,6 @@ namespace ProjectHub.API.Services
                                                && c.ProjectId == project.Id)
                     ?? throw new KeyNotFoundException("Целевая колонка не найдена");
 
-                // Переносим задачи
                 var isTargetCompleted = IsKey(targetColumn, KeyCompleted);
                 var now = DateTime.UtcNow;
 
@@ -759,17 +752,14 @@ namespace ProjectHub.API.Services
 
                     if (isTargetCompleted)
                     {
-                        // Завершаем
                         task.CompletedAt ??= now;
                     }
                     else
                     {
-                        // Если переносим из Completed — снимаем
                         task.CompletedAt = null;
                     }
                 }
 
-                // Логируем перенос задач
                 await _activity.LogAsync(
                     project.Id,
                     userId,
@@ -796,7 +786,6 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
-            // Пересобираем Order
             await NormalizeColumnOrderAsync(project.Id);
 
             _logger.LogInformation(
@@ -829,7 +818,6 @@ namespace ProjectHub.API.Services
                     "Количество элементов в списке порядков не совпадает " +
                     "с количеством колонок");
 
-            // Проверяем, что все ID из списка существуют
             foreach (var item in dto.Orders)
             {
                 if (!columns.Any(c => c.Id == item.ColumnId))
@@ -837,12 +825,10 @@ namespace ProjectHub.API.Services
                         $"Колонка {item.ColumnId} не найдена в проекте");
             }
 
-            // Проверяем, что порядок уникален
             var ordersSet = dto.Orders.Select(o => o.Order).ToHashSet();
             if (ordersSet.Count != dto.Orders.Count)
                 throw new InvalidOperationException("Порядки должны быть уникальны");
 
-            // Проверяем границы для системных
             var notStarted = columns.FirstOrDefault(c => c.SystemKey == KeyNotStarted);
             var completed = columns.FirstOrDefault(c => c.SystemKey == KeyCompleted);
             var maxOrder = dto.Orders.Max(o => o.Order);
@@ -860,7 +846,6 @@ namespace ProjectHub.API.Services
                         "Колонка «Завершено» всегда последняя");
             }
 
-            // Применяем
             foreach (var item in dto.Orders)
             {
                 var col = columns.First(c => c.Id == item.ColumnId);
@@ -877,17 +862,11 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
-            // Пересобираем Order для чистоты
             await NormalizeColumnOrderAsync(project.Id);
 
-            // Возвращаем колонки с задачами
             var board = await GetBoardByCodeAsync(projectCode, userId);
             return board;
         }
-
-        // ═══════════════════════════════════════════════════════════
-        //  ВСПОМОГАТЕЛЬНЫЕ ДЛЯ КОЛОНОК
-        // ═══════════════════════════════════════════════════════════
 
         /// <summary>Пересобирает Order колонок подряд: 0, 1, 2, ...</summary>
         private async Task NormalizeColumnOrderAsync(Guid projectId)
@@ -905,6 +884,7 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
         }
+
         // ═══════════════════════════════════════════════════════════
         //  ПОЛУЧЕНИЕ ЗАДАЧИ
         // ═══════════════════════════════════════════════════════════
@@ -956,7 +936,7 @@ namespace ProjectHub.API.Services
         }
 
         // ═══════════════════════════════════════════════════════════
-        //  КОММЕНТАРИИ
+        //  КОММЕНТАРИИ (с поддержкой ответов)
         // ═══════════════════════════════════════════════════════════
 
         public async Task<List<TaskCommentDto>> GetCommentsAsync(
@@ -971,13 +951,52 @@ namespace ProjectHub.API.Services
             if (!taskExists)
                 throw new KeyNotFoundException("Задача не найдена");
 
+            // Загружаем ВСЕ комментарии задачи с авторами
             var comments = await _db.TaskComments
                 .Where(c => c.TaskId == taskId)
                 .Include(c => c.Author)
                 .OrderBy(c => c.CreatedAt)
                 .ToListAsync();
 
-            return comments.Select(MapComment).ToList();
+            // Строим словарь id → DTO
+            var dtos = comments.ToDictionary(
+                c => c.Id,
+                c => MapComment(c)
+            );
+
+            // Раскладываем ответы в Replies родителя
+            var roots = new List<TaskCommentDto>();
+
+            foreach (var c in comments)
+            {
+                var dto = dtos[c.Id];
+
+                if (c.ParentCommentId.HasValue
+                    && dtos.TryGetValue(c.ParentCommentId.Value, out var parent))
+                {
+                    // Заполняем ReplyTo — автор того комментария,
+                    // на который отвечают
+                    dto.ReplyToUserId = parent.AuthorId;
+                    dto.ReplyToUserName = parent.AuthorName;
+
+                    parent.Replies.Add(dto);
+                }
+                else
+                {
+                    roots.Add(dto);
+                }
+            }
+
+            // Сортируем ответы внутри каждого корневого по времени (старые сверху)
+            foreach (var root in roots)
+            {
+                root.Replies = root.Replies
+                    .OrderBy(r => r.CreatedAt)
+                    .ToList();
+            }
+
+            // Корневые — новые сверху
+            return roots.OrderByDescending(r => r.CreatedAt).ToList();
         }
 
         public async Task<TaskCommentDto> AddCommentAsync(
@@ -1002,11 +1021,29 @@ namespace ProjectHub.API.Services
             var author = await _db.Users.FindAsync(userId)
                 ?? throw new KeyNotFoundException("Пользователь не найден");
 
+            // 🆕 Определяем родительский комментарий
+            Guid? parentId = null;
+            TaskComment? parentComment = null;
+
+            if (dto.ParentCommentId.HasValue)
+            {
+                parentComment = await _db.TaskComments
+                    .Include(c => c.Author)
+                    .FirstOrDefaultAsync(c => c.Id == dto.ParentCommentId.Value
+                                               && c.TaskId == taskId)
+                    ?? throw new KeyNotFoundException("Родительский комментарий не найден");
+
+                // Если родитель — сам ответ, «поднимаем» до корня,
+                // чтобы не было больше 1 уровня вложенности
+                parentId = parentComment.ParentCommentId ?? parentComment.Id;
+            }
+
             var comment = new TaskComment
             {
                 Id = Guid.NewGuid(),
                 TaskId = taskId,
                 AuthorId = userId,
+                ParentCommentId = parentId,
                 Text = text,
                 CreatedAt = DateTime.UtcNow
             };
@@ -1017,7 +1054,9 @@ namespace ProjectHub.API.Services
                 project.Id,
                 userId,
                 ActivityType.CommentAdded,
-                summary: $"Комментарий к задаче «{task.Title}»",
+                summary: parentId.HasValue
+                    ? $"Ответ на комментарий к задаче «{task.Title}»"
+                    : $"Комментарий к задаче «{task.Title}»",
                 link: $"/projects/{project.PublicCode}/tasks/{taskId}",
                 relatedEntityId: taskId
             );
@@ -1026,9 +1065,62 @@ namespace ProjectHub.API.Services
 
             var preview = text.Length > 60 ? text.Substring(0, 60) + "…" : text;
 
+            // 🆕 Кому отправляем уведомления:
+            //    1. Автору родительского комментария (если это ответ)
+            //    2. Всем, кто уже отвечал в этой ветке
+            //    3. Исполнителям задачи (как раньше)
+            var notifiedUserIds = new HashSet<Guid> { userId };
+
+            // Автор родительского комментария
+            if (parentComment != null && parentComment.AuthorId != userId)
+            {
+                notifiedUserIds.Add(parentComment.AuthorId);
+
+                await _notificationService.CreateNotificationAsync(
+                    parentComment.AuthorId,
+                    "💬 Новый ответ на ваш комментарий",
+                    $"{author.Name}: {preview}",
+                    NotificationType.NewTaskComment,
+                    $"/projects/{project.PublicCode}/tasks/{taskId}",
+                    taskId
+                );
+            }
+
+            // Все, кто уже отвечал в этой ветке (кроме автора родителя,
+            // ему уже отправили, и кроме самого текущего)
+            if (parentId.HasValue)
+            {
+                var threadRepliers = await _db.TaskComments
+                    .Where(c => c.ParentCommentId == parentId.Value
+                                || c.Id == parentId.Value)
+                    .Select(c => c.AuthorId)
+                    .Distinct()
+                    .ToListAsync();
+
+                foreach (var replierId in threadRepliers)
+                {
+                    if (replierId == userId) continue;
+                    if (notifiedUserIds.Contains(replierId)) continue;
+
+                    notifiedUserIds.Add(replierId);
+
+                    await _notificationService.CreateNotificationAsync(
+                        replierId,
+                        "💬 Новый ответ в ветке",
+                        $"{author.Name}: {preview}",
+                        NotificationType.NewTaskComment,
+                        $"/projects/{project.PublicCode}/tasks/{taskId}",
+                        taskId
+                    );
+                }
+            }
+
+            // Исполнители задачи
             foreach (var assignee in task.Assignees)
             {
-                if (assignee.UserId == userId) continue;
+                if (notifiedUserIds.Contains(assignee.UserId)) continue;
+
+                notifiedUserIds.Add(assignee.UserId);
 
                 await _notificationService.CreateNotificationAsync(
                     assignee.UserId,
@@ -1257,7 +1349,6 @@ namespace ProjectHub.API.Services
 
             _db.TaskSubtasks.Add(subtask);
 
-            // Если задача в "Завершено" — возвращаем в "В процессе"
             var column = await _db.TaskColumns
                 .FirstOrDefaultAsync(c => c.Id == task.ColumnId);
 
@@ -1560,7 +1651,6 @@ namespace ProjectHub.API.Services
                 tagIds = validIds;
             }
 
-            // Определяем diff для истории
             var oldIds = task.TagLinks.Select(l => l.TagId).ToHashSet();
             var newIds = tagIds.ToHashSet();
 
@@ -1599,10 +1689,8 @@ namespace ProjectHub.API.Services
                 );
             }
 
-            // Удаляем старые связи
             _db.TaskTagLinks.RemoveRange(task.TagLinks);
 
-            // Добавляем новые
             foreach (var tid in tagIds)
             {
                 _db.TaskTagLinks.Add(new TaskTagLink
@@ -1642,7 +1730,6 @@ namespace ProjectHub.API.Services
                 .Include(t => t.Project)
                 .AsQueryable();
 
-            // Задача должна содержать ВСЕ переданные теги
             foreach (var tagId in tagIds)
             {
                 query = query.Where(t => t.TagLinks.Any(l => l.TagId == tagId));
@@ -1659,12 +1746,6 @@ namespace ProjectHub.API.Services
         //  ВСПОМОГАТЕЛЬНЫЕ
         // ═══════════════════════════════════════════════════════════
 
-        /// <summary>
-        /// Эффективный дедлайн задачи:
-        ///   • если пользователь задал DueDate — используем его;
-        ///   • иначе — дедлайн проекта.
-        /// Вычисляется на лету, не сохраняется в БД.
-        /// </summary>
         private static DateTime? GetEffectiveDueDate(ProjectTask task)
         {
             if (task.DueDate.HasValue)
@@ -1673,9 +1754,6 @@ namespace ProjectHub.API.Services
             return task.Project?.Deadline;
         }
 
-        /// <summary>
-        /// Проверяет, что дата начала не позже дедлайна задачи и дедлайна проекта.
-        /// </summary>
         private static void ValidateStartDate(
             Project project, DateTime? startDate, DateTime? dueDate)
         {
@@ -1691,10 +1769,6 @@ namespace ProjectHub.API.Services
                     "Дата начала задачи не может быть позже её дедлайна.");
         }
 
-        /// <summary>
-        /// Проверяет, что дедлайн задачи не позже дедлайна проекта
-        /// и не раньше даты начала.
-        /// </summary>
         private static void ValidateDueDate(
             Project project, DateTime? startDate, DateTime? dueDate)
         {
@@ -1710,14 +1784,6 @@ namespace ProjectHub.API.Services
                     "Дедлайн задачи не может быть раньше её даты начала.");
         }
 
-        /// <summary>
-        /// Эффективный приоритет: вычисляется на лету, не сохраняется в БД.
-        ///   • задача завершена → None
-        ///   • нет эффективного дедлайна → сохранённый Priority
-        ///   • дедлайн просрочен или ≤ 3 дней → Critical
-        ///   • ≤ 7 дней → не ниже High
-        ///   • иначе → сохранённый Priority
-        /// </summary>
         private static TaskPriority GetEffectivePriority(ProjectTask task)
         {
             if (task.CompletedAt.HasValue)
@@ -1739,10 +1805,6 @@ namespace ProjectHub.API.Services
             return task.Priority;
         }
 
-        /// <summary>
-        /// Проверяет, что проект не в архиве.
-        /// Используется во всех мутирующих методах.
-        /// </summary>
         private static void EnsureProjectNotArchived(Project project)
         {
             if (project.IsArchived)
@@ -1939,10 +2001,15 @@ namespace ProjectHub.API.Services
         {
             Id = c.Id,
             Text = c.Text,
+            AuthorId = c.AuthorId,
             AuthorEmail = c.Author?.Email ?? string.Empty,
             AuthorName = c.Author?.Name ?? string.Empty,
             AuthorSpecialization = c.Author?.Specialization.ToString(),
-            CreatedAt = c.CreatedAt
+            AuthorAvatarUrl = c.Author?.AvatarUrl,
+            ParentCommentId = c.ParentCommentId,
+            CreatedAt = c.CreatedAt,
+            EditedAt = c.EditedAt,
+            Replies = new List<TaskCommentDto>()
         };
 
         private static bool IsKey(TaskColumn? column, string key)

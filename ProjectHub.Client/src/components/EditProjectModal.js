@@ -2,6 +2,19 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import {
+    Pencil,
+    X,
+    Image as ImageIcon,
+    Upload,
+    Trash2,
+    Tag as TagIcon,
+    Lock,
+    Loader2,
+    Save,
+    AlertCircle,
+    Check,
+} from 'lucide-react';
+import {
     PROJECT_CATEGORIES,
     PROJECT_VISIBILITY,
     PROJECT_STATUSES
@@ -227,12 +240,12 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
     const getFieldHint = (field) => {
         if (!canEdit[field]) {
             if (field === 'description')
-                return '✏️ Только владелец и администратор могут редактировать описание';
+                return 'Только владелец и администратор могут редактировать описание';
             if (field === 'tags')
-                return '🔒 Только владелец может управлять тегами проекта';
+                return 'Только владелец может управлять тегами проекта';
             if (field === 'cover')
-                return '🔒 Только владелец может менять обложку проекта';
-            return '🔒 Только владелец может редактировать это поле';
+                return 'Только владелец может менять обложку проекта';
+            return 'Только владелец может редактировать это поле';
         }
         return null;
     };
@@ -241,18 +254,41 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
         <div className="edit-modal-overlay" onClick={onClose}>
             <div className="edit-modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="edit-modal-header">
-                    <h2>✏️ Редактировать проект</h2>
-                    <button className="edit-modal-close" onClick={onClose}>✕</button>
+                    <h2>
+                        <Pencil size={20} />
+                        Редактировать проект
+                    </h2>
+                    <button
+                        type="button"
+                        className="btn btn--ghost btn--icon btn--sm"
+                        onClick={onClose}
+                        aria-label="Закрыть"
+                    >
+                        <X size={16} />
+                    </button>
                 </div>
 
-                {error && <div className="edit-modal-error">{error}</div>}
-                {success && <div className="edit-modal-success">{success}</div>}
+                {error && (
+                    <div className="edit-modal-error">
+                        <AlertCircle size={14} />
+                        {error}
+                    </div>
+                )}
+                {success && (
+                    <div className="edit-modal-success">
+                        <Check size={14} />
+                        {success}
+                    </div>
+                )}
 
                 <form onSubmit={handleSubmit} className="edit-modal-form">
 
                     {/* 🆕 ── ОБЛОЖКА ПРОЕКТА ── */}
                     <div className="form-group edit-modal-cover-group">
-                        <label>🖼️ Обложка проекта</label>
+                        <label>
+                            <ImageIcon size={16} />
+                            Обложка проекта
+                        </label>
 
                         <div className="edit-modal-cover">
                             <ProjectCover
@@ -264,8 +300,18 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
 
                             {canEdit.cover && (
                                 <div className="edit-modal-cover-actions">
-                                    <label className="btn-cover-upload">
-                                        {uploadingCover ? '⏳ Загрузка…' : '📷 Заменить'}
+                                    <label className="btn btn--secondary btn--sm edit-modal-cover-upload">
+                                        {uploadingCover ? (
+                                            <>
+                                                <Loader2 size={14} className="icon-spin" />
+                                                Загрузка…
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Upload size={14} />
+                                                Заменить
+                                            </>
+                                        )}
                                         <input
                                             ref={fileInputRef}
                                             type="file"
@@ -279,12 +325,13 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                                     {coverUrl && (
                                         <button
                                             type="button"
-                                            className="btn-cover-delete"
+                                            className="btn btn--danger-outline btn--sm"
                                             onClick={handleCoverDelete}
                                             disabled={uploadingCover || loading}
                                             title="Удалить обложку"
                                         >
-                                            🗑 Удалить
+                                            <Trash2 size={14} />
+                                            Удалить
                                         </button>
                                     )}
                                 </div>
@@ -292,14 +339,21 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                         </div>
 
                         {coverError && (
-                            <div className="edit-modal-cover-error">{coverError}</div>
+                            <div className="edit-modal-cover-error">
+                                <AlertCircle size={14} />
+                                {coverError}
+                            </div>
                         )}
 
                         {getFieldHint('cover') ? (
-                            <span className="field-hint">{getFieldHint('cover')}</span>
+                            <span className="field-hint">
+                                <Lock size={12} />
+                                {getFieldHint('cover')}
+                            </span>
                         ) : (
                             <span className="field-hint">
-                                🖼️ PNG, JPG, GIF или WEBP до 5 МБ. Не обязательно.
+                                <ImageIcon size={12} />
+                                PNG, JPG, GIF или WEBP до 5 МБ. Не обязательно.
                             </span>
                         )}
                     </div>
@@ -315,7 +369,10 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                             className={!canEdit.name ? 'field-disabled' : ''}
                         />
                         {getFieldHint('name') && (
-                            <span className="field-hint">{getFieldHint('name')}</span>
+                            <span className="field-hint">
+                                <Lock size={12} />
+                                {getFieldHint('name')}
+                            </span>
                         )}
                     </div>
 
@@ -330,7 +387,10 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                             className={!canEdit.description ? 'field-disabled' : ''}
                         />
                         {getFieldHint('description') && (
-                            <span className="field-hint">{getFieldHint('description')}</span>
+                            <span className="field-hint">
+                                <Pencil size={12} />
+                                {getFieldHint('description')}
+                            </span>
                         )}
                     </div>
 
@@ -351,7 +411,10 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                                 ))}
                             </select>
                             {getFieldHint('category') && (
-                                <span className="field-hint">{getFieldHint('category')}</span>
+                                <span className="field-hint">
+                                    <Lock size={12} />
+                                    {getFieldHint('category')}
+                                </span>
                             )}
                         </div>
 
@@ -371,7 +434,10 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                                 ))}
                             </select>
                             {getFieldHint('visibility') && (
-                                <span className="field-hint">{getFieldHint('visibility')}</span>
+                                <span className="field-hint">
+                                    <Lock size={12} />
+                                    {getFieldHint('visibility')}
+                                </span>
                             )}
                         </div>
                     </div>
@@ -393,7 +459,10 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                                 ))}
                             </select>
                             {getFieldHint('status') && (
-                                <span className="field-hint">{getFieldHint('status')}</span>
+                                <span className="field-hint">
+                                    <Lock size={12} />
+                                    {getFieldHint('status')}
+                                </span>
                             )}
                         </div>
 
@@ -409,7 +478,10 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                                 min={new Date().toISOString().split('T')[0]}
                             />
                             {getFieldHint('deadline') && (
-                                <span className="field-hint">{getFieldHint('deadline')}</span>
+                                <span className="field-hint">
+                                    <Lock size={12} />
+                                    {getFieldHint('deadline')}
+                                </span>
                             )}
                         </div>
                     </div>
@@ -417,11 +489,15 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                     {/* ── Теги проекта (только владелец) ── */}
                     {canEdit.tags && (
                         <div className="form-group edit-modal-tags-group">
-                            <label>🏷️ Теги проекта</label>
+                            <label>
+                                <TagIcon size={16} />
+                                Теги проекта
+                            </label>
 
                             {tagsLoading ? (
                                 <div className="edit-modal-tags-loading">
-                                    ⏳ Загрузка тегов…
+                                    <Loader2 size={14} className="icon-spin" />
+                                    Загрузка тегов…
                                 </div>
                             ) : (
                                 <ProjectTagPicker
@@ -432,7 +508,8 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                             )}
 
                             <span className="field-hint">
-                                🏷️ Пользователи смогут найти проект по этим тегам
+                                <TagIcon size={12} />
+                                Пользователи смогут найти проект по этим тегам
                             </span>
                         </div>
                     )}
@@ -441,7 +518,7 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                 <div className="edit-modal-footer">
                     <button
                         type="button"
-                        className="btn-cancel"
+                        className="btn btn--secondary"
                         onClick={onClose}
                         disabled={loading}
                     >
@@ -449,11 +526,21 @@ const EditProjectModal = ({ project, onClose, onUpdated, userRole }) => {
                     </button>
                     <button
                         type="submit"
-                        className="btn-save"
+                        className="btn btn--primary"
                         onClick={handleSubmit}
                         disabled={loading || uploadingCover}
                     >
-                        {loading ? '⏳ Сохранение...' : '💾 Сохранить'}
+                        {loading ? (
+                            <>
+                                <Loader2 size={16} className="icon-spin" />
+                                Сохранение...
+                            </>
+                        ) : (
+                            <>
+                                <Save size={16} />
+                                Сохранить
+                            </>
+                        )}
                     </button>
                 </div>
             </div>

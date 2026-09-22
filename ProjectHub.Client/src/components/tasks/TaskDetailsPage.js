@@ -1,5 +1,23 @@
+// projecthub.client/src/components/tasks/TaskDetailsPage.js
+
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import {
+    ArrowLeft,
+    Archive,
+    X,
+    Pencil,
+    MessageCircle,
+    Trash2,
+    UserPlus,
+    Tag as TagIcon,
+    FileText,
+    Paperclip,
+    Loader2,
+    AlertTriangle,
+    Plus,
+    Check,
+} from 'lucide-react';
 import {
     TASK_PRIORITIES,
     getPriorityInfo
@@ -17,8 +35,6 @@ import {
     takeTask,
     leaveTask,
     deleteTask,
-    getTaskComments,
-    addTaskComment,
     uploadTaskAttachment,
     downloadTaskAttachment,
     deleteTaskAttachment,
@@ -33,6 +49,7 @@ import {
 } from '../../services/tasksApi';
 import { searchMyProjectByCode } from '../../services/projectsApi';
 import { useAuth } from '../../context/AuthContext';
+import TaskComments from './TaskComments';
 import '../../styles/components/tasks/tasks.css';
 
 export default function TaskDetailsPage() {
@@ -66,11 +83,8 @@ export default function TaskDetailsPage() {
     });
     const [saving, setSaving] = useState(false);
 
-    // ── Комментарии ──
-    const [comments, setComments] = useState([]);
-    const [showCommentBox, setShowCommentBox] = useState(false);
-    const [commentText, setCommentText] = useState('');
-    const [commentSubmitting, setCommentSubmitting] = useState(false);
+    // 🆕 Комментарии — теперь в отдельном компоненте
+    const commentsRef = useRef(null);
 
     // ── Вложения ──
     const [uploading, setUploading] = useState(false);
@@ -98,16 +112,15 @@ export default function TaskDetailsPage() {
         setLoading(true);
         setError(null);
         try {
-            const [taskData, board, commentsData, tagsData, projectData] = await Promise.all([
+            // 🆕 getTaskComments убран — комментарии грузит сам TaskComments
+            const [taskData, board, tagsData, projectData] = await Promise.all([
                 getTaskById(code, taskId),
                 getTasksBoard(code),
-                getTaskComments(code, taskId),
                 getProjectTags(code),
                 searchMyProjectByCode(code)
             ]);
             setTask(taskData);
             setColumns(board);
-            setComments(commentsData);
             setAllTags(tagsData);
             setProject(projectData);
             setForm({
@@ -241,28 +254,9 @@ export default function TaskDetailsPage() {
         }
     };
 
-    // ═══════════════════════════════════════════════════════════
-    //  КОММЕНТАРИИ
-    // ═══════════════════════════════════════════════════════════
-
-    const handleSubmitComment = async (e) => {
-        e.preventDefault();
-        if (isArchived) return;
-        if (!commentText.trim() || commentSubmitting) return;
-
-        setCommentSubmitting(true);
-        try {
-            setActionError(null);
-            const newComment = await addTaskComment(code, taskId, commentText.trim());
-            setComments(prev => [...prev, newComment]);
-            setCommentText('');
-            setShowCommentBox(false);
-        } catch (e) {
-            console.error('❌ Ошибка добавления комментария:', e);
-            setActionError(e.message);
-        } finally {
-            setCommentSubmitting(false);
-        }
+    // 🆕 Прокрутка к комментариям при клике на кнопку в хедере
+    const scrollToComments = () => {
+        commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
 
     // ═══════════════════════════════════════════════════════════
@@ -521,7 +515,6 @@ export default function TaskDetailsPage() {
     const isTaken = assignees.length > 0;
     const isOwnerUser = !!task.isOwner;
 
-    // 📦 Учитываем архив везде, где раньше было task.canEdit / isOwnerUser
     const canEdit = !isArchived && !!task.canEdit;
     const canUpload = !isArchived && !!task.canUploadAttachments;
     const canComment = !isArchived;
@@ -529,24 +522,39 @@ export default function TaskDetailsPage() {
     const canTake = !isArchived && !isMine;
 
     const priorityInfo = getPriorityInfo(task.priority);
+    const PriorityIcon = priorityInfo.lucideIcon;
     const deadlineStatus = getDeadlineStatus(task.effectiveDueDate, !!task.completedAt);
 
     return (
         <div className="task-details-page">
-            <button className="btn-back" onClick={() => navigate(-1)}>
-                ← Назад
+            <button
+                type="button"
+                className="btn btn--ghost btn--sm"
+                onClick={() => navigate(-1)}
+            >
+                <ArrowLeft size={16} />
+                Назад
             </button>
 
             {isArchived && (
                 <div className="archive-banner">
-                    📦 Этот проект в архиве. Задача доступна только для просмотра.
+                    <Archive size={16} />
+                    Этот проект в архиве. Задача доступна только для просмотра.
                 </div>
             )}
 
             {actionError && (
                 <div className="tasks-action-error">
+                    <AlertTriangle size={14} />
                     {actionError}
-                    <button onClick={() => setActionError(null)}>×</button>
+                    <button
+                        type="button"
+                        className="btn btn--ghost btn--icon btn--sm"
+                        onClick={() => setActionError(null)}
+                        aria-label="Закрыть"
+                    >
+                        <X size={14} />
+                    </button>
                 </div>
             )}
 
@@ -554,13 +562,13 @@ export default function TaskDetailsPage() {
                 <>
                     <header className="task-details-header">
                         <h1>
-                            {task.priority && task.priority !== 'None' && (
+                            {task.priority && task.priority !== 'None' && PriorityIcon && (
                                 <span
                                     className="task-priority-icon-lg"
                                     title={priorityInfo.label}
                                     style={{ color: priorityInfo.color }}
                                 >
-                                    {priorityInfo.icon}
+                                    <PriorityIcon size={20} />
                                 </span>
                             )}
                             {task.title}
@@ -569,82 +577,71 @@ export default function TaskDetailsPage() {
                         <div className="task-details-actions">
                             {canEdit && (
                                 <button
-                                    className="btn-edit"
+                                    type="button"
+                                    className="btn btn--secondary"
                                     onClick={() => setIsEditing(true)}
                                 >
+                                    <Pencil size={16} />
                                     Редактировать
                                 </button>
                             )}
 
+                            {/* 🆕 Кнопка «Комментировать» — прокручивает к секции комментариев */}
                             {canComment && (
                                 <button
-                                    className="btn-comment"
-                                    onClick={() => setShowCommentBox(v => !v)}
-                                    title="Оставить комментарий"
+                                    type="button"
+                                    className="btn btn--secondary"
+                                    onClick={scrollToComments}
+                                    title="К комментариям"
                                 >
+                                    <MessageCircle size={16} />
                                     Комментировать
                                 </button>
                             )}
 
                             {canDeleteTask && (
                                 <button
-                                    className="btn-delete-task"
+                                    type="button"
+                                    className="btn btn--danger-outline"
                                     onClick={handleDelete}
                                     title="Удалить задачу"
                                 >
+                                    <Trash2 size={16} />
                                     Удалить
                                 </button>
                             )}
 
                             {canTake && (
                                 <button
-                                    className="btn-take-task"
+                                    type="button"
+                                    className="btn btn--primary"
                                     onClick={handleTake}
                                     title={isTaken ? 'Присоединиться к задаче' : 'Взять задачу'}
                                 >
+                                    <UserPlus size={16} />
                                     {isTaken ? 'Присоединиться' : 'Взять задачу'}
                                 </button>
                             )}
                         </div>
                     </header>
 
-                    {showCommentBox && canComment && (
-                        <form className="comment-box" onSubmit={handleSubmitComment}>
-                            <textarea
-                                rows={3}
-                                maxLength={2000}
-                                placeholder="Напишите комментарий…"
-                                value={commentText}
-                                onChange={e => setCommentText(e.target.value)}
-                                autoFocus
-                            />
-                            <div className="comment-box-actions">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        setShowCommentBox(false);
-                                        setCommentText('');
-                                    }}
-                                    disabled={commentSubmitting}
-                                >
-                                    Отмена
-                                </button>
-                                <button
-                                    type="submit"
-                                    disabled={commentSubmitting || !commentText.trim()}
-                                >
-                                    {commentSubmitting ? 'Отправка…' : 'Отправить'}
-                                </button>
-                            </div>
-                        </form>
-                    )}
-
                     <section className="task-details-body">
                         <div className="task-details-meta">
                             <span><b>Блок:</b> {task.columnName}</span>
                             <span>
                                 <b>Приоритет:</b>{' '}
-                                {priorityInfo.icon} {priorityInfo.label}
+                                {PriorityIcon && (
+                                    <PriorityIcon
+                                        size={14}
+                                        style={{
+                                            color: priorityInfo.color,
+                                            display: 'inline',
+                                            verticalAlign: 'middle',
+                                            marginRight: 4,
+                                        }}
+                                    />
+                                )}
+                                {priorityInfo.label}
                             </span>
                             <span>
                                 <b>Начало:</b>{' '}
@@ -656,7 +653,15 @@ export default function TaskDetailsPage() {
                                     <span className={deadlineStatus}>
                                         {formatDateTime(task.effectiveDueDate)}
                                         {!task.isDueDateFixed && ' (по проекту)'}
-                                        {deadlineStatus === 'overdue' && ' ⚠️'}
+                                        {deadlineStatus === 'overdue' && (
+                                            <>
+                                                {' '}
+                                                <AlertTriangle
+                                                    size={14}
+                                                    style={{ display: 'inline', verticalAlign: 'middle' }}
+                                                />
+                                            </>
+                                        )}
                                     </span>
                                 ) : (
                                     'Без дедлайна'
@@ -718,11 +723,13 @@ export default function TaskDetailsPage() {
 
                                                 {canRemove && (
                                                     <button
-                                                        className="btn-remove-assignee"
+                                                        type="button"
+                                                        className="btn btn--ghost btn--icon btn--sm"
                                                         title={isSelf ? 'Снять задачу' : 'Снять исполнителя'}
                                                         onClick={() => handleRemoveAssignee(a.email)}
+                                                        aria-label={isSelf ? 'Снять задачу' : 'Снять исполнителя'}
                                                     >
-                                                        ×
+                                                        <X size={14} />
                                                     </button>
                                                 )}
                                             </li>
@@ -740,10 +747,11 @@ export default function TaskDetailsPage() {
                                 {canEdit && (
                                     <button
                                         type="button"
-                                        className="btn-toggle-tags"
+                                        className="btn btn--ghost btn--sm"
                                         onClick={() => setShowTagPicker(v => !v)}
                                     >
-                                        {showTagPicker ? 'Скрыть' : '🏷 Управлять тегами'}
+                                        <TagIcon size={14} />
+                                        {showTagPicker ? 'Скрыть' : 'Управлять тегами'}
                                     </button>
                                 )}
                             </div>
@@ -766,11 +774,12 @@ export default function TaskDetailsPage() {
                                             {canEdit && (
                                                 <button
                                                     type="button"
-                                                    className="task-tag-remove"
+                                                    className="btn btn--ghost btn--icon btn--sm task-tag-remove"
                                                     title="Снять тег"
                                                     onClick={() => handleToggleTag(t.id)}
+                                                    aria-label="Снять тег"
                                                 >
-                                                    ×
+                                                    <X size={12} />
                                                 </button>
                                             )}
                                         </span>
@@ -809,14 +818,15 @@ export default function TaskDetailsPage() {
                                                         {task.isOwner && !isArchived && (
                                                             <button
                                                                 type="button"
-                                                                className="tag-picker-delete"
+                                                                className="btn btn--ghost btn--icon btn--sm"
                                                                 title="Удалить тег из проекта"
                                                                 onClick={(e) => {
                                                                     e.preventDefault();
                                                                     handleDeleteTag(t);
                                                                 }}
+                                                                aria-label="Удалить тег из проекта"
                                                             >
-                                                                🗑
+                                                                <Trash2 size={14} />
                                                             </button>
                                                         )}
                                                     </label>
@@ -842,9 +852,17 @@ export default function TaskDetailsPage() {
                                         />
                                         <button
                                             type="submit"
+                                            className="btn btn--primary btn--sm"
                                             disabled={tagSubmitting || !newTagName.trim()}
                                         >
-                                            {tagSubmitting ? '…' : '+ Создать'}
+                                            {tagSubmitting ? (
+                                                <Loader2 size={14} className="icon-spin" />
+                                            ) : (
+                                                <>
+                                                    <Plus size={14} />
+                                                    Создать
+                                                </>
+                                            )}
                                         </button>
                                     </form>
                                 </div>
@@ -916,19 +934,21 @@ export default function TaskDetailsPage() {
                                                 <div className="subtask-actions">
                                                     <button
                                                         type="button"
-                                                        className="btn-subtask-edit"
+                                                        className="btn btn--ghost btn--icon btn--sm"
                                                         title="Редактировать"
                                                         onClick={() => handleStartEditSubtask(s)}
+                                                        aria-label="Редактировать подзадачу"
                                                     >
-                                                        ✎
+                                                        <Pencil size={14} />
                                                     </button>
                                                     <button
                                                         type="button"
-                                                        className="btn-subtask-delete"
+                                                        className="btn btn--ghost btn--icon btn--sm"
                                                         title="Удалить"
                                                         onClick={() => handleDeleteSubtask(s)}
+                                                        aria-label="Удалить подзадачу"
                                                     >
-                                                        ×
+                                                        <X size={14} />
                                                     </button>
                                                 </div>
                                             )}
@@ -949,9 +969,17 @@ export default function TaskDetailsPage() {
                                     />
                                     <button
                                         type="submit"
+                                        className="btn btn--primary btn--sm"
                                         disabled={subtaskAdding || !newSubtaskTitle.trim()}
                                     >
-                                        {subtaskAdding ? '…' : '+ Добавить'}
+                                        {subtaskAdding ? (
+                                            <Loader2 size={14} className="icon-spin" />
+                                        ) : (
+                                            <>
+                                                <Plus size={14} />
+                                                Добавить
+                                            </>
+                                        )}
                                     </button>
                                 </form>
                             )}
@@ -972,11 +1000,21 @@ export default function TaskDetailsPage() {
                                         />
                                         <button
                                             type="button"
-                                            className="btn-upload-attachment"
+                                            className="btn btn--secondary btn--sm"
                                             onClick={() => fileInputRef.current?.click()}
                                             disabled={uploading}
                                         >
-                                            {uploading ? 'Загрузка…' : '📎 Прикрепить файл'}
+                                            {uploading ? (
+                                                <>
+                                                    <Loader2 size={14} className="icon-spin" />
+                                                    Загрузка…
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Paperclip size={14} />
+                                                    Прикрепить файл
+                                                </>
+                                            )}
                                         </button>
                                     </>
                                 )}
@@ -988,7 +1026,9 @@ export default function TaskDetailsPage() {
                                 <ul className="attachments-list">
                                     {attachments.map(att => (
                                         <li key={att.id} className="attachment-item">
-                                            <span className="attachment-icon">📄</span>
+                                            <span className="attachment-icon">
+                                                <FileText size={18} />
+                                            </span>
                                             <div className="attachment-info">
                                                 <button
                                                     type="button"
@@ -1006,11 +1046,13 @@ export default function TaskDetailsPage() {
                                             </div>
                                             {att.canDelete && !isArchived && (
                                                 <button
-                                                    className="btn-remove-attachment"
+                                                    type="button"
+                                                    className="btn btn--ghost btn--icon btn--sm"
                                                     title="Удалить файл"
                                                     onClick={() => handleDeleteFile(att)}
+                                                    aria-label="Удалить файл"
                                                 >
-                                                    ×
+                                                    <X size={14} />
                                                 </button>
                                             )}
                                         </li>
@@ -1019,34 +1061,13 @@ export default function TaskDetailsPage() {
                             )}
                         </div>
 
-                        {/* ── Комментарии ── */}
-                        <div className="task-details-comments">
-                            <h3>Комментарии ({comments.length})</h3>
-
-                            {comments.length === 0 ? (
-                                <p className="no-comments">Комментариев пока нет</p>
-                            ) : (
-                                <ul className="comments-list">
-                                    {comments.map(c => (
-                                        <li key={c.id} className="comment-item">
-                                            <div className="comment-header">
-                                                <span className="comment-author">
-                                                    {c.authorName || c.authorEmail}
-                                                </span>
-                                                {c.authorSpecialization && (
-                                                    <span className="comment-spec">
-                                                        — {c.authorSpecialization}
-                                                    </span>
-                                                )}
-                                                <span className="comment-date">
-                                                    {new Date(c.createdAt).toLocaleString('ru-RU')}
-                                                </span>
-                                            </div>
-                                            <p className="comment-text">{c.text}</p>
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
+                        {/* 🆕 ── Комментарии ── */}
+                        <div ref={commentsRef}>
+                            <TaskComments
+                                projectCode={code}
+                                taskId={taskId}
+                                isArchived={isArchived}
+                            />
                         </div>
                     </section>
                 </>
@@ -1094,7 +1115,7 @@ export default function TaskDetailsPage() {
                         >
                             {TASK_PRIORITIES.map(p => (
                                 <option key={p.value} value={p.value}>
-                                    {p.icon} {p.label}
+                                    {p.label}
                                 </option>
                             ))}
                         </select>
@@ -1186,6 +1207,7 @@ export default function TaskDetailsPage() {
                     <div className="modal-actions">
                         <button
                             type="button"
+                            className="btn btn--secondary"
                             onClick={handleCancelEdit}
                             disabled={saving}
                         >
@@ -1193,9 +1215,20 @@ export default function TaskDetailsPage() {
                         </button>
                         <button
                             type="submit"
+                            className="btn btn--primary"
                             disabled={saving || !form.title.trim()}
                         >
-                            {saving ? 'Сохранение…' : 'Сохранить'}
+                            {saving ? (
+                                <>
+                                    <Loader2 size={16} className="icon-spin" />
+                                    Сохранение…
+                                </>
+                            ) : (
+                                <>
+                                    <Check size={16} />
+                                    Сохранить
+                                </>
+                            )}
                         </button>
                     </div>
                 </form>

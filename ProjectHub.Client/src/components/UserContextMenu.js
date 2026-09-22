@@ -2,6 +2,19 @@
 
 import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    User,
+    ExternalLink,
+    Mail,
+    MessageCircle,
+    UserPlus,
+    Loader2,
+    Check,
+    X,
+    HeartCrack,
+    Zap,
+    LogOut,
+} from 'lucide-react';
 import '../styles/components/UserContextMenu.css';
 
 /**
@@ -241,28 +254,28 @@ const UserContextMenu = ({
             {/* ═══ Навигация ═══ */}
             <button
                 type="button"
-                className="ucm-item"
+                className="btn btn--ghost btn--sm ucm-item"
                 onClick={handleOpenProfile}
             >
-                <span className="ucm-icon">👤</span>
+                <span className="ucm-icon"><User size={14} /></span>
                 Открыть профиль
             </button>
 
             <button
                 type="button"
-                className="ucm-item"
+                className="btn btn--ghost btn--sm ucm-item"
                 onClick={handleOpenNewTab}
             >
-                <span className="ucm-icon">🪟</span>
+                <span className="ucm-icon"><ExternalLink size={14} /></span>
                 Открыть в новой вкладке
             </button>
 
             <button
                 type="button"
-                className="ucm-item"
+                className="btn btn--ghost btn--sm ucm-item"
                 onClick={handleCopyEmail}
             >
-                <span className="ucm-icon">📧</span>
+                <span className="ucm-icon"><Mail size={14} /></span>
                 Копировать email
                 <span className="ucm-hint">{user.email}</span>
             </button>
@@ -273,10 +286,10 @@ const UserContextMenu = ({
                     <div className="ucm-divider" />
                     <button
                         type="button"
-                        className="ucm-item"
+                        className="btn btn--ghost btn--sm ucm-item"
                         onClick={handleSendMessage}
                     >
-                        <span className="ucm-icon">💬</span>
+                        <span className="ucm-icon"><MessageCircle size={14} /></span>
                         Отправить сообщение
                     </button>
                 </>
@@ -290,10 +303,10 @@ const UserContextMenu = ({
                     {onAddFriend && canAddFriend && (
                         <button
                             type="button"
-                            className="ucm-item"
+                            className="btn btn--ghost btn--sm ucm-item"
                             onClick={handleAddFriend}
                         >
-                            <span className="ucm-icon">➕</span>
+                            <span className="ucm-icon"><UserPlus size={14} /></span>
                             Добавить в друзья
                         </button>
                     )}
@@ -301,10 +314,10 @@ const UserContextMenu = ({
                     {onCancelRequest && canCancelRequest && (
                         <button
                             type="button"
-                            className="ucm-item"
+                            className="btn btn--ghost btn--sm ucm-item"
                             onClick={handleCancelRequest}
                         >
-                            <span className="ucm-icon">⏳</span>
+                            <span className="ucm-icon"><Loader2 size={14} /></span>
                             Отменить заявку
                         </button>
                     )}
@@ -312,10 +325,10 @@ const UserContextMenu = ({
                     {onAcceptRequest && canAcceptRequest && (
                         <button
                             type="button"
-                            className="ucm-item"
+                            className="btn btn--ghost btn--sm ucm-item"
                             onClick={handleAcceptRequest}
                         >
-                            <span className="ucm-icon">✅</span>
+                            <span className="ucm-icon"><Check size={14} /></span>
                             Принять заявку
                         </button>
                     )}
@@ -323,10 +336,10 @@ const UserContextMenu = ({
                     {onRejectRequest && canRejectRequest && (
                         <button
                             type="button"
-                            className="ucm-item"
+                            className="btn btn--ghost btn--sm ucm-item"
                             onClick={handleRejectRequest}
                         >
-                            <span className="ucm-icon">❌</span>
+                            <span className="ucm-icon"><X size={14} /></span>
                             Отклонить заявку
                         </button>
                     )}
@@ -334,10 +347,10 @@ const UserContextMenu = ({
                     {onRemoveFriend && canRemoveFriend && (
                         <button
                             type="button"
-                            className="ucm-item danger"
+                            className="btn btn--ghost btn--sm ucm-item ucm-item--danger"
                             onClick={handleRemoveFriend}
                         >
-                            <span className="ucm-icon">💔</span>
+                            <span className="ucm-icon"><HeartCrack size={14} /></span>
                             Удалить из друзей
                         </button>
                     )}
@@ -352,10 +365,10 @@ const UserContextMenu = ({
                     {onChangeRole && canMakeAdmin && (
                         <button
                             type="button"
-                            className="ucm-item"
+                            className="btn btn--ghost btn--sm ucm-item"
                             onClick={handleMakeAdmin}
                         >
-                            <span className="ucm-icon">⚡</span>
+                            <span className="ucm-icon"><Zap size={14} /></span>
                             Назначить админом
                         </button>
                     )}
@@ -363,10 +376,10 @@ const UserContextMenu = ({
                     {onChangeRole && canMakeMember && (
                         <button
                             type="button"
-                            className="ucm-item"
+                            className="btn btn--ghost btn--sm ucm-item"
                             onClick={handleMakeMember}
                         >
-                            <span className="ucm-icon">👤</span>
+                            <span className="ucm-icon"><User size={14} /></span>
                             Снять админа
                         </button>
                     )}
@@ -374,10 +387,10 @@ const UserContextMenu = ({
                     {onRemoveFromProject && canRemoveFromProject && (
                         <button
                             type="button"
-                            className="ucm-item danger"
+                            className="btn btn--ghost btn--sm ucm-item ucm-item--danger"
                             onClick={handleRemoveFromProject}
                         >
-                            <span className="ucm-icon">🚪</span>
+                            <span className="ucm-icon"><LogOut size={14} /></span>
                             Удалить из проекта
                         </button>
                     )}

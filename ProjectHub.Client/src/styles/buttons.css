@@ -1,0 +1,146 @@
+/* src/styles/buttons.css */
+
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: 8px 14px;
+    border-radius: var(--radius-md);
+    font-family: inherit;
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    line-height: 1;
+    cursor: pointer;
+    transition: all var(--transition-fast);
+    border: 1px solid transparent;
+    white-space: nowrap;
+    user-select: none;
+    text-decoration: none;
+}
+
+    .btn:focus-visible {
+        outline: 2px solid var(--color-primary-500);
+        outline-offset: 2px;
+    }
+
+    .btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        transform: none !important;
+        box-shadow: none !important;
+    }
+
+    .btn:active:not(:disabled) {
+        transform: scale(0.98);
+    }
+
+/* ── Размеры ── */
+.btn--sm {
+    padding: 5px 10px;
+    font-size: var(--text-xs);
+    gap: var(--space-1);
+}
+
+.btn--lg {
+    padding: 10px 18px;
+    font-size: var(--text-base);
+}
+
+/* ── Варианты ── */
+
+/* Primary — основное действие */
+.btn--primary {
+    background: var(--color-primary-500);
+    color: #ffffff;
+    box-shadow: var(--shadow-xs);
+}
+
+    .btn--primary:hover:not(:disabled) {
+        background: var(--color-primary-600);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .btn--primary:active:not(:disabled) {
+        background: var(--color-primary-700);
+    }
+
+/* Secondary — второстепенное действие */
+.btn--secondary {
+    background: var(--color-gray-100);
+    color: var(--color-text);
+    border-color: var(--color-gray-200);
+}
+
+    .btn--secondary:hover:not(:disabled) {
+        background: var(--color-gray-200);
+        border-color: var(--color-gray-300);
+    }
+
+/* Ghost — прозрачная кнопка (для тулбаров) */
+.btn--ghost {
+    background: transparent;
+    color: var(--color-text-secondary);
+}
+
+    .btn--ghost:hover:not(:disabled) {
+        background: var(--color-gray-100);
+        color: var(--color-text);
+    }
+
+/* Danger — опасное действие */
+.btn--danger {
+    background: var(--color-danger);
+    color: #ffffff;
+}
+
+    .btn--danger:hover:not(:disabled) {
+        background: #dc2626;
+    }
+
+/* Danger-outline — «мягкое» опасное действие */
+.btn--danger-outline {
+    background: transparent;
+    color: var(--color-danger);
+    border-color: #fecaca;
+}
+
+    .btn--danger-outline:hover:not(:disabled) {
+        background: var(--color-danger-bg);
+        border-color: var(--color-danger);
+    }
+
+/* Outline — нейтральная кнопка с рамкой */
+.btn--outline {
+    background: transparent;
+    color: var(--color-text);
+    border-color: var(--color-border-strong);
+}
+
+    .btn--outline:hover:not(:disabled) {
+        background: var(--color-gray-50);
+        border-color: var(--color-gray-400);
+    }
+
+/* Icon-only — квадратная кнопка с одной иконкой */
+.btn--icon {
+    padding: 8px;
+    width: 36px;
+    height: 36px;
+}
+
+    .btn--icon.btn--sm {
+        width: 28px;
+        height: 28px;
+        padding: 4px;
+    }
+
+    .btn--icon.btn--lg {
+        width: 44px;
+        height: 44px;
+    }
+
+/* Block — на всю ширину */
+.btn--block {
+    width: 100%;
+}

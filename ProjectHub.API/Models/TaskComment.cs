@@ -1,31 +1,39 @@
-﻿using ProjectHub.Models;
+﻿// Models/TaskComment.cs
+using ProjectHub.API.Models;
+using ProjectHub.Models;
 using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
 
-namespace ProjectHub.API.Models
+public class TaskComment
 {
-    [Table("TaskComments")]
-    public class TaskComment
-    {
-        [Key]
-        public Guid Id { get; set; }
+    [Key]
+    public Guid Id { get; set; }
 
-        public Guid TaskId { get; set; }
+    public Guid TaskId { get; set; }
+    [ForeignKey(nameof(TaskId))]
+    public virtual ProjectTask Task { get; set; } = null!;
 
-        [ForeignKey(nameof(TaskId))]
-        public virtual ProjectTask Task { get; set; } = null!;
+    public Guid AuthorId { get; set; }
+    [ForeignKey(nameof(AuthorId))]
+    public virtual User Author { get; set; } = null!;
 
-        public Guid AuthorId { get; set; }
+    // 🆕 Родительский комментарий (null = корневой)
+    public Guid? ParentCommentId { get; set; }
 
-        [ForeignKey(nameof(AuthorId))]
-        public virtual User Author { get; set; } = null!;
+    [ForeignKey(nameof(ParentCommentId))]
+    public virtual TaskComment? ParentComment { get; set; }
 
-        [Required]
-        [MaxLength(2000)]
-        public string Text { get; set; } = string.Empty;
+    // 🆕 Ответы на этот комментарий
+    public virtual ICollection<TaskComment> Replies { get; set; }
+        = new List<TaskComment>();
 
-        public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
-        public DateTime? EditedAt { get; set; }
-        public virtual ICollection<TaskCommentRead> Reads { get; set; } = new List<TaskCommentRead>();
-    }
+    [Required]
+    [MaxLength(2000)]
+    public string Text { get; set; } = string.Empty;
+
+    public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
+    public DateTime? EditedAt { get; set; }
+
+    public virtual ICollection<TaskCommentRead> Reads { get; set; }
+        = new List<TaskCommentRead>();
 }

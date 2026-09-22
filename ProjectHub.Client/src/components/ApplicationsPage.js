@@ -2,6 +2,20 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import {
+    ArrowLeft,
+    Inbox,
+    Mail,
+    Users,
+    ClipboardList,
+    MessageCircle,
+    Calendar,
+    RefreshCw,
+    Loader2,
+    Check,
+    X,
+    Folder,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { searchProjectByCode } from '../services/projectsApi';
 import { getApplicationsByCode, processApplication } from '../services/applicationsApi';
@@ -138,11 +152,26 @@ const ApplicationsPage = () => {
     const getStatusBadge = (status) => {
         switch (status) {
             case 'Pending':
-                return <span className="status-badge pending">⏳ Ожидает</span>;
+                return (
+                    <span className="status-badge pending">
+                        <Loader2 size={12} />
+                        Ожидает
+                    </span>
+                );
             case 'Approved':
-                return <span className="status-badge approved">✅ Одобрена</span>;
+                return (
+                    <span className="status-badge approved">
+                        <Check size={12} />
+                        Одобрена
+                    </span>
+                );
             case 'Rejected':
-                return <span className="status-badge rejected">❌ Отклонена</span>;
+                return (
+                    <span className="status-badge rejected">
+                        <X size={12} />
+                        Отклонена
+                    </span>
+                );
             default:
                 return <span className="status-badge">{status || 'Неизвестно'}</span>;
         }
@@ -160,7 +189,9 @@ const ApplicationsPage = () => {
     if (loading) {
         return (
             <div className="applications-loading">
-                <div className="spinner">⏳</div>
+                <div className="spinner">
+                    <Loader2 size={32} className="icon-spin" />
+                </div>
                 <p>Загрузка заявок...</p>
             </div>
         );
@@ -169,11 +200,18 @@ const ApplicationsPage = () => {
     if (error) {
         return (
             <div className="applications-error">
-                <div className="error-icon">❌</div>
+                <div className="error-icon">
+                    <X size={32} />
+                </div>
                 <h3>Ошибка</h3>
                 <p>{error}</p>
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Вернуться к проектам
+                <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Вернуться к проектам
                 </button>
             </div>
         );
@@ -182,10 +220,17 @@ const ApplicationsPage = () => {
     if (!project) {
         return (
             <div className="applications-not-found">
-                <div className="not-found-icon">📭</div>
+                <div className="not-found-icon">
+                    <Inbox size={32} />
+                </div>
                 <h3>Проект не найден</h3>
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Вернуться к проектам
+                <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Вернуться к проектам
                 </button>
             </div>
         );
@@ -194,44 +239,69 @@ const ApplicationsPage = () => {
     return (
         <div className="applications-page">
             <header className="applications-header">
-                <button className="btn-back" onClick={() => navigate(`/projects/${code}`)}>
-                    ← Назад к проекту
+                <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => navigate(`/projects/${code}`)}
+                >
+                    <ArrowLeft size={16} />
+                    Назад к проекту
                 </button>
-                <h1>📨 Заявки на вступление</h1>
+                <h1>
+                    <Mail size={24} />
+                    Заявки на вступление
+                </h1>
                 <span className="project-name">{project.name || 'Без названия'}</span>
             </header>
 
             <div className="applications-content">
                 <div className="project-info-bar">
-                    <span>📂 Код: <strong>{project.publicCode || '—'}</strong></span>
-                    <span>👥 Участников: <strong>{project.members?.length || 0}</strong></span>
-                    <span>📋 Всего заявок: <strong>{safeApplications.length}</strong></span>
+                    <span>
+                        <Folder size={14} />
+                        Код: <strong>{project.publicCode || '—'}</strong>
+                    </span>
+                    <span>
+                        <Users size={14} />
+                        Участников: <strong>{project.members?.length || 0}</strong>
+                    </span>
+                    <span>
+                        <ClipboardList size={14} />
+                        Всего заявок: <strong>{safeApplications.length}</strong>
+                    </span>
                 </div>
 
                 <div className="applications-filters">
                     <button
-                        className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
+                        type="button"
+                        className={`btn btn--sm applications-filter-btn ${filter === 'pending' ? 'active' : ''}`}
                         onClick={() => setFilter('pending')}
                     >
-                        ⏳ Ожидают ({safeApplications.filter(a => a.status === 'Pending').length})
+                        <Loader2 size={14} />
+                        Ожидают ({safeApplications.filter(a => a.status === 'Pending').length})
                     </button>
                     <button
-                        className={`filter-btn ${filter === 'approved' ? 'active' : ''}`}
+                        type="button"
+                        className={`btn btn--sm applications-filter-btn ${filter === 'approved' ? 'active' : ''}`}
                         onClick={() => setFilter('approved')}
                     >
-                        ✅ Одобрены ({safeApplications.filter(a => a.status === 'Approved').length})
+                        <Check size={14} />
+                        Одобрены ({safeApplications.filter(a => a.status === 'Approved').length})
                     </button>
                     <button
-                        className={`filter-btn ${filter === 'rejected' ? 'active' : ''}`}
+                        type="button"
+                        className={`btn btn--sm applications-filter-btn ${filter === 'rejected' ? 'active' : ''}`}
                         onClick={() => setFilter('rejected')}
                     >
-                        ❌ Отклонены ({safeApplications.filter(a => a.status === 'Rejected').length})
+                        <X size={14} />
+                        Отклонены ({safeApplications.filter(a => a.status === 'Rejected').length})
                     </button>
                     <button
-                        className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+                        type="button"
+                        className={`btn btn--sm applications-filter-btn ${filter === 'all' ? 'active' : ''}`}
                         onClick={() => setFilter('all')}
                     >
-                        📋 Все ({safeApplications.length})
+                        <ClipboardList size={14} />
+                        Все ({safeApplications.length})
                     </button>
                 </div>
 
@@ -245,7 +315,9 @@ const ApplicationsPage = () => {
                 <div className="applications-list">
                     {filteredApplications.length === 0 ? (
                         <div className="no-applications">
-                            <div className="no-icon">📭</div>
+                            <div className="no-icon">
+                                <Inbox size={32} />
+                            </div>
                             <p>
                                 {filter === 'pending' ? 'Нет ожидающих заявок' :
                                     filter === 'approved' ? 'Нет одобренных заявок' :
@@ -282,32 +354,61 @@ const ApplicationsPage = () => {
 
                                 {app.message && (
                                     <div className="application-message">
-                                        💬 <span>{app.message}</span>
+                                        <MessageCircle size={14} />
+                                        <span>{app.message}</span>
                                     </div>
                                 )}
 
                                 <div className="application-meta">
-                                    <span>📅 {formatDate(app.createdAt)}</span>
+                                    <span>
+                                        <Calendar size={12} />
+                                        {formatDate(app.createdAt)}
+                                    </span>
                                     {app.processedAt && (
-                                        <span>🔄 {formatDate(app.processedAt)}</span>
+                                        <span>
+                                            <RefreshCw size={12} />
+                                            {formatDate(app.processedAt)}
+                                        </span>
                                     )}
                                 </div>
 
                                 {app.status === 'Pending' && (
                                     <div className="application-actions">
                                         <button
-                                            className="btn-approve"
+                                            type="button"
+                                            className="btn btn--primary btn--sm"
                                             onClick={() => handleProcess(app.id, true)}
                                             disabled={processing === app.id}
                                         >
-                                            {processing === app.id ? '⏳' : '✅ Принять'}
+                                            {processing === app.id ? (
+                                                <>
+                                                    <Loader2 size={14} className="icon-spin" />
+                                                    Обработка…
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Check size={14} />
+                                                    Принять
+                                                </>
+                                            )}
                                         </button>
                                         <button
-                                            className="btn-reject"
+                                            type="button"
+                                            className="btn btn--danger-outline btn--sm"
                                             onClick={() => handleProcess(app.id, false)}
                                             disabled={processing === app.id}
                                         >
-                                            {processing === app.id ? '⏳' : '❌ Отклонить'}
+                                            {processing === app.id ? (
+                                                <>
+                                                    <Loader2 size={14} className="icon-spin" />
+                                                    Обработка…
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <X size={14} />
+                                                    Отклонить
+                                                </>
+                                            )}
                                         </button>
                                     </div>
                                 )}

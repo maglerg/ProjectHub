@@ -2,6 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    ArrowLeft,
+    Mail,
+    Loader2,
+    X,
+    Check,
+    Inbox,
+    Folder,
+    Calendar,
+    MessageCircle,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getInvitations, processInvitation } from '../services/invitationsApi';
 import UserAvatar from './UserAvatar';
@@ -76,7 +87,9 @@ const InvitationsPage = () => {
     if (loading) {
         return (
             <div className="invitations-loading">
-                <div className="spinner">⏳</div>
+                <div className="spinner">
+                    <Loader2 size={32} className="icon-spin" />
+                </div>
                 <p>Загрузка приглашений...</p>
             </div>
         );
@@ -85,11 +98,18 @@ const InvitationsPage = () => {
     if (error && invitations.length === 0) {
         return (
             <div className="invitations-error">
-                <div className="error-icon">❌</div>
+                <div className="error-icon">
+                    <X size={32} />
+                </div>
                 <h3>Ошибка</h3>
                 <p>{error}</p>
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Вернуться к проектам
+                <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Вернуться к проектам
                 </button>
             </div>
         );
@@ -98,10 +118,18 @@ const InvitationsPage = () => {
     return (
         <div className="invitations-page">
             <header className="invitations-header">
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Назад
+                <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Назад
                 </button>
-                <h1>📩 Приглашения</h1>
+                <h1>
+                    <Mail size={24} />
+                    Приглашения
+                </h1>
                 <span className="invitations-count">{invitations.length}</span>
             </header>
 
@@ -115,7 +143,9 @@ const InvitationsPage = () => {
 
                 {invitations.length === 0 ? (
                     <div className="no-invitations">
-                        <div className="no-icon">📭</div>
+                        <div className="no-icon">
+                            <Inbox size={32} />
+                        </div>
                         <h3>Нет приглашений</h3>
                         <p>У вас нет активных приглашений в проекты</p>
                     </div>
@@ -125,7 +155,9 @@ const InvitationsPage = () => {
                             <div key={inv.id} className="invitation-card">
                                 <div className="invitation-header">
                                     <div className="invitation-project">
-                                        <div className="invitation-project-icon">📁</div>
+                                        <div className="invitation-project-icon">
+                                            <Folder size={20} />
+                                        </div>
                                         <div className="invitation-project-info">
                                             <div className="invitation-project-name">
                                                 {inv.projectName}
@@ -136,7 +168,10 @@ const InvitationsPage = () => {
                                         </div>
                                     </div>
                                     <div className="invitation-status">
-                                        <span className="status-badge pending">⏳ Ожидает</span>
+                                        <span className="status-badge pending">
+                                            <Loader2 size={12} />
+                                            Ожидает
+                                        </span>
                                     </div>
                                 </div>
 
@@ -160,29 +195,53 @@ const InvitationsPage = () => {
                                         </div>
                                     </div>
                                     <div className="invitation-time">
-                                        📅 {formatDate(inv.createdAt)}
+                                        <Calendar size={12} />
+                                        {formatDate(inv.createdAt)}
                                     </div>
                                     {inv.message && (
                                         <div className="invitation-message">
-                                            💬 {inv.message}
+                                            <MessageCircle size={12} />
+                                            {inv.message}
                                         </div>
                                     )}
                                 </div>
 
                                 <div className="invitation-actions">
                                     <button
-                                        className="btn-accept"
+                                        type="button"
+                                        className="btn btn--primary btn--sm"
                                         onClick={() => handleProcess(inv.id, true)}
                                         disabled={processing === inv.id}
                                     >
-                                        {processing === inv.id ? '⏳' : '✅ Принять'}
+                                        {processing === inv.id ? (
+                                            <>
+                                                <Loader2 size={14} className="icon-spin" />
+                                                Обработка…
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Check size={14} />
+                                                Принять
+                                            </>
+                                        )}
                                     </button>
                                     <button
-                                        className="btn-reject"
+                                        type="button"
+                                        className="btn btn--danger-outline btn--sm"
                                         onClick={() => handleProcess(inv.id, false)}
                                         disabled={processing === inv.id}
                                     >
-                                        {processing === inv.id ? '⏳' : '❌ Отклонить'}
+                                        {processing === inv.id ? (
+                                            <>
+                                                <Loader2 size={14} className="icon-spin" />
+                                                Обработка…
+                                            </>
+                                        ) : (
+                                            <>
+                                                <X size={14} />
+                                                Отклонить
+                                            </>
+                                        )}
                                     </button>
                                 </div>
                             </div>

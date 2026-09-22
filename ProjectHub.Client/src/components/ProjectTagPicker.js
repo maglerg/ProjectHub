@@ -1,6 +1,7 @@
 // src/components/ProjectTagPicker.js
 
 import React, { useState, useEffect, useRef } from 'react';
+import { Tag, X, Loader2, Plus, AlertCircle } from 'lucide-react';
 import {
     getAllProjectTags,
     createProjectTag
@@ -139,11 +140,12 @@ export default function ProjectTagPicker({
                             {!disabled && (
                                 <button
                                     type="button"
-                                    className="project-tag-chip__remove"
+                                    className="btn btn--ghost btn--icon btn--sm project-tag-chip__remove"
                                     onClick={() => toggleTag(t.id)}
                                     title="Убрать тег"
+                                    aria-label="Убрать тег"
                                 >
-                                    ×
+                                    <X size={12} />
                                 </button>
                             )}
                         </span>
@@ -156,7 +158,9 @@ export default function ProjectTagPicker({
                 className={`project-tag-picker__input-wrap ${isOpen ? 'open' : ''}`}
                 onClick={() => !disabled && setIsOpen(v => !v)}
             >
-                <span className="project-tag-picker__icon">🏷️</span>
+                <span className="project-tag-picker__icon">
+                    <Tag size={14} />
+                </span>
                 <input
                     type="text"
                     className="project-tag-picker__input"
@@ -173,13 +177,14 @@ export default function ProjectTagPicker({
                 {search && (
                     <button
                         type="button"
-                        className="project-tag-picker__clear"
+                        className="btn btn--ghost btn--icon btn--sm project-tag-picker__clear"
                         onClick={(e) => {
                             e.stopPropagation();
                             setSearch('');
                         }}
+                        aria-label="Очистить поиск"
                     >
-                        ×
+                        <X size={12} />
                     </button>
                 )}
             </div>
@@ -188,7 +193,10 @@ export default function ProjectTagPicker({
             {isOpen && !disabled && (
                 <div className="project-tag-picker__dropdown">
                     {loading ? (
-                        <div className="project-tag-picker__empty">Загрузка…</div>
+                        <div className="project-tag-picker__empty">
+                            <Loader2 size={14} className="icon-spin" />
+                            Загрузка…
+                        </div>
                     ) : (
                         <>
                             {filtered.length > 0 && (
@@ -251,19 +259,25 @@ export default function ProjectTagPicker({
                                         />
                                         <button
                                             type="button"
-                                            className="project-tag-picker__create-btn"
+                                            className="btn btn--primary btn--sm"
                                             onClick={handleCreate}
                                             disabled={creating}
                                         >
-                                            {creating
-                                                ? '…'
-                                                : `+ Создать «${search.trim()}»`}
+                                            {creating ? (
+                                                <Loader2 size={14} className="icon-spin" />
+                                            ) : (
+                                                <>
+                                                    <Plus size={14} />
+                                                    Создать «{search.trim()}»
+                                                </>
+                                            )}
                                         </button>
                                     </div>
                                 )}
 
                             {error && (
                                 <div className="project-tag-picker__error">
+                                    <AlertCircle size={14} />
                                     {error}
                                 </div>
                             )}

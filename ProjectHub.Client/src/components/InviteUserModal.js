@@ -1,6 +1,15 @@
 // projecthub.client/src/components/InviteUserModal.js
 
 import React, { useState } from 'react';
+import {
+    Mail,
+    X,
+    Search,
+    Loader2,
+    User,
+    Check,
+    UserPlus,
+} from 'lucide-react';
 import { getUserProfileByEmail } from '../services/userApi';
 import { createInvitationByCode } from '../services/invitationsApi';
 import '../styles/components/InviteUserModal.css';
@@ -85,8 +94,18 @@ const InviteUserModal = ({ project, onClose, onInvitationSent }) => {
         <div className="invite-modal-overlay" onClick={onClose}>
             <div className="invite-modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="invite-modal-header">
-                    <h2>📩 Пригласить в проект</h2>
-                    <button className="invite-modal-close" onClick={onClose}>✕</button>
+                    <h2>
+                        <Mail size={20} />
+                        Пригласить в проект
+                    </h2>
+                    <button
+                        type="button"
+                        className="btn btn--ghost btn--icon btn--sm"
+                        onClick={onClose}
+                        aria-label="Закрыть"
+                    >
+                        <X size={16} />
+                    </button>
                 </div>
 
                 <div className="invite-modal-body">
@@ -100,28 +119,58 @@ const InviteUserModal = ({ project, onClose, onInvitationSent }) => {
                                 onChange={(e) => setEmail(e.target.value)}
                                 disabled={isSearching || isInvited}
                             />
-                            <button type="submit" disabled={isSearching || !email.trim() || isInvited}>
-                                {isSearching ? '⏳' : '🔍 Найти'}
+                            <button
+                                type="submit"
+                                className="btn btn--primary btn--sm"
+                                disabled={isSearching || !email.trim() || isInvited}
+                            >
+                                {isSearching ? (
+                                    <>
+                                        <Loader2 size={14} className="icon-spin" />
+                                        Поиск…
+                                    </>
+                                ) : (
+                                    <>
+                                        <Search size={14} />
+                                        Найти
+                                    </>
+                                )}
                             </button>
                         </div>
-                        {searchError && <div className="search-error">❌ {searchError}</div>}
+                        {searchError && (
+                            <div className="search-error">
+                                <X size={14} />
+                                {searchError}
+                            </div>
+                        )}
                     </form>
 
                     {/* 📌 Найденный пользователь */}
                     {foundUser && !isInvited && (
                         <div className="found-user-card">
                             <div className="found-user-avatar">
-                                {foundUser.name ? foundUser.name[0].toUpperCase() : '👤'}
+                                {foundUser.name
+                                    ? foundUser.name[0].toUpperCase()
+                                    : <User size={20} />}
                             </div>
                             <div className="found-user-info">
                                 <div className="found-user-name">{foundUser.name}</div>
-                                <div className="found-user-email">{foundUser.email}</div>
+                                <div className="found-user-email">
+                                    <Mail size={12} />
+                                    {foundUser.email}
+                                </div>
                                 <div className="found-user-specialization">
                                     {foundUser.specialization || '—'}
                                 </div>
                             </div>
-                            <button className="clear-search-btn" onClick={clearSearch}>
-                                ✕
+                            <button
+                                type="button"
+                                className="btn btn--ghost btn--icon btn--sm"
+                                onClick={clearSearch}
+                                aria-label="Очистить"
+                                title="Очистить"
+                            >
+                                <X size={14} />
                             </button>
                         </div>
                     )}
@@ -150,11 +199,18 @@ const InviteUserModal = ({ project, onClose, onInvitationSent }) => {
                     {/* 📌 Приглашение отправлено */}
                     {isInvited && (
                         <div className="invite-success">
-                            <div className="invite-success-icon">✅</div>
+                            <div className="invite-success-icon">
+                                <Check size={48} />
+                            </div>
                             <h3>Приглашение отправлено!</h3>
                             <p>Пользователь получит уведомление</p>
-                            <button className="btn-invite-another" onClick={clearSearch}>
-                                ➕ Пригласить еще
+                            <button
+                                type="button"
+                                className="btn btn--primary"
+                                onClick={clearSearch}
+                            >
+                                <UserPlus size={16} />
+                                Пригласить еще
                             </button>
                         </div>
                     )}
@@ -162,15 +218,30 @@ const InviteUserModal = ({ project, onClose, onInvitationSent }) => {
                     {/* 📌 Кнопки действий */}
                     {foundUser && !isInvited && (
                         <div className="invite-actions">
-                            <button className="btn-cancel" onClick={clearSearch}>
+                            <button
+                                type="button"
+                                className="btn btn--secondary"
+                                onClick={clearSearch}
+                            >
                                 Отмена
                             </button>
                             <button
-                                className="btn-send-invite"
+                                type="button"
+                                className="btn btn--primary"
                                 onClick={handleSendInvitation}
                                 disabled={isSending}
                             >
-                                {isSending ? '⏳ Отправка...' : '📩 Отправить приглашение'}
+                                {isSending ? (
+                                    <>
+                                        <Loader2 size={16} className="icon-spin" />
+                                        Отправка...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Mail size={16} />
+                                        Отправить приглашение
+                                    </>
+                                )}
                             </button>
                         </div>
                     )}

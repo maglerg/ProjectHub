@@ -2,12 +2,26 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import {
+    ArrowLeft,
+    User,
+    X,
+    Loader2,
+    Check,
+    UserPlus,
+    Undo2,
+    Mail,
+    MessageCircle,
+    Users,
+    FileText,
+    Inbox,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getUserProfileByEmail } from '../services/userApi';
 import { getFriendStatus, sendFriendRequest, cancelFriendRequest, processFriendRequest } from '../services/friendRequestsApi';
 import { getFriends, removeFriend } from '../services/friendsApi';
 import { createPersonalChat } from '../services/chatsApi';
-import UserAvatar from './UserAvatar';   // 🆕
+import UserAvatar from './UserAvatar';
 import '../styles/components/UserProfilePage.css';
 
 const UserProfilePage = () => {
@@ -179,7 +193,9 @@ const UserProfilePage = () => {
     if (loading) {
         return (
             <div className="user-profile-loading">
-                <div className="spinner">⏳</div>
+                <div className="spinner">
+                    <Loader2 size={32} className="icon-spin" />
+                </div>
                 <p>Загрузка профиля...</p>
             </div>
         );
@@ -188,11 +204,18 @@ const UserProfilePage = () => {
     if (error) {
         return (
             <div className="user-profile-error">
-                <div className="error-icon">❌</div>
+                <div className="error-icon">
+                    <X size={32} />
+                </div>
                 <h3>Ошибка загрузки</h3>
                 <p>{error}</p>
-                <button className="btn-back" onClick={() => navigate(-1)}>
-                    ← Назад
+                <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => navigate(-1)}
+                >
+                    <ArrowLeft size={16} />
+                    Назад
                 </button>
             </div>
         );
@@ -201,11 +224,18 @@ const UserProfilePage = () => {
     if (!user) {
         return (
             <div className="user-profile-not-found">
-                <div className="not-found-icon">👤</div>
+                <div className="not-found-icon">
+                    <User size={32} />
+                </div>
                 <h3>Пользователь не найден</h3>
                 <p>Возможно, пользователь был удален</p>
-                <button className="btn-back" onClick={() => navigate(-1)}>
-                    ← Назад
+                <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => navigate(-1)}
+                >
+                    <ArrowLeft size={16} />
+                    Назад
                 </button>
             </div>
         );
@@ -218,11 +248,22 @@ const UserProfilePage = () => {
         if (isFriend) {
             return (
                 <button
-                    className="btn-friend friend"
+                    type="button"
+                    className="btn btn--danger-outline"
                     onClick={handleRemoveFriend}
                     disabled={isProcessing}
                 >
-                    {isProcessing ? '⏳' : '❌ Удалить из друзей'}
+                    {isProcessing ? (
+                        <>
+                            <Loader2 size={16} className="icon-spin" />
+                            Удаление…
+                        </>
+                    ) : (
+                        <>
+                            <X size={16} />
+                            Удалить из друзей
+                        </>
+                    )}
                 </button>
             );
         }
@@ -230,11 +271,22 @@ const UserProfilePage = () => {
         if (friendStatus.status === 'Pending') {
             return (
                 <button
-                    className="btn-friend pending"
+                    type="button"
+                    className="btn btn--secondary"
                     onClick={handleCancelRequest}
                     disabled={isProcessing}
                 >
-                    {isProcessing ? '⏳' : '↩️ Отменить заявку'}
+                    {isProcessing ? (
+                        <>
+                            <Loader2 size={16} className="icon-spin" />
+                            Отмена…
+                        </>
+                    ) : (
+                        <>
+                            <Undo2 size={16} />
+                            Отменить заявку
+                        </>
+                    )}
                 </button>
             );
         }
@@ -242,21 +294,46 @@ const UserProfilePage = () => {
         if (friendStatus.status === 'Received') {
             return (
                 <div className="friend-request-received">
-                    <span>📩 Вам отправлена заявка в друзья</span>
+                    <span>
+                        <Inbox size={14} />
+                        Вам отправлена заявка в друзья
+                    </span>
                     <div className="friend-request-actions">
                         <button
-                            className="btn-friend accept"
+                            type="button"
+                            className="btn btn--primary btn--sm"
                             onClick={handleAcceptRequest}
                             disabled={isProcessing}
                         >
-                            ✅ Принять
+                            {isProcessing ? (
+                                <>
+                                    <Loader2 size={14} className="icon-spin" />
+                                    Принятие…
+                                </>
+                            ) : (
+                                <>
+                                    <Check size={14} />
+                                    Принять
+                                </>
+                            )}
                         </button>
                         <button
-                            className="btn-friend reject"
+                            type="button"
+                            className="btn btn--danger-outline btn--sm"
                             onClick={handleRejectRequest}
                             disabled={isProcessing}
                         >
-                            ❌ Отклонить
+                            {isProcessing ? (
+                                <>
+                                    <Loader2 size={14} className="icon-spin" />
+                                    Отклонение…
+                                </>
+                            ) : (
+                                <>
+                                    <X size={14} />
+                                    Отклонить
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>
@@ -265,11 +342,22 @@ const UserProfilePage = () => {
 
         return (
             <button
-                className="btn-friend not-friend"
+                type="button"
+                className="btn btn--primary"
                 onClick={handleSendRequest}
                 disabled={isProcessing}
             >
-                {isProcessing ? '⏳' : '➕ Отправить заявку'}
+                {isProcessing ? (
+                    <>
+                        <Loader2 size={16} className="icon-spin" />
+                        Отправка…
+                    </>
+                ) : (
+                    <>
+                        <UserPlus size={16} />
+                        Отправить заявку
+                    </>
+                )}
             </button>
         );
     };
@@ -277,10 +365,18 @@ const UserProfilePage = () => {
     return (
         <div className="user-profile-page">
             <header className="user-profile-header">
-                <button className="btn-back" onClick={() => navigate(-1)}>
-                    ← Назад
+                <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => navigate(-1)}
+                >
+                    <ArrowLeft size={16} />
+                    Назад
                 </button>
-                <h1>👤 Профиль пользователя</h1>
+                <h1>
+                    <User size={24} />
+                    Профиль пользователя
+                </h1>
             </header>
 
             <div className="user-profile-content">
@@ -337,16 +433,23 @@ const UserProfilePage = () => {
                             </span>
                         </div>
                         <div className="info-row">
-                            <span className="info-label">💬 Сообщения</span>
+                            <span className="info-label">
+                                <MessageCircle size={14} />
+                                Сообщения
+                            </span>
                             <span className="info-value privacy-badge">
-                                👥 Только от друзей
+                                <Users size={14} />
+                                Только от друзей
                             </span>
                         </div>
                     </div>
 
                     {user.description && (
                         <div className="user-profile-description">
-                            <h3>📝 О себе</h3>
+                            <h3>
+                                <FileText size={16} />
+                                О себе
+                            </h3>
                             <p>{user.description}</p>
                         </div>
                     )}
@@ -366,11 +469,22 @@ const UserProfilePage = () => {
                         {!isOwnProfile && renderFriendButton()}
 
                         <button
-                            className="btn-send-message"
+                            type="button"
+                            className="btn btn--secondary"
                             onClick={handleSendMessage}
                             disabled={isProcessing}
                         >
-                            {isProcessing ? '⏳' : '💬 Отправить сообщение'}
+                            {isProcessing ? (
+                                <>
+                                    <Loader2 size={16} className="icon-spin" />
+                                    Отправка…
+                                </>
+                            ) : (
+                                <>
+                                    <MessageCircle size={16} />
+                                    Отправить сообщение
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>

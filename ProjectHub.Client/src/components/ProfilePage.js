@@ -2,6 +2,23 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    User,
+    ArrowLeft,
+    Pencil,
+    LogOut,
+    Loader2,
+    X,
+    Camera,
+    Trash2,
+    Image as ImageIcon,
+    Globe,
+    Users,
+    Info,
+    Save,
+    AlertCircle,
+    Check,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getCurrentUser, updateUser } from '../services/userApi';
 import {
@@ -169,7 +186,9 @@ const ProfilePage = () => {
     if (loading) {
         return (
             <div className="profile-loading">
-                <div className="spinner">⏳</div>
+                <div className="spinner">
+                    <Loader2 size={32} className="icon-spin" />
+                </div>
                 <p>Загрузка профиля...</p>
             </div>
         );
@@ -178,11 +197,18 @@ const ProfilePage = () => {
     if (error && !profile) {
         return (
             <div className="profile-error">
-                <div className="error-icon">❌</div>
+                <div className="error-icon">
+                    <X size={32} />
+                </div>
                 <h3>Ошибка загрузки</h3>
                 <p>{error}</p>
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Вернуться к проектам
+                <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Вернуться к проектам
                 </button>
             </div>
         );
@@ -191,39 +217,61 @@ const ProfilePage = () => {
     return (
         <div className="profile-page">
             <header className="profile-header">
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Назад
+                <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Назад
                 </button>
-                <h1>👤 Профиль пользователя</h1>
+                <h1>
+                    <User size={24} />
+                    Профиль пользователя
+                </h1>
                 <div className="header-actions">
                     {!isEditing ? (
                         <button
-                            className="btn-edit-profile"
+                            type="button"
+                            className="btn btn--secondary btn--sm"
                             onClick={() => setIsEditing(true)}
                         >
-                            ✏️ Редактировать
+                            <Pencil size={14} />
+                            Редактировать
                         </button>
                     ) : (
                         <button
-                            className="btn-cancel-edit"
+                            type="button"
+                            className="btn btn--secondary btn--sm"
                             onClick={handleCancel}
                             disabled={saving}
                         >
                             Отмена
                         </button>
                     )}
-                    <button className="btn-logout" onClick={logout}>
-                        🚪 Выйти
+                    <button
+                        type="button"
+                        className="btn btn--danger-outline btn--sm"
+                        onClick={logout}
+                    >
+                        <LogOut size={14} />
+                        Выйти
                     </button>
                 </div>
             </header>
 
             <div className="profile-content">
                 {success && (
-                    <div className="success-message">{success}</div>
+                    <div className="success-message">
+                        <Check size={14} />
+                        {success}
+                    </div>
                 )}
                 {error && (
-                    <div className="error-message">{error}</div>
+                    <div className="error-message">
+                        <AlertCircle size={14} />
+                        {error}
+                    </div>
                 )}
 
                 <div className="profile-card">
@@ -238,8 +286,18 @@ const ProfilePage = () => {
 
                         {isEditing && (
                             <div className="profile-avatar-actions">
-                                <label className="btn-avatar-upload">
-                                    {uploadingAvatar ? '⏳ Загрузка…' : '📷 Сменить'}
+                                <label className="btn btn--secondary btn--sm profile-avatar-upload">
+                                    {uploadingAvatar ? (
+                                        <>
+                                            <Loader2 size={14} className="icon-spin" />
+                                            Загрузка…
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Camera size={14} />
+                                            Сменить
+                                        </>
+                                    )}
                                     <input
                                         type="file"
                                         accept="image/png,image/jpeg,image/gif,image/webp"
@@ -252,24 +310,29 @@ const ProfilePage = () => {
                                 {profile?.avatarUrl && (
                                     <button
                                         type="button"
-                                        className="btn-avatar-delete"
+                                        className="btn btn--danger-outline btn--sm"
                                         onClick={handleAvatarDelete}
                                         disabled={uploadingAvatar || saving}
                                         title="Удалить аватар"
                                     >
-                                        🗑 Удалить
+                                        <Trash2 size={14} />
+                                        Удалить
                                     </button>
                                 )}
                             </div>
                         )}
 
                         {avatarError && (
-                            <div className="profile-avatar-error">{avatarError}</div>
+                            <div className="profile-avatar-error">
+                                <AlertCircle size={14} />
+                                {avatarError}
+                            </div>
                         )}
 
                         {isEditing && !avatarError && (
                             <span className="profile-avatar-hint">
-                                🖼️ PNG, JPG, GIF или WEBP до 3 МБ
+                                <ImageIcon size={12} />
+                                PNG, JPG, GIF или WEBP до 3 МБ
                             </span>
                         )}
                     </div>
@@ -330,7 +393,10 @@ const ProfilePage = () => {
 
                         {/* 📌 НАСТРОЙКА ПРИВАТНОСТИ ЧАТОВ */}
                         <div className="form-group privacy-group">
-                            <label>💬 Кто может мне писать</label>
+                            <label>
+                                <Info size={16} />
+                                Кто может мне писать
+                            </label>
                             <div className="privacy-options">
                                 <label className={`privacy-option ${formData.chatPrivacy === 'All' ? 'selected' : ''}`}>
                                     <input
@@ -342,7 +408,9 @@ const ProfilePage = () => {
                                         disabled={!isEditing || saving}
                                     />
                                     <div className="privacy-option-content">
-                                        <span className="privacy-icon">🌐</span>
+                                        <span className="privacy-icon">
+                                            <Globe size={20} />
+                                        </span>
                                         <div className="privacy-text">
                                             <span className="privacy-title">Все пользователи</span>
                                             <span className="privacy-description">
@@ -362,7 +430,9 @@ const ProfilePage = () => {
                                         disabled={!isEditing || saving}
                                     />
                                     <div className="privacy-option-content">
-                                        <span className="privacy-icon">👥</span>
+                                        <span className="privacy-icon">
+                                            <Users size={20} />
+                                        </span>
                                         <div className="privacy-text">
                                             <span className="privacy-title">Только друзья</span>
                                             <span className="privacy-description">
@@ -374,7 +444,8 @@ const ProfilePage = () => {
                             </div>
                             {formData.chatPrivacy === 'FriendsOnly' && (
                                 <span className="field-hint">
-                                    ℹ️ Вы по-прежнему сможете писать всем пользователям
+                                    <Info size={12} />
+                                    Вы по-прежнему сможете писать всем пользователям
                                 </span>
                             )}
                         </div>
@@ -383,10 +454,20 @@ const ProfilePage = () => {
                             <div className="form-actions">
                                 <button
                                     type="submit"
-                                    className="btn-save"
+                                    className="btn btn--primary"
                                     disabled={saving || uploadingAvatar}
                                 >
-                                    {saving ? '⏳ Сохранение...' : '💾 Сохранить изменения'}
+                                    {saving ? (
+                                        <>
+                                            <Loader2 size={16} className="icon-spin" />
+                                            Сохранение...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Save size={16} />
+                                            Сохранить изменения
+                                        </>
+                                    )}
                                 </button>
                             </div>
                         )}

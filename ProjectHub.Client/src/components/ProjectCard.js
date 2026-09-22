@@ -2,6 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    Star,
+    Clipboard,
+    Archive,
+    Calendar,
+    AlertTriangle,
+} from 'lucide-react';
 import { getCategoryName, getStatusName, getVisibilityName } from '../utils/constants';
 import { toggleFavoriteByCode } from '../services/projectsApi';
 import ProjectCover from './ProjectCover';
@@ -44,7 +51,10 @@ const ProjectCard = ({
         return (
             <li className="project-item project-item-error">
                 <div className="project-header">
-                    <h3 style={{ color: '#e67e22' }}>⚠️ Проект без названия</h3>
+                    <h3 style={{ color: '#e67e22' }}>
+                        <AlertTriangle size={20} />
+                        Проект без названия
+                    </h3>
                     <span className="error-badge">Код: {project.publicCode || 'неизвестен'}</span>
                 </div>
             </li>
@@ -173,6 +183,14 @@ const ProjectCard = ({
                 className={`project-item ${isArchived ? 'project-item--archived' : ''}`}
                 onClick={handleCardClick}
                 onContextMenu={handleContextMenu}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleCardClick();
+                    }
+                }}
             >
                 <ProjectCover
                     coverImageUrl={project.coverImageUrl}
@@ -196,16 +214,24 @@ const ProjectCard = ({
                                     {getVisibilityName(visibility)}
                                 </span>
                                 {isArchived && (
-                                    <span className="archive-tag">📦 В архиве</span>
+                                    <span className="archive-tag">
+                                        <Archive size={12} />
+                                        В архиве
+                                    </span>
                                 )}
                             </div>
                             <button
-                                className={`favorite-btn ${isFavorite ? 'active' : ''}`}
+                                type="button"
+                                className={`btn btn--ghost btn--icon btn--sm project-favorite-btn ${isFavorite ? 'active' : ''}`}
                                 onClick={handleFavoriteClick}
                                 disabled={isToggling}
                                 title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}
+                                aria-label={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}
                             >
-                                {isFavorite ? '⭐' : '☆'}
+                                <Star
+                                    size={16}
+                                    fill={isFavorite ? 'currentColor' : 'none'}
+                                />
                                 {favoritesCount > 0 && (
                                     <span className="favorites-count">{favoritesCount}</span>
                                 )}
@@ -230,11 +256,13 @@ const ProjectCard = ({
                             <strong>Код:</strong>
                             <span className="project-code-display">{publicCode}</span>
                             <button
-                                className="copy-code-btn"
+                                type="button"
+                                className="btn btn--ghost btn--icon btn--sm"
                                 onClick={handleCopyClick}
                                 title="Скопировать код"
+                                aria-label="Скопировать код"
                             >
-                                📋
+                                <Clipboard size={14} />
                             </button>
                         </span>
                     </div>
@@ -269,7 +297,8 @@ const ProjectCard = ({
                     {createdAt && (
                         <div className="project-footer">
                             <span className="created-at">
-                                📅 Создан: {formatDate(createdAt)}
+                                <Calendar size={12} />
+                                Создан: {formatDate(createdAt)}
                             </span>
                         </div>
                     )}

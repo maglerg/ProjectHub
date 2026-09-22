@@ -1,6 +1,7 @@
 // projecthub.client/src/components/CreateProjectForm.js
 
 import React, { useState, useEffect } from 'react';
+import { Loader2, Check, Plus } from 'lucide-react';
 import { PROJECT_CATEGORIES, PROJECT_VISIBILITY } from '../utils/constants';
 import '../styles/components/CreateProjectForm.css';
 
@@ -32,6 +33,7 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
     const handleChange = (e) => {
         const { name, value } = e.target;
         setFormData(prev => ({ ...prev, [name]: value }));
+
         // Очищаем ошибку для этого поля
         if (errors[name]) {
             setErrors(prev => ({ ...prev, [name]: '' }));
@@ -71,7 +73,6 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
             return;
         }
 
-        // Форматируем данные для отправки на сервер
         const submitData = {
             ...formData,
             deadline: new Date(formData.deadline).toISOString()
@@ -82,11 +83,13 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
 
     return (
         <div className="create-project-form">
-            <h2>📝 Создать новый проект</h2>
+            <h2 className="create-project-form__title">Создать новый проект</h2>
 
-            <form onSubmit={handleSubmit}>
+            <form onSubmit={handleSubmit} className="create-project-form__body">
                 <div className="form-group">
-                    <label htmlFor="name">Название проекта *</label>
+                    <label htmlFor="name" className="form-label">
+                        Название проекта <span className="form-required">*</span>
+                    </label>
                     <input
                         type="text"
                         id="name"
@@ -95,13 +98,17 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
                         onChange={handleChange}
                         placeholder="Введите название проекта"
                         disabled={loading}
-                        className={errors.name ? 'error' : ''}
+                        className={`input ${errors.name ? 'input--error' : ''}`}
                     />
-                    {errors.name && <span className="error-text">{errors.name}</span>}
+                    {errors.name && (
+                        <span className="form-error-text">{errors.name}</span>
+                    )}
                 </div>
 
                 <div className="form-group">
-                    <label htmlFor="description">Описание</label>
+                    <label htmlFor="description" className="form-label">
+                        Описание
+                    </label>
                     <textarea
                         id="description"
                         name="description"
@@ -110,18 +117,22 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
                         placeholder="Опишите цели и задачи проекта"
                         rows="4"
                         disabled={loading}
+                        className="input"
                     />
                 </div>
 
                 <div className="form-row">
                     <div className="form-group">
-                        <label htmlFor="category">Категория *</label>
+                        <label htmlFor="category" className="form-label">
+                            Категория <span className="form-required">*</span>
+                        </label>
                         <select
                             id="category"
                             name="category"
                             value={formData.category}
                             onChange={handleChange}
                             disabled={loading}
+                            className="input"
                         >
                             {PROJECT_CATEGORIES.map(cat => (
                                 <option key={cat.value} value={cat.value}>
@@ -132,13 +143,16 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
                     </div>
 
                     <div className="form-group">
-                        <label htmlFor="visibility">Видимость *</label>
+                        <label htmlFor="visibility" className="form-label">
+                            Видимость <span className="form-required">*</span>
+                        </label>
                         <select
                             id="visibility"
                             name="visibility"
                             value={formData.visibility}
                             onChange={handleChange}
                             disabled={loading}
+                            className="input"
                         >
                             {PROJECT_VISIBILITY.map(vis => (
                                 <option key={vis.value} value={vis.value}>
@@ -150,7 +164,9 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
                 </div>
 
                 <div className="form-group">
-                    <label htmlFor="deadline">Дедлайн *</label>
+                    <label htmlFor="deadline" className="form-label">
+                        Дедлайн <span className="form-required">*</span>
+                    </label>
                     <input
                         type="date"
                         id="deadline"
@@ -158,27 +174,39 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
                         value={formData.deadline}
                         onChange={handleChange}
                         disabled={loading}
-                        className={errors.deadline ? 'error' : ''}
+                        className={`input ${errors.deadline ? 'input--error' : ''}`}
                         min={new Date().toISOString().split('T')[0]}
                     />
-                    {errors.deadline && <span className="error-text">{errors.deadline}</span>}
+                    {errors.deadline && (
+                        <span className="form-error-text">{errors.deadline}</span>
+                    )}
                 </div>
 
                 <div className="form-actions">
                     <button
                         type="button"
                         onClick={onCancel}
-                        className="btn-cancel"
+                        className="btn btn--secondary"
                         disabled={loading}
                     >
                         Отмена
                     </button>
                     <button
                         type="submit"
-                        className="btn-submit"
+                        className="btn btn--primary"
                         disabled={loading}
                     >
-                        {loading ? '⏳ Создание...' : '🚀 Создать проект'}
+                        {loading ? (
+                            <>
+                                <Loader2 size={16} className="icon-spin" />
+                                Создание…
+                            </>
+                        ) : (
+                            <>
+                                <Plus size={16} />
+                                Создать проект
+                            </>
+                        )}
                     </button>
                 </div>
             </form>

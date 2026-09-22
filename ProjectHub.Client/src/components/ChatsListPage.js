@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, MessageCircle, Loader2, X, Users } from 'lucide-react';
 import { getChats } from '../services/chatsApi';
 import UserAvatar from './UserAvatar';
 import ChatCover from './ChatCover';
@@ -70,7 +71,9 @@ const ChatsListPage = () => {
     if (loading) {
         return (
             <div className="chats-loading">
-                <div className="spinner">⏳</div>
+                <div className="spinner">
+                    <Loader2 size={32} className="icon-spin" />
+                </div>
                 <p>Загрузка чатов...</p>
             </div>
         );
@@ -79,11 +82,18 @@ const ChatsListPage = () => {
     if (error) {
         return (
             <div className="chats-error">
-                <div className="error-icon">❌</div>
+                <div className="error-icon">
+                    <X size={32} />
+                </div>
                 <h3>Ошибка</h3>
                 <p>{error}</p>
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Вернуться к проектам
+                <button
+                    type="button"
+                    className="btn btn--secondary"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Вернуться к проектам
                 </button>
             </div>
         );
@@ -92,24 +102,36 @@ const ChatsListPage = () => {
     return (
         <div className="chats-list-page">
             <header className="chats-header">
-                <button className="btn-back" onClick={() => navigate('/projects')}>
-                    ← Назад
+                <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => navigate('/projects')}
+                >
+                    <ArrowLeft size={16} />
+                    Назад
                 </button>
-                <h1>💬 Чаты</h1>
+                <h1>
+                    <MessageCircle size={24} />
+                    Чаты
+                </h1>
                 <span className="chats-count">{chats.length}</span>
             </header>
 
             <div className="chats-content">
                 {chats.length === 0 ? (
                     <div className="no-chats">
-                        <div className="no-chats-icon">💬</div>
+                        <div className="no-chats-icon">
+                            <MessageCircle size={48} />
+                        </div>
                         <h3>Нет чатов</h3>
                         <p>Начните общение с другом из профиля</p>
                         <button
-                            className="btn-primary"
+                            type="button"
+                            className="btn btn--primary"
                             onClick={() => navigate('/projects')}
                         >
-                            👥 Найти друзей
+                            <Users size={16} />
+                            Найти друзей
                         </button>
                     </div>
                 ) : (
@@ -123,6 +145,14 @@ const ChatsListPage = () => {
                                     key={chat.id}
                                     className={`chat-item ${chat.unreadCount > 0 ? 'unread' : ''}`}
                                     onClick={() => navigate(`/chats/${chat.id}`)}
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            navigate(`/chats/${chat.id}`);
+                                        }
+                                    }}
                                 >
                                     <div className="chat-item-avatar-wrapper">
                                         {isPersonal && otherUser ? (

@@ -1,6 +1,7 @@
 // projecthub.client/src/components/FilterSection.js
 
 import React from 'react';
+import { Search, RotateCcw, Loader2 } from 'lucide-react';
 import { PROJECT_CATEGORIES } from '../utils/constants';
 import '../styles/components/FilterSection.css';
 
@@ -40,19 +41,30 @@ const FilterSection = ({
 
             <button
                 type="submit"
-                className="btn-search-category"
+                className="btn btn--primary"
                 disabled={loading}
             >
-                {loading ? '⏳ Поиск…' : '🔍 Найти'}
+                {loading ? (
+                    <>
+                        <Loader2 size={16} className="icon-spin" />
+                        Поиск…
+                    </>
+                ) : (
+                    <>
+                        <Search size={16} />
+                        Найти
+                    </>
+                )}
             </button>
 
             <button
                 type="button"
-                className="btn-reset-filters"
+                className="btn btn--secondary"
                 onClick={onReset}
                 disabled={loading}
             >
-                🔄 Сбросить
+                <RotateCcw size={16} />
+                Сбросить
             </button>
         </form>
     );

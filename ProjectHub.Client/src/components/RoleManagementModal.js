@@ -1,6 +1,7 @@
 // projecthub.client/src/components/RoleManagementModal.js
 
 import React, { useState } from 'react';
+import { Users, X, Crown, Zap, User, ArrowDown, ArrowUp, Trash2, Loader2, AlertCircle, Check } from 'lucide-react';
 import { changeMemberRoleByCodeAndEmail, removeMemberFromProject } from '../services/projectsApi';
 import '../styles/components/RoleManagementModal.css';
 
@@ -62,11 +63,22 @@ const RoleManagementModal = ({ project, members, userRole, onClose, onRoleChange
         }
     };
 
+    // 📌 Возвращает Lucide-компонент иконки роли
+    const getRoleIcon = (role) => {
+        switch (role) {
+            case 'Owner': return Crown;
+            case 'Admin': return Zap;
+            case 'Member': return User;
+            default: return User;
+        }
+    };
+
+    // 📌 Возвращает метку роли без эмодзи
     const getRoleLabel = (role) => {
         switch (role) {
-            case 'Owner': return '👑 Владелец';
-            case 'Admin': return '⚡ Администратор';
-            case 'Member': return '👤 Участник';
+            case 'Owner': return 'Владелец';
+            case 'Admin': return 'Администратор';
+            case 'Member': return 'Участник';
             default: return role;
         }
     };
@@ -130,15 +142,31 @@ const RoleManagementModal = ({ project, members, userRole, onClose, onRoleChange
         <div className="role-modal-overlay" onClick={onClose}>
             <div className="role-modal-content" onClick={(e) => e.stopPropagation()}>
                 <div className="role-modal-header">
-                    <h2>👥 Управление участниками</h2>
-                    <button className="role-modal-close" onClick={onClose}>✕</button>
+                    <h2>
+                        <Users size={20} />
+                        Управление участниками
+                    </h2>
+                    <button
+                        type="button"
+                        className="btn btn--ghost btn--icon btn--sm"
+                        onClick={onClose}
+                        aria-label="Закрыть"
+                    >
+                        <X size={16} />
+                    </button>
                 </div>
 
                 {error && (
-                    <div className="role-modal-error">{error}</div>
+                    <div className="role-modal-error">
+                        <AlertCircle size={14} />
+                        {error}
+                    </div>
                 )}
                 {success && (
-                    <div className="role-modal-success">{success}</div>
+                    <div className="role-modal-success">
+                        <Check size={14} />
+                        {success}
+                    </div>
                 )}
 
                 <div className="role-modal-body">
@@ -147,13 +175,16 @@ const RoleManagementModal = ({ project, members, userRole, onClose, onRoleChange
                     ) : (
                         filteredMembers.map(member => {
                             const canRemove = canRemoveMember(member);
+                            const RoleIcon = getRoleIcon(member.role);
                             console.log(`  ${member.name} (${member.role}): canRemove=${canRemove}`);
 
                             return (
                                 <div key={member.userId} className="role-member-item">
                                     <div className="role-member-info">
                                         <div className="role-member-avatar">
-                                            {member.name ? member.name[0].toUpperCase() : '👤'}
+                                            {member.name
+                                                ? member.name[0].toUpperCase()
+                                                : <User size={20} />}
                                         </div>
                                         <div className="role-member-details">
                                             <span className="role-member-name">{member.name}</span>
@@ -163,6 +194,7 @@ const RoleManagementModal = ({ project, members, userRole, onClose, onRoleChange
                                             className="role-member-current"
                                             style={{ backgroundColor: getRoleColor(member.role) }}
                                         >
+                                            <RoleIcon size={12} />
                                             {getRoleLabel(member.role)}
                                         </span>
                                     </div>
@@ -171,19 +203,41 @@ const RoleManagementModal = ({ project, members, userRole, onClose, onRoleChange
                                         {canChangeRoles && (
                                             member.role === 'Admin' ? (
                                                 <button
-                                                    className="btn-role-remove-admin"
+                                                    type="button"
+                                                    className="btn btn--secondary btn--sm"
                                                     onClick={() => handleChangeRole(member.email, 'Member')}
                                                     disabled={processing === member.email}
                                                 >
-                                                    {processing === member.email ? '⏳' : '⬇️ Снять админа'}
+                                                    {processing === member.email ? (
+                                                        <>
+                                                            <Loader2 size={14} className="icon-spin" />
+                                                            Изменение…
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <ArrowDown size={14} />
+                                                            Снять админа
+                                                        </>
+                                                    )}
                                                 </button>
                                             ) : (
                                                 <button
-                                                    className="btn-role-make-admin"
+                                                    type="button"
+                                                    className="btn btn--primary btn--sm"
                                                     onClick={() => handleChangeRole(member.email, 'Admin')}
                                                     disabled={processing === member.email}
                                                 >
-                                                    {processing === member.email ? '⏳' : '⬆️ Назначить админом'}
+                                                    {processing === member.email ? (
+                                                        <>
+                                                            <Loader2 size={14} className="icon-spin" />
+                                                            Изменение…
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <ArrowUp size={14} />
+                                                            Назначить админом
+                                                        </>
+                                                    )}
                                                 </button>
                                             )
                                         )}
@@ -191,12 +245,18 @@ const RoleManagementModal = ({ project, members, userRole, onClose, onRoleChange
                                         {/* 📌 Кнопка удаления участника */}
                                         {canRemoveMembers && canRemove && (
                                             <button
-                                                className="btn-remove-member"
+                                                type="button"
+                                                className="btn btn--ghost btn--icon btn--sm"
                                                 onClick={() => handleRemoveMember(member.email, member.name)}
                                                 disabled={processing === member.email}
                                                 title="Удалить из проекта"
+                                                aria-label="Удалить из проекта"
                                             >
-                                                {processing === member.email ? '⏳' : '🗑️'}
+                                                {processing === member.email ? (
+                                                    <Loader2 size={14} className="icon-spin" />
+                                                ) : (
+                                                    <Trash2 size={14} />
+                                                )}
                                             </button>
                                         )}
                                     </div>
@@ -207,7 +267,13 @@ const RoleManagementModal = ({ project, members, userRole, onClose, onRoleChange
                 </div>
 
                 <div className="role-modal-footer">
-                    <button className="btn-role-close" onClick={onClose}>Закрыть</button>
+                    <button
+                        type="button"
+                        className="btn btn--secondary"
+                        onClick={onClose}
+                    >
+                        Закрыть
+                    </button>
                 </div>
             </div>
         </div>

@@ -2,6 +2,20 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import {
+    ArrowLeft,
+    X,
+    Smile,
+    Paperclip,
+    Send,
+    Download,
+    Loader2,
+    MessageCircle,
+    Archive,
+    Users,
+    FileText,
+    CheckCheck,
+} from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import {
     getChatById,
@@ -391,7 +405,9 @@ const ChatPage = ({
         return (
             <div className={embedded ? 'chat-page chat-page--embedded' : 'chat-page'}>
                 <div className="chat-loading">
-                    <div className="spinner">⏳</div>
+                    <div className="spinner">
+                        <Loader2 size={32} className="icon-spin" />
+                    </div>
                     <p>Загрузка чата...</p>
                 </div>
             </div>
@@ -402,12 +418,19 @@ const ChatPage = ({
         return (
             <div className={embedded ? 'chat-page chat-page--embedded' : 'chat-page'}>
                 <div className="chat-error">
-                    <div className="error-icon">❌</div>
+                    <div className="error-icon">
+                        <X size={32} />
+                    </div>
                     <h3>Ошибка</h3>
                     <p>{error}</p>
                     {!embedded && (
-                        <button className="btn-back" onClick={goBackToChats}>
-                            ← Вернуться к чатам
+                        <button
+                            type="button"
+                            className="btn btn--secondary"
+                            onClick={goBackToChats}
+                        >
+                            <ArrowLeft size={16} />
+                            Вернуться к чатам
                         </button>
                     )}
                 </div>
@@ -420,8 +443,13 @@ const ChatPage = ({
             {/* ── Шапка ── */}
             <header className="chat-header">
                 {!embedded && (
-                    <button className="btn-back" onClick={goBackToChats}>
-                        ← Назад
+                    <button
+                        type="button"
+                        className="btn btn--ghost btn--sm"
+                        onClick={goBackToChats}
+                    >
+                        <ArrowLeft size={16} />
+                        Назад
                     </button>
                 )}
 
@@ -463,11 +491,15 @@ const ChatPage = ({
                             <div className="chat-header-name">
                                 {getChatTitle()}
                                 {isArchived && (
-                                    <span className="chat-archived-badge">📦 Архив</span>
+                                    <span className="chat-archived-badge">
+                                        <Archive size={12} />
+                                        Архив
+                                    </span>
                                 )}
                             </div>
                             <div className="chat-header-status">
-                                👥 {chat.participantsCount || 0} участников
+                                <Users size={12} />
+                                {chat.participantsCount || 0} участников
                             </div>
                         </div>
                     </div>
@@ -478,7 +510,9 @@ const ChatPage = ({
             <div className="chat-messages" ref={messagesContainerRef}>
                 {messages.length === 0 ? (
                     <div className="chat-empty">
-                        <div className="chat-empty-icon">💬</div>
+                        <div className="chat-empty-icon">
+                            <MessageCircle size={48} />
+                        </div>
                         <h3>Нет сообщений</h3>
                         <p>Начните общение первым!</p>
                     </div>
@@ -585,7 +619,9 @@ const ChatPage = ({
 
                                                 {isFileAttachment && (
                                                     <div className="message-file">
-                                                        <div className="message-file-icon">📎</div>
+                                                        <div className="message-file-icon">
+                                                            <FileText size={20} />
+                                                        </div>
                                                         <div className="message-file-info">
                                                             <div className="message-file-name" title={message.attachmentFileName}>
                                                                 {message.attachmentFileName || 'Файл'}
@@ -596,11 +632,12 @@ const ChatPage = ({
                                                         </div>
                                                         <button
                                                             type="button"
-                                                            className="message-file-download"
+                                                            className="btn btn--ghost btn--icon btn--sm message-file-download"
                                                             onClick={() => handleDownloadFile(message)}
                                                             title="Скачать"
+                                                            aria-label="Скачать файл"
                                                         >
-                                                            ⬇️
+                                                            <Download size={14} />
                                                         </button>
                                                     </div>
                                                 )}
@@ -634,7 +671,7 @@ const ChatPage = ({
                                                             : 'Прочитано'
                                                     }
                                                 >
-                                                    ✓✓
+                                                    <CheckCheck size={12} />
                                                 </span>
                                             )}
                                         </div>
@@ -650,13 +687,16 @@ const ChatPage = ({
             {/* 📌 Поле ввода или плашка «архив» */}
             {isArchived ? (
                 <div className="chat-archived-notice">
-                    📦 Проект в архиве — отправка сообщений недоступна
+                    <Archive size={16} />
+                    Проект в архиве — отправка сообщений недоступна
                 </div>
             ) : (
                 <div className="chat-input-area">
                     {attachedFile && (
                         <div className="chat-attached-file">
-                            <span className="chat-attached-file-icon">📎</span>
+                            <span className="chat-attached-file-icon">
+                                <Paperclip size={14} />
+                            </span>
                             <span className="chat-attached-file-name" title={attachedFile.name}>
                                 {attachedFile.name}
                             </span>
@@ -665,11 +705,12 @@ const ChatPage = ({
                             </span>
                             <button
                                 type="button"
-                                className="chat-attached-file-remove"
+                                className="btn btn--ghost btn--icon btn--sm chat-attached-file-remove"
                                 onClick={handleClearAttachedFile}
                                 title="Убрать файл"
+                                aria-label="Убрать файл"
                             >
-                                ✕
+                                <X size={14} />
                             </button>
                         </div>
                     )}
@@ -694,12 +735,13 @@ const ChatPage = ({
                             <div className="emoji-btn-wrapper" ref={emojiButtonRef}>
                                 <button
                                     type="button"
-                                    className="btn-emoji"
+                                    className="btn btn--ghost btn--icon chat-input-icon-btn"
                                     onClick={toggleEmojiPicker}
                                     disabled={sending || uploadingFile}
                                     title="Эмодзи"
+                                    aria-label="Эмодзи"
                                 >
-                                    😊
+                                    <Smile size={18} />
                                 </button>
 
                                 {showEmojiPicker && (
@@ -720,32 +762,43 @@ const ChatPage = ({
                             />
                             <button
                                 type="button"
-                                className="btn-attach"
+                                className="btn btn--ghost btn--icon chat-input-icon-btn"
                                 onClick={() => fileInputRef.current?.click()}
                                 disabled={uploadingFile || sending}
                                 title="Прикрепить файл"
+                                aria-label="Прикрепить файл"
                             >
-                                📎
+                                <Paperclip size={18} />
                             </button>
 
                             {attachedFile ? (
                                 <button
                                     type="button"
-                                    className="btn-send"
+                                    className="btn btn--primary btn--icon chat-send-btn"
                                     onClick={handleSendFile}
                                     disabled={uploadingFile}
                                     title="Отправить файл"
+                                    aria-label="Отправить файл"
                                 >
-                                    {uploadingFile ? '⏳' : '📤'}
+                                    {uploadingFile ? (
+                                        <Loader2 size={18} className="icon-spin" />
+                                    ) : (
+                                        <Send size={18} />
+                                    )}
                                 </button>
                             ) : (
                                 <button
                                     type="submit"
-                                    className="btn-send"
+                                    className="btn btn--primary btn--icon chat-send-btn"
                                     disabled={!newMessage.trim() || sending}
                                     title="Отправить"
+                                    aria-label="Отправить"
                                 >
-                                    {sending ? '⏳' : '📤'}
+                                    {sending ? (
+                                        <Loader2 size={18} className="icon-spin" />
+                                    ) : (
+                                        <Send size={18} />
+                                    )}
                                 </button>
                             )}
                         </div>

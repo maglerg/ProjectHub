@@ -2,6 +2,19 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    Bell,
+    Mail,
+    Inbox,
+    Loader2,
+    UserPlus,
+    Check,
+    X,
+    Users,
+    HeartCrack,
+    Mail as MailIcon,
+    Circle,
+} from 'lucide-react';
 import { getNotifications, getUnreadCount, markAsRead } from '../services/notificationsApi';
 import '../styles/components/NotificationsDropdown.css';
 
@@ -123,7 +136,7 @@ const NotificationsDropdown = () => {
             setIsOpen(false);
             return;
         }
-    };  
+    };
 
     const formatTime = (dateString) => {
         if (!dateString) return '';
@@ -145,45 +158,46 @@ const NotificationsDropdown = () => {
         }
     };
 
-    // 📌 Получить иконку для типа уведомления
+    // 📌 Получить Lucide-компонент для типа уведомления
     const getNotificationIcon = (type) => {
         switch (type) {
             case 'FriendRequest':
             case 'FriendRequestReceived':
-                return '👋';
+                return UserPlus;
             case 'FriendRequestAccepted':
-                return '✅';
+                return Check;
             case 'FriendRequestRejected':
-                return '❌';
+                return X;
             case 'ApplicationReceived':
-                return '📨';
+                return Inbox;
             case 'ApplicationApproved':
-                return '✅';
+                return Check;
             case 'ApplicationRejected':
-                return '❌';
+                return X;
             case 'NewFriend':
-                return '👥';
+                return Users;
             case 'FriendRemoved':
-                return '💔';
+                return HeartCrack;
             case 'ProjectInvitation':
-                return '📩';
+                return MailIcon;
             case 'InvitationAccepted':
-                return '✅';
+                return Check;
             case 'InvitationRejected':
-                return '❌';
+                return X;
             default:
-                return '📌';
+                return Circle;
         }
     };
 
     return (
         <div className="notifications-dropdown" ref={dropdownRef}>
             <button
-                className="notification-bell"
+                type="button"
+                className="btn btn--ghost btn--icon notification-bell"
                 onClick={handleToggle}
                 aria-label="Уведомления"
             >
-                🔔
+                <Bell size={18} />
                 {unreadCount > 0 && (
                     <span className="badge">{unreadCount}</span>
                 )}
@@ -192,10 +206,14 @@ const NotificationsDropdown = () => {
             {isOpen && (
                 <div className="notifications-panel">
                     <div className="notifications-header">
-                        <h3>📨 Уведомления</h3>
+                        <h3>
+                            <Mail size={18} />
+                            Уведомления
+                        </h3>
                         {notifications.some(n => !n.isRead) && (
                             <button
-                                className="mark-all-read"
+                                type="button"
+                                className="btn btn--ghost btn--sm"
                                 onClick={() => handleMarkAsRead(null)}
                             >
                                 Прочитать все
@@ -205,26 +223,39 @@ const NotificationsDropdown = () => {
 
                     <div className="notifications-list">
                         {loading ? (
-                            <div className="loading-notifications">⏳ Загрузка...</div>
+                            <div className="loading-notifications">
+                                <Loader2 size={16} className="icon-spin" />
+                                Загрузка...
+                            </div>
                         ) : !Array.isArray(notifications) || notifications.length === 0 ? (
                             <div className="no-notifications">
-                                <span className="no-icon">📭</span>
+                                <span className="no-icon">
+                                    <Inbox size={32} />
+                                </span>
                                 <p>Нет уведомлений</p>
                             </div>
                         ) : (
                             notifications.map((notif) => {
                                 if (!notif) return null;
 
-                                const icon = getNotificationIcon(notif.type);
+                                const IconComponent = getNotificationIcon(notif.type);
 
                                 return (
                                     <div
                                         key={notif.id || Math.random()}
                                         className={`notification-item ${!notif.isRead ? 'unread' : ''}`}
                                         onClick={() => handleNotificationClick(notif)}
+                                        role="button"
+                                        tabIndex={0}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                handleNotificationClick(notif);
+                                            }
+                                        }}
                                     >
                                         <div className="notification-icon">
-                                            {icon}
+                                            <IconComponent size={18} />
                                         </div>
                                         <div className="notification-content">
                                             <div className="notification-title">{notif.title || 'Уведомление'}</div>

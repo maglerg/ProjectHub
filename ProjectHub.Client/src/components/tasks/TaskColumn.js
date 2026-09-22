@@ -1,6 +1,7 @@
 // projecthub.client/src/components/tasks/TaskColumn.js
 
 import React, { useState } from 'react';
+import { Lock, Pencil, Trash2 } from 'lucide-react';
 import TaskCard from './TaskCard';
 
 export default function TaskColumn({
@@ -66,7 +67,7 @@ export default function TaskColumn({
                             className="task-column-lock"
                             title="Системная колонка — нельзя переименовать или удалить"
                         >
-                            🔒
+                            <Lock size={12} />
                         </span>
                     )}
                     <span className="task-column-count">{tasksCount}</span>
@@ -76,19 +77,21 @@ export default function TaskColumn({
                     <div className="task-column-header-actions">
                         <button
                             type="button"
-                            className="column-action-btn"
+                            className="btn btn--ghost btn--icon btn--sm"
                             onClick={() => onEditColumn?.(column)}
                             title="Редактировать колонку"
+                            aria-label="Редактировать колонку"
                         >
-                            ✏️
+                            <Pencil size={14} />
                         </button>
                         <button
                             type="button"
-                            className="column-action-btn danger"
+                            className="btn btn--ghost btn--icon btn--sm column-action-btn--danger"
                             onClick={() => onDeleteColumn?.(column)}
                             title="Удалить колонку"
+                            aria-label="Удалить колонку"
                         >
-                            🗑
+                            <Trash2 size={14} />
                         </button>
                     </div>
                 )}

@@ -2,20 +2,21 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Folder, UserPlus, Loader2, X, Monitor, Server, Palette, Rocket, FlaskConical, ClipboardList, BarChart3, Layers, Smartphone, Circle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/components/RegisterPage.css';
 
 const SPECIALIZATIONS = [
-    { value: 'Frontend', label: '🖥️ Фронтенд-разработчик' },
-    { value: 'Backend', label: '⚙️ Бэкенд-разработчик' },
-    { value: 'Designer', label: '🎨 Дизайнер' },
-    { value: 'DevOps', label: '🚀 DevOps-инженер' },
-    { value: 'QA', label: '🧪 Тестировщик' },
-    { value: 'ProjectManager', label: '📋 Project-менеджер' },
-    { value: 'Analyst', label: '📊 Аналитик' },
-    { value: 'FullStack', label: '🔷 Full-stack разработчик' },
-    { value: 'Mobile', label: '📱 Мобильный разработчик' },
-    { value: 'Other', label: '🔹 Другое' }
+    { value: 'Frontend', label: 'Фронтенд-разработчик', icon: Monitor },
+    { value: 'Backend', label: 'Бэкенд-разработчик', icon: Server },
+    { value: 'Designer', label: 'Дизайнер', icon: Palette },
+    { value: 'DevOps', label: 'DevOps-инженер', icon: Rocket },
+    { value: 'QA', label: 'Тестировщик', icon: FlaskConical },
+    { value: 'ProjectManager', label: 'Project-менеджер', icon: ClipboardList },
+    { value: 'Analyst', label: 'Аналитик', icon: BarChart3 },
+    { value: 'FullStack', label: 'Full-stack разработчик', icon: Layers },
+    { value: 'Mobile', label: 'Мобильный разработчик', icon: Smartphone },
+    { value: 'Other', label: 'Другое', icon: Circle },
 ];
 
 const RegisterPage = () => {
@@ -71,7 +72,10 @@ const RegisterPage = () => {
             <div className="register-container">
                 <div className="register-box">
                     <div className="register-header">
-                        <h1>📁 ProjectHub</h1>
+                        <h1>
+                            <Folder size={28} />
+                            ProjectHub
+                        </h1>
                         <p>Создайте новый аккаунт</p>
                     </div>
 
@@ -160,16 +164,27 @@ const RegisterPage = () => {
 
                         {error && (
                             <div className="error-message">
-                                ❌ {error}
+                                <X size={14} />
+                                {error}
                             </div>
                         )}
 
                         <button
                             type="submit"
-                            className="btn-register"
+                            className="btn btn--primary btn--lg btn--block"
                             disabled={loading}
                         >
-                            {loading ? '⏳ Регистрация...' : '📝 Зарегистрироваться'}
+                            {loading ? (
+                                <>
+                                    <Loader2 size={18} className="icon-spin" />
+                                    Регистрация...
+                                </>
+                            ) : (
+                                <>
+                                    <UserPlus size={18} />
+                                    Зарегистрироваться
+                                </>
+                            )}
                         </button>
 
                         <div className="register-footer">

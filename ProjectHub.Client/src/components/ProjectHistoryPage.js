@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
+import { ArrowLeft, History, Loader2, X } from 'lucide-react';
 import { getProjectHistory } from '../services/projectsApi';
 import {
     ACTIVITY_FILTERS,
@@ -91,11 +92,21 @@ export default function ProjectHistoryPage({ embedded = false }) {
     };
 
     if (loading) {
-        return <div className="history-loading">Загрузка истории…</div>;
+        return (
+            <div className="history-loading">
+                <Loader2 size={24} className="icon-spin" />
+                Загрузка истории…
+            </div>
+        );
     }
 
     if (error) {
-        return <div className="history-error">Ошибка: {error}</div>;
+        return (
+            <div className="history-error">
+                <X size={16} />
+                Ошибка: {error}
+            </div>
+        );
     }
 
     return (
@@ -103,10 +114,18 @@ export default function ProjectHistoryPage({ embedded = false }) {
             {/* ── Шапка (только в standalone-режиме) ── */}
             {!embedded && (
                 <header className="history-header">
-                    <button className="btn-back" onClick={() => navigate(-1)}>
-                        ← Назад
+                    <button
+                        type="button"
+                        className="btn btn--ghost btn--sm"
+                        onClick={() => navigate(-1)}
+                    >
+                        <ArrowLeft size={16} />
+                        Назад
                     </button>
-                    <h1>📜 История проекта</h1>
+                    <h1>
+                        <History size={24} />
+                        История проекта
+                    </h1>
                     <span className="history-total">{total} событий</span>
                 </header>
             )}
@@ -120,17 +139,24 @@ export default function ProjectHistoryPage({ embedded = false }) {
 
             {/* ── Фильтры (без исключённых групп) ── */}
             <div className="history-filters">
-                {visibleFilters.map(f => (
-                    <button
-                        key={f.value}
-                        type="button"
-                        className={`history-filter-btn ${activeGroup === f.value ? 'active' : ''}`}
-                        onClick={() => setActiveGroup(f.value)}
-                    >
-                        <span className="history-filter-icon">{f.icon}</span>
-                        {f.label}
-                    </button>
-                ))}
+                {visibleFilters.map(f => {
+                    const FilterIcon = f.lucideIcon;
+                    return (
+                        <button
+                            key={f.value}
+                            type="button"
+                            className={`btn btn--sm history-filter-btn ${activeGroup === f.value ? 'active' : ''}`}
+                            onClick={() => setActiveGroup(f.value)}
+                        >
+                            {FilterIcon ? (
+                                <FilterIcon size={14} />
+                            ) : (
+                                <span className="history-filter-icon">{f.icon}</span>
+                            )}
+                            {f.label}
+                        </button>
+                    );
+                })}
             </div>
 
             {/* ── Лента ── */}
@@ -144,6 +170,8 @@ export default function ProjectHistoryPage({ embedded = false }) {
                 <div className="history-list">
                     {visibleItems.map(item => {
                         const info = getActivityInfo(item.type);
+                        const ItemIcon = info.lucideIcon;
+
                         return (
                             <div
                                 key={item.id}
@@ -151,8 +179,21 @@ export default function ProjectHistoryPage({ embedded = false }) {
                                 onClick={() => item.link && navigate(item.link)}
                                 role={item.link ? 'button' : undefined}
                                 tabIndex={item.link ? 0 : undefined}
+                                onKeyDown={(e) => {
+                                    if (!item.link) return;
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        navigate(item.link);
+                                    }
+                                }}
                             >
-                                <div className="history-icon">{info.icon}</div>
+                                <div className="history-icon">
+                                    {ItemIcon ? (
+                                        <ItemIcon size={18} />
+                                    ) : (
+                                        info.icon
+                                    )}
+                                </div>
 
                                 <div className="history-content">
                                     <div className="history-row">
@@ -181,11 +222,19 @@ export default function ProjectHistoryPage({ embedded = false }) {
             {/* ── Пагинация ── */}
             {hasMore && (
                 <button
-                    className="btn-load-more"
+                    type="button"
+                    className="btn btn--secondary btn--block"
                     onClick={handleShowMore}
                     disabled={loadingMore}
                 >
-                    {loadingMore ? 'Загрузка…' : 'Показать ещё'}
+                    {loadingMore ? (
+                        <>
+                            <Loader2 size={16} className="icon-spin" />
+                            Загрузка…
+                        </>
+                    ) : (
+                        'Показать ещё'
+                    )}
                 </button>
             )}
         </div>

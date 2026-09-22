@@ -108,6 +108,7 @@ export default function TaskTimeline({ columns }) {
                 <div className="timeline-left-body">
                     {tasks.map(t => {
                         const priorityInfo = getPriorityInfo(t.priority);
+                        const PriorityIcon = priorityInfo.lucideIcon;
                         const assignees = t.assignees || [];
                         const effectiveDue = t.effectiveDueDate || t.dueDate;
 
@@ -133,13 +134,21 @@ export default function TaskTimeline({ columns }) {
                                 onClick={() =>
                                     navigate(`/projects/${code}/tasks/${t.id}`)
                                 }
+                                role="button"
+                                tabIndex={0}
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                        e.preventDefault();
+                                        navigate(`/projects/${code}/tasks/${t.id}`);
+                                    }
+                                }}
                             >
-                                {t.priority && t.priority !== 'None' && (
+                                {t.priority && t.priority !== 'None' && PriorityIcon && (
                                     <span
                                         className="timeline-priority-icon"
                                         style={{ color: priorityInfo.color }}
                                     >
-                                        {priorityInfo.icon}
+                                        <PriorityIcon size={12} />
                                     </span>
                                 )}
                                 <span className="timeline-row-title">
@@ -198,6 +207,14 @@ export default function TaskTimeline({ columns }) {
                                     onClick={() =>
                                         navigate(`/projects/${code}/tasks/${t.id}`)
                                     }
+                                    role="button"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' || e.key === ' ') {
+                                            e.preventDefault();
+                                            navigate(`/projects/${code}/tasks/${t.id}`);
+                                        }
+                                    }}
                                 >
                                     <div className="timeline-day-grid">
                                         {days.map((d, idx) => (

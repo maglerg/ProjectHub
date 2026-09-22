@@ -1,6 +1,7 @@
 // projecthub.client/src/components/EmojiPicker.js
 
 import React, { useState, useRef, useEffect, useMemo } from 'react';
+import { Search, X } from 'lucide-react';
 import '../styles/components/EmojiPicker.css';
 
 /**
@@ -106,7 +107,9 @@ const EmojiPicker = ({ onSelect, onClose, anchorRef }) => {
         <div className="emoji-picker" ref={pickerRef}>
             {/* ── Поиск ── */}
             <div className="emoji-picker__search">
-                <span className="emoji-picker__search-icon">🔍</span>
+                <span className="emoji-picker__search-icon">
+                    <Search size={14} />
+                </span>
                 <input
                     type="text"
                     className="emoji-picker__search-input"
@@ -117,11 +120,12 @@ const EmojiPicker = ({ onSelect, onClose, anchorRef }) => {
                 {search && (
                     <button
                         type="button"
-                        className="emoji-picker__search-clear"
+                        className="btn btn--ghost btn--icon btn--sm emoji-picker__search-clear"
                         onClick={() => setSearch('')}
                         title="Очистить"
+                        aria-label="Очистить"
                     >
-                        ×
+                        <X size={14} />
                     </button>
                 )}
             </div>

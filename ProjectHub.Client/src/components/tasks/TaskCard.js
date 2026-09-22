@@ -1,6 +1,16 @@
 // components/tasks/TaskCard.jsx
-import React, {useEffect, useRef, useState } from 'react';
+
+import React, { useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
+import {
+    Paperclip,
+    ChevronDown,
+    ChevronRight,
+    CheckSquare,
+    Square,
+    Clock,
+    Flag,
+} from 'lucide-react';
 import {
     getTaskById,
     updateTask,
@@ -12,6 +22,7 @@ import {
 import { getPriorityInfo, getPriorityColor } from '../../utils/constants';
 import { formatDateTime, getDeadlineStatus } from '../../utils/datetime';
 import TaskContextMenu from './TaskContextMenu';
+import '../../styles/components/tasks/tasks.css';
 
 export default function TaskCard({
     task,
@@ -36,7 +47,7 @@ export default function TaskCard({
     const [loadError, setLoadError] = useState(null);
 
     // ── Контекстное меню ──
-    const [contextMenu, setContextMenu] = useState(null); // { x, y }
+    const [contextMenu, setContextMenu] = useState(null);
 
     const assignees = task.assignees || [];
     const tags = task.tags || [];
@@ -46,7 +57,7 @@ export default function TaskCard({
         a => (a.email || '').toLowerCase() === emailLower
     );
 
-    // 📦 В архиве нельзя перетаскивать и прикреплять файлы
+    // В архиве нельзя перетаскивать и прикреплять файлы
     const canDrag = !isArchived && (isOwner || isMine);
     const canUpload = !isArchived && !!task.canUploadAttachments;
 
@@ -54,6 +65,7 @@ export default function TaskCard({
 
     const priorityInfo = getPriorityInfo(task.priority);
     const priorityColor = getPriorityColor(task.priority);
+    const PriorityIcon = priorityInfo.lucideIcon;   // ← добавим в constants.js (см. ниже)
 
     // ── Эффективный дедлайн ──
     const effectiveDue = task.effectiveDueDate;
@@ -74,9 +86,7 @@ export default function TaskCard({
     const handleDragEnd = () => {
         setTimeout(() => { draggedRef.current = false; }, 0);
     };
-    useEffect(() => {
-        console.log('🟢 TaskCard rendered:', task.id);
-    });
+
     const handleClick = () => {
         if (draggedRef.current) return;
         navigate(`/projects/${code}/tasks/${task.id}`);
@@ -120,7 +130,7 @@ export default function TaskCard({
         }
     };
 
-    // ── Правый клик — открыть контекстное меню ──
+    // ── Правый клик ──
     const handleContextMenu = (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -205,7 +215,7 @@ export default function TaskCard({
     return (
         <>
             <div
-                className={`task-card ${canDrag ? 'draggable' : 'locked'} ${isArchived ? 'task-card--archived' : ''}`}
+                className={`task-card ${canDrag ? 'task-card--draggable' : 'task-card--locked'} ${isArchived ? 'task-card--archived' : ''}`}
                 draggable={canDrag}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}
@@ -215,39 +225,47 @@ export default function TaskCard({
                 tabIndex={0}
                 style={{ borderLeftColor: priorityColor }}
             >
+                {/* ── Заголовок ── */}
                 <div className="task-card-header">
                     <h4 className="task-card-title">
-                        {task.priority && task.priority !== 'None' && (
+                        {task.priority && task.priority !== 'None' && PriorityIcon && (
                             <span
                                 className="task-priority-icon"
                                 title={priorityInfo.label}
                                 style={{ color: priorityInfo.color }}
                             >
-                                {priorityInfo.icon}
+                                <PriorityIcon size={14} />
                             </span>
                         )}
                         {task.title}
                     </h4>
+
+                    {hasSubtasks && (
+                        <button
+                            type="button"
+                            className={`btn btn--ghost btn--sm btn-expand-subtasks ${expanded ? 'expanded' : ''}`}
+                            onClick={handleToggleExpand}
+                            title={expanded ? 'Свернуть подзадачи' : 'Показать подзадачи'}
+                            aria-expanded={expanded}
+                        >
+                            {expanded ? (
+                                <ChevronDown size={14} />
+                            ) : (
+                                <ChevronRight size={14} />
+                            )}
+                            <span className="subtask-counter">
+                                {task.completedSubtasksCount}/{task.totalSubtasksCount}
+                            </span>
+                        </button>
+                    )}
                 </div>
 
-                {hasSubtasks && (
-                    <button
-                        type="button"
-                        className={`btn-expand-subtasks ${expanded ? 'expanded' : ''}`}
-                        onClick={handleToggleExpand}
-                        title={expanded ? 'Свернуть подзадачи' : 'Показать подзадачи'}
-                    >
-                        <span className="triangle">▼</span>
-                        <span className="subtask-counter">
-                            {task.completedSubtasksCount}/{task.totalSubtasksCount}
-                        </span>
-                    </button>
-                )}
-
+                {/* ── Описание ── */}
                 {task.description && (
                     <p className="task-card-description">{task.description}</p>
                 )}
 
+                {/* ── Мини-прогресс подзадач ── */}
                 {hasSubtasks && (
                     <div className="task-card-subtasks">
                         <div className="subtask-mini-bar">
@@ -261,6 +279,7 @@ export default function TaskCard({
                     </div>
                 )}
 
+                {/* ── Раскрытые подзадачи ── */}
                 {expanded && (
                     <div
                         className="task-card-subtasks-expanded"
@@ -288,7 +307,11 @@ export default function TaskCard({
                                         className={`subtasks-preview-item ${s.isCompleted ? 'completed' : ''}`}
                                     >
                                         <span className="subtask-check">
-                                            {s.isCompleted ? '☑' : '☐'}
+                                            {s.isCompleted ? (
+                                                <CheckSquare size={14} />
+                                            ) : (
+                                                <Square size={14} />
+                                            )}
                                         </span>
                                         <span className="subtask-preview-title">
                                             {s.title}
@@ -328,13 +351,13 @@ export default function TaskCard({
                     </div>
                 )}
 
+                {/* ── Исполнители ── */}
                 {isTaken && (
                     <div className="task-card-assignees">
                         {assignees.map(a => (
                             <span
                                 key={a.email}
-                                className={`assignee-chip ${(a.email || '').toLowerCase() === emailLower ? 'me' : ''
-                                    }`}
+                                className={`assignee-chip ${(a.email || '').toLowerCase() === emailLower ? 'assignee-chip--me' : ''}`}
                                 title={a.email}
                             >
                                 {a.name || a.email}
@@ -343,6 +366,7 @@ export default function TaskCard({
                     </div>
                 )}
 
+                {/* ── Футер: автор + действия ── */}
                 <div className="task-card-footer">
                     <span className="task-card-author">
                         от {task.createdByName || task.createdByEmail}
@@ -354,7 +378,8 @@ export default function TaskCard({
                                 className="task-card-attachments-badge"
                                 title={`Вложений: ${task.attachmentsCount}`}
                             >
-                                📎 {task.attachmentsCount}
+                                <Paperclip size={12} />
+                                {task.attachmentsCount}
                             </span>
                         )}
 
@@ -368,11 +393,13 @@ export default function TaskCard({
                                     onClick={e => e.stopPropagation()}
                                 />
                                 <button
-                                    className="btn-card-attach"
+                                    type="button"
+                                    className="btn btn--ghost btn--icon btn--sm"
                                     title="Прикрепить файл"
                                     onClick={handleUploadClick}
+                                    aria-label="Прикрепить файл"
                                 >
-                                    📎
+                                    <Paperclip size={14} />
                                 </button>
                             </>
                         )}
@@ -380,14 +407,19 @@ export default function TaskCard({
                         {/* ── Эффективный дедлайн ── */}
                         {effectiveDue && (
                             <span
-                                className={`task-card-deadline ${deadlineStatus}`}
+                                className={`task-card-deadline task-card-deadline--${deadlineStatus}`}
                                 title={
                                     isDueFixed
                                         ? `Дедлайн: ${formatDateTime(effectiveDue)}`
                                         : `Дедлайн по проекту: ${formatDateTime(effectiveDue)}`
                                 }
                             >
-                                {isDueFixed ? '🕒' : '🏁'}{' '}
+                                {isDueFixed ? (
+                                    <Clock size={12} />
+                                ) : (
+                                    <Flag size={12} />
+                                )}
+                                {' '}
                                 {new Date(effectiveDue).toLocaleDateString('ru-RU', {
                                     day: '2-digit',
                                     month: '2-digit'

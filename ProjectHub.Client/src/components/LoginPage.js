@@ -2,6 +2,7 @@
 
 import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
+import { Folder, LogIn, Loader2, X, Info } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/components/LoginPage.css';
 
@@ -34,7 +35,10 @@ const LoginPage = () => {
             <div className="login-container">
                 <div className="login-box">
                     <div className="login-header">
-                        <h1>📁 ProjectHub</h1>
+                        <h1>
+                            <Folder size={28} />
+                            ProjectHub
+                        </h1>
                         <p>Войдите в свой аккаунт</p>
                     </div>
 
@@ -66,16 +70,27 @@ const LoginPage = () => {
 
                         {error && (
                             <div className="error-message">
-                                ❌ {error}
+                                <X size={14} />
+                                {error}
                             </div>
                         )}
 
                         <button
                             type="submit"
-                            className="btn-login"
+                            className="btn btn--primary btn--lg btn--block"
                             disabled={loading}
                         >
-                            {loading ? '⏳ Вход...' : '🚪 Войти'}
+                            {loading ? (
+                                <>
+                                    <Loader2 size={18} className="icon-spin" />
+                                    Вход...
+                                </>
+                            ) : (
+                                <>
+                                    <LogIn size={18} />
+                                    Войти
+                                </>
+                            )}
                         </button>
 
                         <div className="login-footer">
@@ -89,7 +104,10 @@ const LoginPage = () => {
                     </form>
 
                     <div className="login-demo">
-                        <p>📌 Демо-аккаунт:</p>
+                        <p>
+                            <Info size={14} />
+                            Демо-аккаунт:
+                        </p>
                         <p><strong>Email:</strong> anna@example.com</p>
                         <p><strong>Пароль:</strong> 123456</p>
                     </div>

@@ -1,116 +1,117 @@
-/* src/App.css — добавить/заменить */
+/* src/App.css */
 
-/* 🆕 Заголовок по центру */
-.App-header {
-    color: white;
-    padding: 30px 0 40px 0;
-    text-align: center;
-}
+/* ═══════════════════════════════════════════════════════════
+   КОРНЕВОЙ КОНТЕЙНЕР
+   ═══════════════════════════════════════════════════════════ */
 
-    .App-header h1 {
-        font-size: 2.8rem;
-        margin: 0;
-        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
-    }
-
-.header-description {
-    margin: 8px 0 0 0;
-    opacity: 0.9;
-    font-size: 1.1rem;
-    letter-spacing: 1px;
-}
 .App {
-    text-align: center;
     min-height: 100vh;
-    background: linear-gradient(135deg, #0f0c29, #302b63, #24243e);
-    /* ↑ Это градиентный фон, который у тебя сейчас */
-    padding: 20px;
+    background: var(--color-bg-secondary);
+    color: var(--color-text);
 }
 
-.App-main {
-    max-width: 900px;
-    margin: 0 auto;
-    background: white; /* ← Это фон основной карточки */
-    border-radius: 20px;
-    padding: 30px;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-}
-/* 🆕 Пустое состояние — красивое приветствие */
+/* ═══════════════════════════════════════════════════════════
+   ПУСТОЕ СОСТОЯНИЕ
+   ═══════════════════════════════════════════════════════════ */
+
 .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
     text-align: center;
-    padding: 60px 20px;
-    animation: fadeIn 0.5s ease;
+    padding: var(--space-12) var(--space-5);
+    animation: fadeIn var(--transition-slow) ease;
 }
 
 .empty-state-icon {
     font-size: 64px;
-    margin-bottom: 20px;
+    margin-bottom: var(--space-5);
+    line-height: 1;
 }
 
 .empty-state h3 {
-    font-size: 24px;
-    color: #2c3e50;
-    margin: 0 0 10px 0;
+    font-size: var(--text-2xl);
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+    margin: 0 0 var(--space-2);
 }
 
 .empty-state p {
-    font-size: 16px;
-    color: #7f8c8d;
+    font-size: var(--text-base);
+    color: var(--color-text-secondary);
     margin: 0;
+    max-width: 400px;
+    line-height: var(--leading-relaxed);
 }
 
-/* 🆕 Кнопки-табы */
+/* ═══════════════════════════════════════════════════════════
+   ТАБЫ
+   ═══════════════════════════════════════════════════════════ */
+
 .tabs-container {
     display: flex;
-    gap: 10px;
+    gap: var(--space-2);
     justify-content: center;
-    margin-bottom: 25px;
     flex-wrap: wrap;
+    margin-bottom: var(--space-6);
+    padding: var(--space-1);
 }
 
 .tab-btn {
-    padding: 14px 35px;
-    border: 2px solid #e0e0e0;
-    border-radius: 12px;
-    background: white;
-    color: #555;
-    font-size: 16px;
-    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    padding: var(--space-2) var(--space-4);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    background: var(--color-bg);
+    color: var(--color-text-secondary);
+    font-family: inherit;
+    font-size: var(--text-sm);
+    font-weight: var(--weight-medium);
+    line-height: 1;
+    white-space: nowrap;
     cursor: pointer;
-    transition: all 0.3s ease;
-    flex: 1;
-    min-width: 150px;
-    max-width: 250px;
+    transition: background var(--transition-fast), color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
-    .tab-btn:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-        border-color: #667eea;
+    .tab-btn:hover:not(.active) {
+        background: var(--color-bg-tertiary);
+        color: var(--color-text);
+        border-color: var(--color-border-hover);
     }
 
     .tab-btn.active {
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
-        border-color: #667eea;
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        background: var(--color-primary-600);
+        color: #ffffff;
+        border-color: var(--color-primary-600);
+        box-shadow: var(--shadow-sm);
     }
 
         .tab-btn.active:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4);
+            background: var(--color-primary-700);
+            border-color: var(--color-primary-700);
         }
 
-/* 🆕 Контент табов */
+/* ═══════════════════════════════════════════════════════════
+   КОНТЕНТ ТАБОВ
+   ═══════════════════════════════════════════════════════════ */
+
 .tab-content {
     min-height: 200px;
-    animation: fadeIn 0.3s ease;
+    animation: fadeIn var(--transition-slow) ease;
 }
+
+/* ═══════════════════════════════════════════════════════════
+   АНИМАЦИИ
+   ═══════════════════════════════════════════════════════════ */
 
 @keyframes fadeIn {
     from {
         opacity: 0;
-        transform: translateY(10px);
+        transform: translateY(8px);
     }
 
     to {
@@ -119,35 +120,31 @@
     }
 }
 
-/* Адаптивность */
+/* ═══════════════════════════════════════════════════════════
+   АДАПТИВ
+   ═══════════════════════════════════════════════════════════ */
+
 @media (max-width: 768px) {
-    .App-header h1 {
-        font-size: 2rem;
-    }
-
-    .header-description {
-        font-size: 0.95rem;
-    }
-
     .tabs-container {
-        flex-direction: column;
-        align-items: stretch;
+        gap: var(--space-1);
+        margin-bottom: var(--space-4);
     }
 
     .tab-btn {
-        max-width: none;
-        width: 100%;
+        padding: 6px 10px;
+        font-size: var(--text-xs);
     }
 
     .empty-state {
-        padding: 40px 15px;
+        padding: var(--space-8) var(--space-4);
     }
 
     .empty-state-icon {
         font-size: 48px;
+        margin-bottom: var(--space-4);
     }
 
     .empty-state h3 {
-        font-size: 20px;
+        font-size: var(--text-xl);
     }
 }

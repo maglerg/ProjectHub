@@ -2,6 +2,18 @@
 
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    Users,
+    Search,
+    Loader2,
+    UserPlus,
+    User,
+    Mail,
+    Check,
+    X,
+    Inbox,
+    Send,
+} from 'lucide-react';
 import MemberCard from './MemberCard';
 import UserAvatar from './UserAvatar';
 import { useAuth } from '../context/AuthContext';
@@ -237,7 +249,10 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
             {/* ── Поиск пользователя ── */}
             <section className="friends-search-section">
                 <div className="friends-search-header">
-                    <h2>👥 Друзья</h2>
+                    <h2>
+                        <Users size={20} />
+                        Друзья
+                    </h2>
                     <span className="friends-count-badge">{friends.length} чел.</span>
                 </div>
 
@@ -250,19 +265,39 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
                             onChange={(e) => setSearchEmail(e.target.value)}
                             disabled={isSearching}
                         />
-                        <button type="submit" disabled={isSearching || !searchEmail.trim()}>
-                            {isSearching ? '⏳' : '🔍 Найти'}
+                        <button
+                            type="submit"
+                            className="btn btn--primary btn--sm"
+                            disabled={isSearching || !searchEmail.trim()}
+                        >
+                            {isSearching ? (
+                                <>
+                                    <Loader2 size={14} className="icon-spin" />
+                                    Поиск…
+                                </>
+                            ) : (
+                                <>
+                                    <Search size={14} />
+                                    Найти
+                                </>
+                            )}
                         </button>
                     </div>
-                    {searchError && <div className="search-error">❌ {searchError}</div>}
+                    {searchError && (
+                        <div className="search-error">
+                            <X size={14} />
+                            {searchError}
+                        </div>
+                    )}
                 </form>
 
                 <button
                     type="button"
-                    className="btn-go-to-requests"
+                    className="btn btn--secondary btn--sm"
                     onClick={handleGoToRequests}
                 >
-                    📩 Заявки в друзья
+                    <Inbox size={14} />
+                    Заявки в друзья
                 </button>
 
                 {foundUser && (
@@ -270,11 +305,13 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
                         <div className="search-result-header">
                             <span>Результат поиска</span>
                             <button
-                                className="clear-search-btn"
+                                type="button"
+                                className="btn btn--ghost btn--icon btn--sm"
                                 onClick={clearSearch}
                                 title="Очистить"
+                                aria-label="Очистить"
                             >
-                                ✕
+                                <X size={14} />
                             </button>
                         </div>
 
@@ -292,7 +329,10 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
                             </div>
                             <div className="search-result-info">
                                 <div className="search-result-name">{foundUser.name}</div>
-                                <div className="search-result-email">{foundUser.email}</div>
+                                <div className="search-result-email">
+                                    <Mail size={12} />
+                                    {foundUser.email}
+                                </div>
                                 <div className="search-result-specialization">
                                     {foundUser.specialization || '—'}
                                 </div>
@@ -304,23 +344,48 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
 
                         <div className="search-result-actions">
                             {friendStatus?.isFriend ? (
-                                <div className="already-friend">✅ Уже в друзьях</div>
+                                <div className="already-friend">
+                                    <Check size={14} />
+                                    Уже в друзьях
+                                </div>
                             ) : friendStatus?.status === 'Pending' ? (
-                                <div className="request-pending">⏳ Заявка отправлена</div>
+                                <div className="request-pending">
+                                    <Loader2 size={14} />
+                                    Заявка отправлена
+                                </div>
                             ) : friendStatus?.status === 'Received' ? (
-                                <div className="request-received">📩 Вам отправлена заявка</div>
+                                <div className="request-received">
+                                    <Inbox size={14} />
+                                    Вам отправлена заявка
+                                </div>
                             ) : (
                                 <button
-                                    className="btn-send-request"
+                                    type="button"
+                                    className="btn btn--primary btn--sm"
                                     onClick={() => handleSendRequest(foundUser)}
                                     disabled={isProcessing}
                                 >
-                                    {isProcessing ? '⏳' : '📩 Отправить заявку'}
+                                    {isProcessing ? (
+                                        <>
+                                            <Loader2 size={14} className="icon-spin" />
+                                            Отправка…
+                                        </>
+                                    ) : (
+                                        <>
+                                            <UserPlus size={14} />
+                                            Отправить заявку
+                                        </>
+                                    )}
                                 </button>
                             )}
 
-                            <button className="btn-view-profile" onClick={handleGoToProfile}>
-                                👤 Профиль
+                            <button
+                                type="button"
+                                className="btn btn--secondary btn--sm"
+                                onClick={handleGoToProfile}
+                            >
+                                <User size={14} />
+                                Профиль
                             </button>
                         </div>
 
@@ -336,10 +401,15 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
             {/* ── Список друзей ── */}
             <section className="friends-list-section">
                 {loading ? (
-                    <div className="friends-loading">⏳ Загрузка друзей…</div>
+                    <div className="friends-loading">
+                        <Loader2 size={16} className="icon-spin" />
+                        Загрузка друзей…
+                    </div>
                 ) : friends.length === 0 ? (
                     <div className="no-friends">
-                        <div className="no-friends-icon">👤</div>
+                        <div className="no-friends-icon">
+                            <User size={48} />
+                        </div>
                         <h3>Нет друзей</h3>
                         <p>Найдите пользователей по email и отправьте заявку</p>
                     </div>

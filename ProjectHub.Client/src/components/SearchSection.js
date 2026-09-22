@@ -1,12 +1,25 @@
 // src/components/SearchSection.js
 
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';  // ← ДОБАВИТЬ!
+import { useNavigate } from 'react-router-dom';
+import {
+    Search,
+    X,
+    Loader2,
+    Folder,
+    Calendar,
+    KeyRound,
+    ClipboardList,
+    Lock,
+    Globe,
+    Check,
+    AlertCircle,
+} from 'lucide-react';
 import { searchProjectByCode } from '../services/projectsApi';
 import '../styles/components/SearchSection.css';
 
 const SearchSection = ({ onProjectFound }) => {
-    const navigate = useNavigate();  // ← ДОБАВИТЬ!
+    const navigate = useNavigate();
     const [searchCode, setSearchCode] = useState('');
     const [isSearching, setIsSearching] = useState(false);
     const [message, setMessage] = useState('');
@@ -84,10 +97,15 @@ const SearchSection = ({ onProjectFound }) => {
         setTimeout(handleSearch, 100);
     };
 
+    const isError = message.includes('❌');
+
     return (
         <div className="search-section">
             <div className="search-header">
-                <h3>🔍 Поиск проекта по коду</h3>
+                <h3>
+                    <Search size={18} />
+                    Поиск проекта по коду
+                </h3>
                 <span className="search-hint">Введите код в формате ABC-123-DEF</span>
             </div>
 
@@ -103,28 +121,50 @@ const SearchSection = ({ onProjectFound }) => {
                         disabled={isSearching}
                     />
                     {searchCode && (
-                        <button className="search-clear-btn" onClick={() => setSearchCode('')}>
-                            ✕
+                        <button
+                            type="button"
+                            className="btn btn--ghost btn--icon btn--sm search-clear-btn"
+                            onClick={() => setSearchCode('')}
+                            aria-label="Очистить поле"
+                        >
+                            <X size={14} />
                         </button>
                     )}
                 </div>
                 <button
+                    type="button"
                     onClick={handleSearch}
-                    className="btn btn-search"
+                    className="btn btn--primary"
                     disabled={isSearching || !searchCode.trim()}
                 >
-                    {isSearching ? '⏳ Поиск...' : '🔍 Найти'}
+                    {isSearching ? (
+                        <>
+                            <Loader2 size={16} className="icon-spin" />
+                            Поиск...
+                        </>
+                    ) : (
+                        <>
+                            <Search size={16} />
+                            Найти
+                        </>
+                    )}
                 </button>
                 {foundProject && (
-                    <button onClick={clearResults} className="btn btn-clear-search">
-                        ✖️ Очистить
+                    <button
+                        type="button"
+                        onClick={clearResults}
+                        className="btn btn--secondary"
+                    >
+                        <X size={16} />
+                        Очистить
                     </button>
                 )}
             </div>
 
             {message && (
-                <div className={`message ${message.includes('❌') ? 'error' : 'success'}`}>
-                    {message}
+                <div className={`message ${isError ? 'error' : 'success'}`}>
+                    {isError ? <AlertCircle size={14} /> : <Check size={14} />}
+                    {message.replace(/^[❌✅]\s*/, '')}
                 </div>
             )}
 
@@ -134,21 +174,39 @@ const SearchSection = ({ onProjectFound }) => {
                     <div className="found-project-header">
                         <h4>{foundProject.name}</h4>
                         <span className={`visibility-tag ${foundProject.visibility === 'Private' ? 'private' : 'public'}`}>
-                            {foundProject.visibility === 'Private' ? '🔒 Приватный' : '🌐 Публичный'}
+                            {foundProject.visibility === 'Private' ? (
+                                <>
+                                    <Lock size={12} />
+                                    Приватный
+                                </>
+                            ) : (
+                                <>
+                                    <Globe size={12} />
+                                    Публичный
+                                </>
+                            )}
                         </span>
                     </div>
                     <div className="found-project-info">
-                        <span>📂 {foundProject.category}</span>
-                        <span>📅 {new Date(foundProject.createdAt).toLocaleDateString('ru-RU')}</span>
+                        <span>
+                            <Folder size={14} />
+                            {foundProject.category}
+                        </span>
+                        <span>
+                            <Calendar size={14} />
+                            {new Date(foundProject.createdAt).toLocaleDateString('ru-RU')}
+                        </span>
                     </div>
                     {foundProject.description && (
                         <p className="found-project-description">{foundProject.description}</p>
                     )}
                     <button
-                        className="btn-go-to-project"
-                        onClick={handleGoToProject}  // ← ИСПРАВЛЕНО!
+                        type="button"
+                        className="btn btn--primary"
+                        onClick={handleGoToProject}
                     >
-                        📂 Перейти к проекту
+                        <Folder size={16} />
+                        Перейти к проекту
                     </button>
                 </div>
             )}
@@ -156,8 +214,15 @@ const SearchSection = ({ onProjectFound }) => {
             {searchHistory.length > 0 && (
                 <div className="search-history">
                     <div className="history-header">
-                        <span>📋 История поиска:</span>
-                        <button className="clear-history-btn" onClick={() => setSearchHistory([])}>
+                        <span>
+                            <ClipboardList size={14} />
+                            История поиска:
+                        </span>
+                        <button
+                            type="button"
+                            className="btn btn--ghost btn--sm"
+                            onClick={() => setSearchHistory([])}
+                        >
                             Очистить историю
                         </button>
                     </div>
@@ -165,10 +230,12 @@ const SearchSection = ({ onProjectFound }) => {
                         {searchHistory.map((item, index) => (
                             <button
                                 key={index}
-                                className="history-tag"
+                                type="button"
+                                className="btn btn--secondary btn--sm search-history-tag"
                                 onClick={() => quickSearch(item.code)}
                             >
-                                🔑 {item.code}
+                                <KeyRound size={12} />
+                                {item.code}
                                 <span className="history-project-name">{item.projectName}</span>
                             </button>
                         ))}

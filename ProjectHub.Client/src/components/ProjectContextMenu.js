@@ -2,6 +2,25 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import {
+    Link as LinkIcon,
+    ExternalLink,
+    Clipboard,
+    Star,
+    Pencil,
+    Mail,
+    Inbox,
+    Users,
+    Archive,
+    Undo2,
+    Trash2,
+    Zap,
+    ChevronRight,
+    ListTodo,
+    MessageCircle,
+    Vote,
+    Calendar,
+} from 'lucide-react';
 import '../styles/components/ProjectContextMenu.css';
 
 const ProjectContextMenu = ({
@@ -211,41 +230,41 @@ const ProjectContextMenu = ({
             {/* ═══ Раздел 1: Навигация ═══ */}
             <button
                 type="button"
-                className="pcm-item"
+                className="btn btn--ghost btn--sm pcm-item"
                 onClick={handleOpen}
                 disabled={isArchived && !isMember}
             >
-                <span className="pcm-icon">🔗</span>
+                <span className="pcm-icon"><LinkIcon size={14} /></span>
                 Открыть проект
             </button>
 
             <button
                 type="button"
-                className="pcm-item"
+                className="btn btn--ghost btn--sm pcm-item"
                 onClick={handleOpenNewTab}
                 disabled={isArchived && !isMember}
             >
-                <span className="pcm-icon">🪟</span>
+                <span className="pcm-icon"><ExternalLink size={14} /></span>
                 Открыть в новой вкладке
             </button>
 
             <button
                 type="button"
-                className="pcm-item"
+                className="btn btn--ghost btn--sm pcm-item"
                 onClick={handleCopyCode}
             >
-                <span className="pcm-icon">📋</span>
+                <span className="pcm-icon"><Clipboard size={14} /></span>
                 Копировать код
                 <span className="pcm-hint">{project?.publicCode}</span>
             </button>
 
             <button
                 type="button"
-                className="pcm-item"
+                className="btn btn--ghost btn--sm pcm-item"
                 onClick={handleCopyLink}
                 disabled={isArchived && !isMember}
             >
-                <span className="pcm-icon">🔗</span>
+                <span className="pcm-icon"><LinkIcon size={14} /></span>
                 Копировать ссылку
             </button>
 
@@ -254,10 +273,15 @@ const ProjectContextMenu = ({
 
             <button
                 type="button"
-                className={`pcm-item ${isFavorite ? 'active' : ''}`}
+                className={`btn btn--ghost btn--sm pcm-item ${isFavorite ? 'active' : ''}`}
                 onClick={handleToggleFavorite}
             >
-                <span className="pcm-icon">{isFavorite ? '⭐' : '☆'}</span>
+                <span className="pcm-icon">
+                    <Star
+                        size={14}
+                        fill={isFavorite ? 'currentColor' : 'none'}
+                    />
+                </span>
                 {isFavorite ? 'Убрать из избранного' : 'Добавить в избранное'}
             </button>
 
@@ -268,37 +292,37 @@ const ProjectContextMenu = ({
 
                     <button
                         type="button"
-                        className="pcm-item"
+                        className="btn btn--ghost btn--sm pcm-item"
                         onClick={handleEdit}
                     >
-                        <span className="pcm-icon">✏️</span>
+                        <span className="pcm-icon"><Pencil size={14} /></span>
                         Редактировать проект
                     </button>
 
                     <button
                         type="button"
-                        className="pcm-item"
+                        className="btn btn--ghost btn--sm pcm-item"
                         onClick={handleInvite}
                     >
-                        <span className="pcm-icon">📩</span>
+                        <span className="pcm-icon"><Mail size={14} /></span>
                         Пригласить участника
                     </button>
 
                     <button
                         type="button"
-                        className="pcm-item"
+                        className="btn btn--ghost btn--sm pcm-item"
                         onClick={handleApplications}
                     >
-                        <span className="pcm-icon">📨</span>
+                        <span className="pcm-icon"><Inbox size={14} /></span>
                         Заявки на вступление
                     </button>
 
                     <button
                         type="button"
-                        className="pcm-item"
+                        className="btn btn--ghost btn--sm pcm-item"
                         onClick={handleMembers}
                     >
-                        <span className="pcm-icon">👥</span>
+                        <span className="pcm-icon"><Users size={14} /></span>
                         Настройки участников
                     </button>
                 </>
@@ -312,19 +336,19 @@ const ProjectContextMenu = ({
                     {!isArchived ? (
                         <button
                             type="button"
-                            className="pcm-item"
+                            className="btn btn--ghost btn--sm pcm-item"
                             onClick={handleArchive}
                         >
-                            <span className="pcm-icon">📦</span>
+                            <span className="pcm-icon"><Archive size={14} /></span>
                             Архивировать проект
                         </button>
                     ) : (
                         <button
                             type="button"
-                            className="pcm-item"
+                            className="btn btn--ghost btn--sm pcm-item"
                             onClick={handleUnarchive}
                         >
-                            <span className="pcm-icon">↩️</span>
+                            <span className="pcm-icon"><Undo2 size={14} /></span>
                             Восстановить из архива
                         </button>
                     )}
@@ -332,10 +356,10 @@ const ProjectContextMenu = ({
                     {onDelete && (
                         <button
                             type="button"
-                            className="pcm-item danger"
+                            className="btn btn--ghost btn--sm pcm-item pcm-item--danger"
                             onClick={handleDelete}
                         >
-                            <span className="pcm-icon">🗑</span>
+                            <span className="pcm-icon"><Trash2 size={14} /></span>
                             Удалить проект
                         </button>
                     )}
@@ -354,11 +378,11 @@ const ProjectContextMenu = ({
                     >
                         <button
                             type="button"
-                            className="pcm-item has-submenu"
+                            className="btn btn--ghost btn--sm pcm-item has-submenu"
                         >
-                            <span className="pcm-icon">⚡</span>
+                            <span className="pcm-icon"><Zap size={14} /></span>
                             Быстрый переход
-                            <span className="pcm-arrow">›</span>
+                            <span className="pcm-arrow"><ChevronRight size={14} /></span>
                         </button>
 
                         {openSubmenu === 'goto' && (
@@ -369,34 +393,34 @@ const ProjectContextMenu = ({
                             >
                                 <button
                                     type="button"
-                                    className="pcm-item"
+                                    className="btn btn--ghost btn--sm pcm-item"
                                     onClick={() => goTo('tasks')}
                                 >
-                                    <span className="pcm-icon">🗂️</span>
+                                    <span className="pcm-icon"><ListTodo size={14} /></span>
                                     Задачи
                                 </button>
                                 <button
                                     type="button"
-                                    className="pcm-item"
+                                    className="btn btn--ghost btn--sm pcm-item"
                                     onClick={() => goTo('chat')}
                                 >
-                                    <span className="pcm-icon">💬</span>
+                                    <span className="pcm-icon"><MessageCircle size={14} /></span>
                                     Чат проекта
                                 </button>
                                 <button
                                     type="button"
-                                    className="pcm-item"
+                                    className="btn btn--ghost btn--sm pcm-item"
                                     onClick={() => goTo('votings')}
                                 >
-                                    <span className="pcm-icon">🗳️</span>
+                                    <span className="pcm-icon"><Vote size={14} /></span>
                                     Голосования
                                 </button>
                                 <button
                                     type="button"
-                                    className="pcm-item"
+                                    className="btn btn--ghost btn--sm pcm-item"
                                     onClick={() => goTo('timeline')}
                                 >
-                                    <span className="pcm-icon">📅</span>
+                                    <span className="pcm-icon"><Calendar size={14} /></span>
                                     Таймлайн
                                 </button>
                             </div>
