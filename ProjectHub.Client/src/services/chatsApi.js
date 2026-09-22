@@ -53,6 +53,64 @@ export const getProjectChatByCode = async (publicCode) => {
         throw error;
     }
 };
+// Отправить файл в чат
+export const sendChatFile = async (chatId, file, caption = null) => {
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        if (caption) formData.append('caption', caption);
+
+        const token = getToken();
+        const response = await fetch(`${API_BASE_URL}/chats/${chatId}/messages/file`, {
+            method: 'POST',
+            headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+            // Content-Type НЕ указываем — браузер сам поставит multipart/form-data с boundary
+            body: formData
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || 'Ошибка отправки файла');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('❌ Ошибка в sendChatFile:', error);
+        throw error;
+    }
+};
+
+// Скачать файл из чата (blob → сохранение)
+export const downloadChatFile = async (chatId, messageId, fileName) => {
+    try {
+        const token = getToken();
+        const response = await fetch(
+            `${API_BASE_URL}/chats/${chatId}/messages/${messageId}/file`,
+            {
+                method: 'GET',
+                headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+            }
+        );
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || 'Ошибка скачивания файла');
+        }
+
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = fileName || 'file';
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+    } catch (error) {
+        console.error('❌ Ошибка в downloadChatFile:', error);
+        throw error;
+    }
+};
 // 📌 Создать или получить личный чат
 export const createPersonalChat = async (email) => {
     try {

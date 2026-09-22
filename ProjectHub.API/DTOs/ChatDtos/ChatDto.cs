@@ -17,6 +17,13 @@ namespace ProjectHub.API.DTOs.ChatDtos
         /// Количество непрочитанных сообщений
         public int UnreadCount { get; set; }
         public int ParticipantsCount { get; set; }
+        // 🆕 Обложка чата. Для Project-чатов = coverImageUrl проекта;
+        //    для Personal — null (там показывается аватар собеседника).
+        public string? CoverImageUrl { get; set; }
+
+        // 🆕 PublicCode проекта — чтобы фронт мог строить fallback-инициалы
+        //    и понимать, к какому проекту чат относится.
+        public string? ProjectPublicCode { get; set; }
     }
 }
 

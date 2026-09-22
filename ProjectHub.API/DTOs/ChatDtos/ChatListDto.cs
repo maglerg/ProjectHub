@@ -9,5 +9,7 @@
         public ChatMessageDto? LastMessage { get; set; }
         public int UnreadCount { get; set; }
         public DateTime? LastMessageAt { get; set; }
+        public string? CoverImageUrl { get; set; }
+        public string? ProjectPublicCode { get; set; }
     }
 }

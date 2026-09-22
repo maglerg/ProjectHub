@@ -67,30 +67,42 @@
         background: #f0f4ff;
     }
 
-.chat-item-avatar {
-    width: 50px;
-    height: 50px;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+/* ── Обёртка аватара/обложки + online-точка ── */
+.chat-item-avatar-wrapper {
+    position: relative;
+    flex-shrink: 0;
+    width: 48px;
+    height: 48px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 20px;
-    font-weight: 600;
-    flex-shrink: 0;
-    position: relative;
 }
+
+/* Обёртка для ChatCover (обложка проекта в групповом чате) */
+.chat-item-cover {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Внутри ChatCover ProjectCover уже имеет размеры 48×48 (через ChatCover.css) */
 
 .online-dot {
     position: absolute;
-    bottom: 2px;
-    right: 2px;
+    bottom: 0;
+    right: 0;
     width: 12px;
     height: 12px;
     background: #27ae60;
-    border: 2px solid white;
+    border: 2px solid #fff;
     border-radius: 50%;
+    pointer-events: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
 }
 
 .chat-item-content {

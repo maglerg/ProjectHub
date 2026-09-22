@@ -3,20 +3,32 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { getChatById, getChatMessages, sendMessage } from '../services/chatsApi';
-import UserAvatar from './UserAvatar';   // 🆕
+import {
+    getChatById,
+    getChatMessages,
+    sendMessage,
+    sendChatFile,
+    downloadChatFile,
+} from '../services/chatsApi';
+import { toAbsoluteUrl } from '../utils/urls';
+import { formatBytes } from '../utils/formatBytes';
+import UserAvatar from './UserAvatar';
+import ChatCover from './ChatCover';
+import EmojiPicker from './EmojiPicker';
 import '../styles/components/ChatPage.css';
+import '../styles/components/ChatCover.css';
+import '../styles/components/EmojiPicker.css';
 
 const ChatPage = ({
     chatId: chatIdProp = null,
     embedded = false,
     isArchived = false,
+    refreshKey = 0,
 }) => {
     const params = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
 
-    // 📌 chatId: из пропса (embedded-режим) или из URL (обычная страница)
     const chatId = chatIdProp || params.chatId;
 
     const [chat, setChat] = useState(null);
@@ -26,14 +38,34 @@ const ChatPage = ({
     const [sending, setSending] = useState(false);
     const [error, setError] = useState(null);
 
+    const [firstUnreadId, setFirstUnreadId] = useState(null);
+
+    const [attachedFile, setAttachedFile] = useState(null);
+    const [uploadingFile, setUploadingFile] = useState(false);
+
+    const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+    const emojiButtonRef = useRef(null);
+
     const messagesEndRef = useRef(null);
     const messagesContainerRef = useRef(null);
+    const messageRefs = useRef(new Map());
+    const fileInputRef = useRef(null);
+    const textareaRef = useRef(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     };
 
-    // 📌 Загрузка чата
+    const scrollToFirstUnread = (unreadId) => {
+        const el = messageRefs.current.get(unreadId);
+        if (el) {
+            el.scrollIntoView({ behavior: 'auto', block: 'start' });
+        } else {
+            scrollToBottom();
+        }
+    };
+
+    // ── Загрузка чата ──
     const loadChat = useCallback(async () => {
         if (!chatId) return;
 
@@ -47,7 +79,15 @@ const ChatPage = ({
             const messagesData = await getChatMessages(chatId);
             setMessages(messagesData);
 
-            setTimeout(scrollToBottom, 100);
+            const firstUnread = messagesData.find((m) => m.isUnread);
+
+            if (firstUnread) {
+                setFirstUnreadId(firstUnread.id);
+                setTimeout(() => scrollToFirstUnread(firstUnread.id), 150);
+            } else {
+                setFirstUnreadId(null);
+                setTimeout(scrollToBottom, 100);
+            }
         } catch (err) {
             console.error('Ошибка загрузки чата:', err);
             setError(err.message || 'Не удалось загрузить чат');
@@ -58,22 +98,23 @@ const ChatPage = ({
 
     useEffect(() => {
         loadChat();
-    }, [loadChat]);
+    }, [loadChat, refreshKey]);
 
-    // 📌 Периодическое обновление
+    // ── Периодическое обновление ──
     useEffect(() => {
         if (!chatId) return;
 
         const interval = setInterval(async () => {
             try {
                 const messagesData = await getChatMessages(chatId);
-                setMessages(prev => {
+                setMessages((prev) => {
                     const changed =
                         messagesData.length !== prev.length ||
-                        messagesData.some((m, i) =>
-                            m.id !== prev[i]?.id ||
-                            m.isRead !== prev[i]?.isRead ||
-                            m.isReadByAll !== prev[i]?.isReadByAll
+                        messagesData.some(
+                            (m, i) =>
+                                m.id !== prev[i]?.id ||
+                                m.isRead !== prev[i]?.isRead ||
+                                m.isReadByAll !== prev[i]?.isReadByAll
                         );
 
                     if (changed) {
@@ -90,20 +131,99 @@ const ChatPage = ({
         return () => clearInterval(interval);
     }, [chatId]);
 
-    // 📌 Отправка
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 АВТОФОКУС: пользователь печатает — фокус в поле ввода
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        // В архивном чате нет формы ввода — ничего не делаем
+        if (isArchived) return;
+        if (!chatId) return;
+
+        const handleGlobalKeyDown = (e) => {
+            const active = document.activeElement;
+
+            // Если фокус уже в поле ввода/текстареа — не мешаем
+            const isInInput =
+                active &&
+                (active.tagName === 'INPUT' ||
+                    active.tagName === 'TEXTAREA' ||
+                    active.isContentEditable);
+
+            // Если открыта модалка / панель эмодзи — не перехватываем
+            const isInsideOverlay =
+                active &&
+                active.closest(
+                    '[role="dialog"], .emoji-picker, .modal-overlay, .edit-modal-overlay'
+                );
+
+            // Служебные и модифицирующие клавиши игнорируем
+            if (
+                e.ctrlKey ||
+                e.metaKey ||
+                e.altKey ||
+                e.key === 'Tab' ||
+                e.key === 'Escape' ||
+                e.key === 'Enter' ||
+                e.key === 'Shift' ||
+                e.key === 'Control' ||
+                e.key === 'Alt' ||
+                e.key === 'Meta' ||
+                e.key === 'CapsLock' ||
+                /^F\d{1,2}$/.test(e.key)
+            ) {
+                return;
+            }
+
+            const isPrintable = e.key.length === 1;
+            const isBackspace = e.key === 'Backspace';
+            const isDelete = e.key === 'Delete';
+
+            if (!isPrintable && !isBackspace && !isDelete) return;
+            if (isInInput || isInsideOverlay) return;
+
+            // 🆕 Переводим фокус в поле ввода
+            textareaRef.current?.focus();
+
+            // 🆕 Печатаемый символ дописываем вручную, чтобы не потерялся
+            //    (после смены фокуса браузер может не вставить его сам)
+            if (isPrintable) {
+                setNewMessage((prev) => prev + e.key);
+                e.preventDefault();
+            }
+        };
+
+        document.addEventListener('keydown', handleGlobalKeyDown);
+        return () => {
+            document.removeEventListener('keydown', handleGlobalKeyDown);
+        };
+    }, [chatId, isArchived]);
+
+    // ── Отправка текста или файла ──
     const handleSendMessage = async (e) => {
-        e.preventDefault();
+        if (e) e.preventDefault();
 
         if (isArchived) return;
-        if (!newMessage.trim() || sending) return;
+        if (sending || uploadingFile) return;
+
+        // Если есть прикреплённый файл — отправляем файл
+        if (attachedFile) {
+            await handleSendFile();
+            return;
+        }
+
+        // Пустое сообщение не отправляем
+        if (!newMessage.trim()) return;
 
         setSending(true);
         const textToSend = newMessage.trim();
         setNewMessage('');
+        setShowEmojiPicker(false);
 
         try {
             const sentMessage = await sendMessage(chatId, textToSend);
-            setMessages(prev => [...prev, sentMessage]);
+            setMessages((prev) => [...prev, sentMessage]);
+
+            setFirstUnreadId(null);
             setTimeout(scrollToBottom, 100);
         } catch (err) {
             console.error('Ошибка отправки:', err);
@@ -114,15 +234,101 @@ const ChatPage = ({
         }
     };
 
-    const handleKeyPress = (e) => {
+    // ── Выбор файла ──
+    const handleFileSelect = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        if (file.size > 20 * 1024 * 1024) {
+            setError('Файл больше 20 МБ');
+            setTimeout(() => setError(null), 3000);
+            e.target.value = '';
+            return;
+        }
+
+        setAttachedFile(file);
+        setShowEmojiPicker(false);
+    };
+
+    // ── Отправка файла ──
+    const handleSendFile = async () => {
+        if (!attachedFile || uploadingFile) return;
         if (isArchived) return;
+
+        setUploadingFile(true);
+        setError(null);
+
+        const fileToSend = attachedFile;
+        const caption = newMessage.trim() || null;
+
+        try {
+            const sentMessage = await sendChatFile(chatId, fileToSend, caption);
+
+            setMessages((prev) => [...prev, sentMessage]);
+            setAttachedFile(null);
+            setNewMessage('');
+            if (fileInputRef.current) fileInputRef.current.value = '';
+
+            setFirstUnreadId(null);
+            setTimeout(scrollToBottom, 100);
+        } catch (err) {
+            console.error('Ошибка отправки файла:', err);
+            setError(err.message || 'Не удалось отправить файл');
+            setTimeout(() => setError(null), 4000);
+        } finally {
+            setUploadingFile(false);
+        }
+    };
+
+    // ── Убрать выбранный файл ──
+    const handleClearAttachedFile = () => {
+        setAttachedFile(null);
+        if (fileInputRef.current) fileInputRef.current.value = '';
+    };
+
+    // ── Скачать файл из сообщения ──
+    const handleDownloadFile = async (message) => {
+        try {
+            await downloadChatFile(
+                chatId,
+                message.id,
+                message.attachmentFileName || 'file'
+            );
+        } catch (err) {
+            console.error('Ошибка скачивания:', err);
+            setError(err.message || 'Не удалось скачать файл');
+            setTimeout(() => setError(null), 3000);
+        }
+    };
+
+    // ── Выбор эмодзи ──
+    const handleEmojiSelect = (emoji) => {
+        setNewMessage((prev) => prev + emoji);
+        setTimeout(() => textareaRef.current?.focus(), 0);
+    };
+
+    const toggleEmojiPicker = () => {
+        setShowEmojiPicker((v) => !v);
+    };
+
+    // ── Enter — отправить, Shift+Enter — новая строка ──
+    const handleKeyDown = (e) => {
+        if (isArchived) return;
+
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
+
+            const hasText = newMessage.trim().length > 0;
+            const hasFile = !!attachedFile;
+
+            if (!hasText && !hasFile) return;
+            if (sending || uploadingFile) return;
+
             handleSendMessage(e);
         }
     };
 
-    // 📌 Форматирование времени
+    // ── Формат времени ──
     const formatTime = (dateString) => {
         if (!dateString) return '';
         try {
@@ -154,7 +360,6 @@ const ChatPage = ({
 
     const isOwnMessage = (message) => message.senderEmail === user?.email;
 
-    // 📌 Читаемое название роли
     const getRoleName = (role) => {
         switch (role) {
             case 'Owner': return 'Владелец';
@@ -164,7 +369,6 @@ const ChatPage = ({
         }
     };
 
-    // 📌 Заголовок чата
     const getChatTitle = () => {
         if (chat?.type === 'Personal' && chat?.otherUser)
             return chat.otherUser.name;
@@ -173,7 +377,12 @@ const ChatPage = ({
         return chat?.name || 'Чат';
     };
 
-    // 📌 Возврат для standalone-режима
+    const goToOtherUserProfile = () => {
+        if (!chat?.otherUser?.email) return;
+        const encodedEmail = encodeURIComponent(chat.otherUser.email);
+        navigate(`/users/${encodedEmail}`);
+    };
+
     const goBackToChats = () => {
         navigate('/chats');
     };
@@ -216,69 +425,53 @@ const ChatPage = ({
                     </button>
                 )}
 
-                <div className="chat-header-user">
-                    {/* Личный чат */}
-                    {chat?.type === 'Personal' && chat?.otherUser && (
-                        <>
-                            {/* 🆕 Аватар собеседника */}
-                            <div className="chat-header-avatar-wrapper">
-                                <UserAvatar
-                                    avatarUrl={chat.otherUser.avatarUrl}
-                                    name={chat.otherUser.name}
-                                    email={chat.otherUser.email}
-                                    size="md"
-                                />
-                                {chat.otherUser.isOnline && (
-                                    <span
-                                        className="chat-online-dot"
-                                        title="Онлайн"
-                                    />
+                {chat?.type === 'Personal' && chat?.otherUser && (
+                    <button
+                        type="button"
+                        className="chat-header-user chat-header-user--clickable"
+                        onClick={goToOtherUserProfile}
+                        title={`Открыть профиль ${chat.otherUser.name}`}
+                    >
+                        <div className="chat-header-avatar-wrapper">
+                            <UserAvatar
+                                avatarUrl={chat.otherUser.avatarUrl}
+                                name={chat.otherUser.name}
+                                email={chat.otherUser.email}
+                                size="md"
+                            />
+                            {chat.otherUser.isOnline && (
+                                <span className="chat-online-dot" title="Онлайн" />
+                            )}
+                        </div>
+                        <div className="chat-header-info">
+                            <div className="chat-header-name">{getChatTitle()}</div>
+                            <div
+                                className={`chat-header-status ${chat.otherUser.isOnline ? 'online' : 'offline'}`}
+                            >
+                                {chat.otherUser.isOnline ? '🟢 Онлайн' : '⚫ Оффлайн'}
+                            </div>
+                        </div>
+                    </button>
+                )}
+
+                {chat?.type === 'Project' && (
+                    <div className="chat-header-user">
+                        <div className="chat-header-cover">
+                            <ChatCover chat={chat} size="sm" />
+                        </div>
+                        <div className="chat-header-info">
+                            <div className="chat-header-name">
+                                {getChatTitle()}
+                                {isArchived && (
+                                    <span className="chat-archived-badge">📦 Архив</span>
                                 )}
                             </div>
-                            <div className="chat-header-info">
-                                <div className="chat-header-name">{getChatTitle()}</div>
-                                <div className={`chat-header-status ${chat.otherUser.isOnline ? 'online' : 'offline'}`}>
-                                    {chat.otherUser.isOnline ? '🟢 Онлайн' : '⚫ Оффлайн'}
-                                </div>
+                            <div className="chat-header-status">
+                                👥 {chat.participantsCount || 0} участников
                             </div>
-                        </>
-                    )}
-
-                    {/* Групповой чат проекта */}
-                    {chat?.type === 'Project' && (
-                        <>
-                            <div className="chat-header-avatar chat-header-avatar--group">
-                                👥
-                            </div>
-                            <div className="chat-header-info">
-                                <div className="chat-header-name">
-                                    {getChatTitle()}
-                                    {isArchived && (
-                                        <span className="chat-archived-badge">📦 Архив</span>
-                                    )}
-                                </div>
-                                <div className="chat-header-status">
-                                    👥 {chat.participantsCount || 0} участников
-                                </div>
-                            </div>
-                        </>
-                    )}
-                </div>
-
-                <div className="chat-header-actions">
-                    {chat?.otherUser && (
-                        <button
-                            className="btn-view-profile"
-                            onClick={() => {
-                                const encodedEmail = encodeURIComponent(chat.otherUser.email);
-                                navigate(`/users/${encodedEmail}`);
-                            }}
-                            title="Профиль"
-                        >
-                            👤
-                        </button>
-                    )}
-                </div>
+                        </div>
+                    </div>
+                )}
             </header>
 
             {/* 📌 Сообщения */}
@@ -294,84 +487,160 @@ const ChatPage = ({
                         const isOwn = isOwnMessage(message);
                         const isProjectChat = chat?.type === 'Project';
 
-                        const showSenderName = !isOwn && (
-                            index === 0 ||
-                            messages[index - 1]?.senderId !== message.senderId
-                        );
+                        const showSenderName =
+                            !isOwn &&
+                            (index === 0 ||
+                                messages[index - 1]?.senderId !== message.senderId);
 
                         const isReadAll = isProjectChat
                             ? message.isReadByAll
                             : message.isRead;
 
-                        // 🆕 Аватар отправителя — показываем только в групповом чате
-                        // и только у чужих сообщений, у первого в серии.
-                        // (в личных чатах аватар собеседника уже в шапке — не дублируем)
-                        const showSenderAvatar = isProjectChat && !isOwn && showSenderName;
+                        const isFirstUnread = message.id === firstUnreadId;
+
+                        const showSenderAvatar =
+                            isProjectChat && !isOwn && showSenderName;
+
+                        const canOpenSenderProfile =
+                            !isOwn && isProjectChat && message.senderEmail;
+
+                        const hasAttachment = !!message.attachmentUrl;
+                        const isImageAttachment = message.type === 'Image' && hasAttachment;
+                        const isFileAttachment = message.type === 'File' && hasAttachment;
 
                         return (
-                            <div
-                                key={message.id || index}
-                                className={`chat-message ${isOwn ? 'own' : 'other'} ${showSenderAvatar ? 'with-avatar' : ''}`}
-                            >
-                                {showSenderAvatar && (
-                                    <div className="message-avatar">
-                                        <UserAvatar
-                                            avatarUrl={message.senderAvatarUrl}
-                                            name={message.senderName}
-                                            email={message.senderEmail}
-                                            size="sm"
-                                        />
+                            <React.Fragment key={message.id || index}>
+                                {isFirstUnread && (
+                                    <div className="chat-unread-divider">
+                                        <span>Непрочитанные сообщения</span>
                                     </div>
                                 )}
 
-                                <div className="message-content">
-                                    {!isOwn && showSenderName && (
-                                        <div className="message-sender-name">
-                                            <span className="sender-name-text">
-                                                {message.senderName}
-                                            </span>
-                                            {isProjectChat && message.senderRole && (
-                                                <span className={`sender-role role-${message.senderRole.toLowerCase()}`}>
-                                                    {getRoleName(message.senderRole)}
-                                                </span>
-                                            )}
+                                <div
+                                    ref={(el) => {
+                                        if (el) messageRefs.current.set(message.id, el);
+                                        else messageRefs.current.delete(message.id);
+                                    }}
+                                    className={`chat-message ${isOwn ? 'own' : 'other'} ${showSenderAvatar ? 'with-avatar' : ''}`}
+                                >
+                                    {showSenderAvatar && (
+                                        <div className="message-avatar">
+                                            <UserAvatar
+                                                avatarUrl={message.senderAvatarUrl}
+                                                name={message.senderName}
+                                                email={message.senderEmail}
+                                                size="sm"
+                                            />
                                         </div>
                                     )}
 
-                                    <div className="message-bubble-wrapper">
-                                        <div className="message-bubble">
-                                            <div className="message-text">{message.text}</div>
-                                            <div className="message-time">
-                                                {formatTime(message.createdAt)}
+                                    <div className="message-content">
+                                        {!isOwn && showSenderName && (
+                                            <div className="message-sender-name">
+                                                {canOpenSenderProfile ? (
+                                                    <button
+                                                        type="button"
+                                                        className="sender-name-text sender-name-text--clickable"
+                                                        onClick={() =>
+                                                            navigate(
+                                                                `/users/${encodeURIComponent(message.senderEmail)}`
+                                                            )
+                                                        }
+                                                        title={`Открыть профиль ${message.senderName}`}
+                                                    >
+                                                        {message.senderName}
+                                                    </button>
+                                                ) : (
+                                                    <span className="sender-name-text">
+                                                        {message.senderName}
+                                                    </span>
+                                                )}
+                                                {isProjectChat && message.senderRole && (
+                                                    <span
+                                                        className={`sender-role role-${message.senderRole.toLowerCase()}`}
+                                                    >
+                                                        {getRoleName(message.senderRole)}
+                                                    </span>
+                                                )}
                                             </div>
+                                        )}
+
+                                        <div className="message-bubble-wrapper">
+                                            <div className={`message-bubble ${isImageAttachment ? 'message-bubble--image' : ''}`}>
+                                                {isImageAttachment && (
+                                                    <button
+                                                        type="button"
+                                                        className="message-image-button"
+                                                        onClick={() => window.open(toAbsoluteUrl(message.attachmentUrl), '_blank')}
+                                                        title="Открыть в новой вкладке"
+                                                    >
+                                                        <img
+                                                            src={toAbsoluteUrl(message.attachmentUrl)}
+                                                            alt={message.attachmentFileName || 'Изображение'}
+                                                            className="message-image"
+                                                            loading="lazy"
+                                                        />
+                                                    </button>
+                                                )}
+
+                                                {isFileAttachment && (
+                                                    <div className="message-file">
+                                                        <div className="message-file-icon">📎</div>
+                                                        <div className="message-file-info">
+                                                            <div className="message-file-name" title={message.attachmentFileName}>
+                                                                {message.attachmentFileName || 'Файл'}
+                                                            </div>
+                                                            <div className="message-file-size">
+                                                                {formatBytes(message.attachmentSizeBytes)}
+                                                            </div>
+                                                        </div>
+                                                        <button
+                                                            type="button"
+                                                            className="message-file-download"
+                                                            onClick={() => handleDownloadFile(message)}
+                                                            title="Скачать"
+                                                        >
+                                                            ⬇️
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {message.text && (
+                                                    <div className="message-text">{message.text}</div>
+                                                )}
+
+                                                <div className="message-time">
+                                                    {formatTime(message.createdAt)}
+                                                </div>
+                                            </div>
+
+                                            {isOwn && !isReadAll && (
+                                                <span
+                                                    className="message-unread-dot"
+                                                    title={
+                                                        isProjectChat
+                                                            ? `Прочитали: ${message.readCount}/${message.totalParticipants}`
+                                                            : 'Не прочитано'
+                                                    }
+                                                />
+                                            )}
+
+                                            {isOwn && isReadAll && (
+                                                <span
+                                                    className="message-read-check"
+                                                    title={
+                                                        isProjectChat
+                                                            ? `Прочитали все (${message.readCount}/${message.totalParticipants})`
+                                                            : 'Прочитано'
+                                                    }
+                                                >
+                                                    ✓✓
+                                                </span>
+                                            )}
                                         </div>
-
-                                        {isOwn && !isReadAll && (
-                                            <span
-                                                className="message-unread-dot"
-                                                title={
-                                                    isProjectChat
-                                                        ? `Прочитали: ${message.readCount}/${message.totalParticipants}`
-                                                        : 'Не прочитано'
-                                                }
-                                            />
-                                        )}
-
-                                        {isOwn && isReadAll && (
-                                            <span
-                                                className="message-read-check"
-                                                title={
-                                                    isProjectChat
-                                                        ? `Прочитали все (${message.readCount}/${message.totalParticipants})`
-                                                        : 'Прочитано'
-                                                }
-                                            >
-                                                ✓✓
-                                            </span>
-                                        )}
                                     </div>
                                 </div>
-                            </div>
+                            </React.Fragment>
                         );
                     })
                 )}
@@ -384,25 +653,104 @@ const ChatPage = ({
                     📦 Проект в архиве — отправка сообщений недоступна
                 </div>
             ) : (
-                <form className="chat-input-form" onSubmit={handleSendMessage}>
-                    <textarea
-                        className="chat-input"
-                        placeholder="Введите сообщение..."
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyPress={handleKeyPress}
-                        rows="1"
-                        disabled={sending}
-                    />
-                    <button
-                        type="submit"
-                        className="btn-send"
-                        disabled={!newMessage.trim() || sending}
-                        title="Отправить"
-                    >
-                        {sending ? '⏳' : '📤'}
-                    </button>
-                </form>
+                <div className="chat-input-area">
+                    {attachedFile && (
+                        <div className="chat-attached-file">
+                            <span className="chat-attached-file-icon">📎</span>
+                            <span className="chat-attached-file-name" title={attachedFile.name}>
+                                {attachedFile.name}
+                            </span>
+                            <span className="chat-attached-file-size">
+                                {formatBytes(attachedFile.size)}
+                            </span>
+                            <button
+                                type="button"
+                                className="chat-attached-file-remove"
+                                onClick={handleClearAttachedFile}
+                                title="Убрать файл"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    )}
+
+                    <form className="chat-input-form" onSubmit={handleSendMessage}>
+                        <textarea
+                            ref={textareaRef}
+                            className="chat-input"
+                            placeholder={
+                                attachedFile
+                                    ? 'Подпись к файлу (необязательно)...'
+                                    : 'Введите сообщение...'
+                            }
+                            value={newMessage}
+                            onChange={(e) => setNewMessage(e.target.value)}
+                            onKeyDown={handleKeyDown}
+                            rows="1"
+                            disabled={sending || uploadingFile}
+                        />
+
+                        <div className="chat-input-buttons">
+                            <div className="emoji-btn-wrapper" ref={emojiButtonRef}>
+                                <button
+                                    type="button"
+                                    className="btn-emoji"
+                                    onClick={toggleEmojiPicker}
+                                    disabled={sending || uploadingFile}
+                                    title="Эмодзи"
+                                >
+                                    😊
+                                </button>
+
+                                {showEmojiPicker && (
+                                    <EmojiPicker
+                                        onSelect={handleEmojiSelect}
+                                        onClose={() => setShowEmojiPicker(false)}
+                                        anchorRef={emojiButtonRef}
+                                    />
+                                )}
+                            </div>
+
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                style={{ display: 'none' }}
+                                onChange={handleFileSelect}
+                                disabled={uploadingFile}
+                            />
+                            <button
+                                type="button"
+                                className="btn-attach"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={uploadingFile || sending}
+                                title="Прикрепить файл"
+                            >
+                                📎
+                            </button>
+
+                            {attachedFile ? (
+                                <button
+                                    type="button"
+                                    className="btn-send"
+                                    onClick={handleSendFile}
+                                    disabled={uploadingFile}
+                                    title="Отправить файл"
+                                >
+                                    {uploadingFile ? '⏳' : '📤'}
+                                </button>
+                            ) : (
+                                <button
+                                    type="submit"
+                                    className="btn-send"
+                                    disabled={!newMessage.trim() || sending}
+                                    title="Отправить"
+                                >
+                                    {sending ? '⏳' : '📤'}
+                                </button>
+                            )}
+                        </div>
+                    </form>
+                </div>
             )}
         </div>
     );

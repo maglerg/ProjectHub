@@ -3,8 +3,10 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getChats } from '../services/chatsApi';
-import UserAvatar from './UserAvatar';   // 🆕
+import UserAvatar from './UserAvatar';
+import ChatCover from './ChatCover';
 import '../styles/components/ChatsListPage.css';
+import '../styles/components/ChatCover.css';
 
 const ChatsListPage = () => {
     const navigate = useNavigate();
@@ -124,7 +126,7 @@ const ChatsListPage = () => {
                                 >
                                     <div className="chat-item-avatar-wrapper">
                                         {isPersonal && otherUser ? (
-                                            // 🆕 Личный чат — UserAvatar собеседника
+                                            // Личный чат — аватар собеседника
                                             <UserAvatar
                                                 avatarUrl={otherUser.avatarUrl}
                                                 name={otherUser.name}
@@ -132,9 +134,9 @@ const ChatsListPage = () => {
                                                 size="md"
                                             />
                                         ) : (
-                                            // Групповой чат — иконка
-                                            <div className="chat-item-group-avatar">
-                                                💬
+                                            // 🆕 Групповой чат — обложка проекта
+                                            <div className="chat-item-cover">
+                                                <ChatCover chat={chat} size="md" />
                                             </div>
                                         )}
 

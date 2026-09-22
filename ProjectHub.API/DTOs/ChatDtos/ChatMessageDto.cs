@@ -23,5 +23,15 @@
         public int TotalParticipants { get; set; }
         public string? AvatarUrl { get; set; }
         public string? SenderAvatarUrl { get; set; }
+        //    на момент запроса истории»
+        // ═══════════════════════════════════════════════════════════
+        //  🆕 Вложение
+        // ═════════════════════════════════════════
+        public string? AttachmentFileName { get; set; }
+        public string? AttachmentContentType { get; set; }
+        public long? AttachmentSizeBytes { get; set; }
+
+
+        public bool IsUnread { get; set; }
     }
 }

@@ -197,4 +197,61 @@ public class ChatsController : ControllerBase
             return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
         }
     }
+
+    // 📌 POST /api/chats/{chatId}/messages/file — отправить файл
+    [HttpPost("{chatId}/messages/file")]
+    [RequestSizeLimit(25 * 1024 * 1024)]   // страховка на уровне контроллера
+    public async Task<IActionResult> SendFile(
+        Guid chatId,
+        IFormFile file,
+        [FromForm] string? caption)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            if (file == null || file.Length == 0)
+                return BadRequest(new { error = "Файл не передан" });
+
+            var dto = new SendFileDto { Caption = caption };
+
+            var message = await _chatService.SendFileAsync(chatId, userId, file, dto);
+            return Ok(message);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Ошибка при отправке файла: {ex.Message}");
+            return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+        }
+    }
+
+    // 📌 GET /api/chats/{chatId}/messages/{messageId}/file — скачать файл
+    [HttpGet("{chatId}/messages/{messageId}/file")]
+    public async Task<IActionResult> DownloadFile(Guid chatId, Guid messageId)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            var (stream, fileName, contentType) = await _chatService
+                .DownloadFileAsync(chatId, messageId, userId);
+
+            return File(stream, contentType, fileName);
+        }
+        catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+        catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+        catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+        catch (Exception ex)
+        {
+            _logger.LogError($"Ошибка при скачивании файла: {ex.Message}");
+            return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+        }
+    }
 }

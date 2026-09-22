@@ -1,0 +1,191 @@
+/* src/styles/components/EmojiPicker.css */
+
+.emoji-picker {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    width: 340px;
+    max-height: 420px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 14px;
+    box-shadow: 0 12px 32px rgba(0, 0, 0, 0.14), 0 2px 6px rgba(0, 0, 0, 0.06);
+    display: flex;
+    flex-direction: column;
+    z-index: 1000;
+    animation: emoji-fade-in 0.15s ease-out;
+    overflow: hidden;
+}
+
+@keyframes emoji-fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(6px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ── Поиск ── */
+.emoji-picker__search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #f3f4f6;
+    flex-shrink: 0;
+}
+
+.emoji-picker__search-icon {
+    font-size: 14px;
+    opacity: 0.6;
+}
+
+.emoji-picker__search-input {
+    flex: 1;
+    border: none;
+    outline: none;
+    font-size: 13px;
+    font-family: inherit;
+    color: #111827;
+    background: transparent;
+}
+
+    .emoji-picker__search-input::placeholder {
+        color: #9ca3af;
+    }
+
+.emoji-picker__search-clear {
+    background: none;
+    border: none;
+    font-size: 16px;
+    color: #9ca3af;
+    cursor: pointer;
+    line-height: 1;
+    padding: 0 2px;
+}
+
+    .emoji-picker__search-clear:hover {
+        color: #6b7280;
+    }
+
+/* ── Табы категорий ── */
+.emoji-picker__tabs {
+    display: flex;
+    gap: 2px;
+    padding: 6px 8px;
+    border-bottom: 1px solid #f3f4f6;
+    overflow-x: auto;
+    flex-shrink: 0;
+    scrollbar-width: thin;
+}
+
+    .emoji-picker__tabs::-webkit-scrollbar {
+        height: 4px;
+    }
+
+    .emoji-picker__tabs::-webkit-scrollbar-thumb {
+        background: #e5e7eb;
+        border-radius: 2px;
+    }
+
+.emoji-picker__tab {
+    background: none;
+    border: none;
+    font-size: 18px;
+    padding: 6px 8px;
+    border-radius: 8px;
+    cursor: pointer;
+    line-height: 1;
+    transition: background 0.15s, transform 0.1s;
+    flex-shrink: 0;
+    opacity: 0.65;
+}
+
+    .emoji-picker__tab:hover {
+        background: #f3f4f6;
+        opacity: 1;
+    }
+
+    .emoji-picker__tab.active {
+        background: #eef2ff;
+        opacity: 1;
+        transform: scale(1.05);
+    }
+
+/* ── Сетка эмодзи ── */
+.emoji-picker__body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 4px 8px 10px;
+}
+
+    .emoji-picker__body::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .emoji-picker__body::-webkit-scrollbar-thumb {
+        background: #e5e7eb;
+        border-radius: 3px;
+    }
+
+.emoji-picker__section {
+    margin-bottom: 10px;
+}
+
+    .emoji-picker__section:last-child {
+        margin-bottom: 0;
+    }
+
+.emoji-picker__section-title {
+    font-size: 11px;
+    font-weight: 600;
+    color: #9ca3af;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    padding: 8px 6px 4px;
+    position: sticky;
+    top: 0;
+    background: #fff;
+    z-index: 1;
+}
+
+.emoji-picker__grid {
+    display: grid;
+    grid-template-columns: repeat(8, 1fr);
+    gap: 2px;
+}
+
+.emoji-picker__item {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 22px;
+    padding: 6px;
+    border-radius: 8px;
+    line-height: 1;
+    transition: background 0.1s, transform 0.1s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    aspect-ratio: 1 / 1;
+}
+
+    .emoji-picker__item:hover {
+        background: #f3f4f6;
+        transform: scale(1.15);
+    }
+
+    .emoji-picker__item:active {
+        transform: scale(0.95);
+    }
+
+.emoji-picker__empty {
+    padding: 30px 16px;
+    text-align: center;
+    color: #9ca3af;
+    font-size: 13px;
+}
