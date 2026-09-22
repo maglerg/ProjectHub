@@ -4,16 +4,28 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCategoryName, getStatusName, getVisibilityName } from '../utils/constants';
 import { toggleFavoriteByCode } from '../services/projectsApi';
-import '../styles/components/ProjectCard.css';
 import ProjectCover from './ProjectCover';
+import ProjectContextMenu from './ProjectContextMenu';
+import '../styles/components/ProjectCard.css';
 
-const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
+const ProjectCard = ({
+    project,
+    onCopyCode,
+    onFavoriteToggle,
+    onEdit,
+    onInvite,
+    onArchive,
+    onUnarchive,
+    onDelete,
+}) => {
     const navigate = useNavigate();
     const [isFavorite, setIsFavorite] = useState(project.isFavorite || false);
     const [favoritesCount, setFavoritesCount] = useState(project.favoritesCount || 0);
     const [isToggling, setIsToggling] = useState(false);
 
-    // 📌 Синхронизация с пропом — если родитель перезагрузил проекты
+    // 🆕 Контекстное меню
+    const [contextMenu, setContextMenu] = useState(null); // { x, y }
+
     useEffect(() => {
         setIsFavorite(project.isFavorite || false);
     }, [project.isFavorite]);
@@ -22,13 +34,11 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
         setFavoritesCount(project.favoritesCount || 0);
     }, [project.favoritesCount]);
 
-    // 📌 ЗАЩИТА: если project нет
     if (!project || typeof project !== 'object') {
         console.warn('⚠️ ProjectCard: project is invalid', project);
         return null;
     }
 
-    // 📌 ЗАЩИТА: если нет name
     if (!project.name) {
         console.warn('⚠️ ProjectCard: project has no name', project);
         return (
@@ -48,7 +58,7 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
             return date.toLocaleDateString('ru-RU', {
                 day: '2-digit',
                 month: '2-digit',
-                year: 'numeric'
+                year: 'numeric',
             });
         } catch {
             return 'Не указана';
@@ -63,7 +73,6 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
         }
     };
 
-    // 📌 Обработчик клика по звездочке
     const handleFavoriteClick = async (e) => {
         e.stopPropagation();
 
@@ -77,7 +86,7 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
         try {
             const result = await toggleFavoriteByCode(project.publicCode);
             setIsFavorite(result);
-            setFavoritesCount(prev => result ? prev + 1 : prev - 1);
+            setFavoritesCount((prev) => (result ? prev + 1 : prev - 1));
 
             if (onFavoriteToggle) {
                 onFavoriteToggle(project.publicCode, result);
@@ -89,7 +98,6 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
         }
     };
 
-    // 📌 Клик по карточке
     const handleCardClick = () => {
         if (!project.publicCode) return;
 
@@ -99,10 +107,6 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
             userStatus === 'Admin' ||
             userStatus === 'Member';
 
-        // 📦 Архивный проект:
-        //   • участники (Owner/Admin/Member) → открываем дашборд,
-        //     чтобы можно было посмотреть и восстановить из архива;
-        //   • остальные → никуда не идём (публичная страница архивного проекта недоступна).
         if (project.isArchived) {
             if (isMember) {
                 navigate(`/projects/${project.publicCode}/dashboard`);
@@ -124,6 +128,34 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
         }
     };
 
+    // 🆕 Правый клик — открыть контекстное меню
+    const handleContextMenu = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setContextMenu({ x: e.clientX, y: e.clientY });
+    };
+
+    // 🆕 Тоггл избранного из контекстного меню (тот же обработчик, что и клик по звезде)
+    const handleToggleFavoriteFromMenu = async (proj) => {
+        if (isToggling) return;
+        if (!proj.publicCode) return;
+
+        setIsToggling(true);
+        try {
+            const result = await toggleFavoriteByCode(proj.publicCode);
+            setIsFavorite(result);
+            setFavoritesCount((prev) => (result ? prev + 1 : prev - 1));
+
+            if (onFavoriteToggle) {
+                onFavoriteToggle(proj.publicCode, result);
+            }
+        } catch (error) {
+            console.error('❌ Ошибка при изменении избранного:', error);
+        } finally {
+            setIsToggling(false);
+        }
+    };
+
     const name = project.name || 'Без названия';
     const description = project.description || '';
     const category = project.category || 'Other';
@@ -136,113 +168,130 @@ const ProjectCard = ({ project, onCopyCode, onFavoriteToggle }) => {
     const tags = Array.isArray(project.tags) ? project.tags : [];
 
     return (
-        <li
-            className={`project-item ${isArchived ? 'project-item--archived' : ''}`}
-            onClick={handleCardClick}
-        >
-            {/* 🆕 Обложка */}
-            <ProjectCover
-                coverImageUrl={project.coverImageUrl}
-                name={name}
-                publicCode={publicCode}
-                size="lg"
-            />
+        <>
+            <li
+                className={`project-item ${isArchived ? 'project-item--archived' : ''}`}
+                onClick={handleCardClick}
+                onContextMenu={handleContextMenu}
+            >
+                <ProjectCover
+                    coverImageUrl={project.coverImageUrl}
+                    name={name}
+                    publicCode={publicCode}
+                    size="lg"
+                />
 
-            {/* ── Контент карточки ── */}
-            <div className="project-card-body">
-                <div className="project-header">
-                    <h3>{name}</h3>
-                    <div className="project-header-right">
-                        <div className="project-badges">
-                            <span
-                                className="status-tag"
-                                style={{ backgroundColor: getStatusColor(status) }}
+                <div className="project-card-body">
+                    <div className="project-header">
+                        <h3>{name}</h3>
+                        <div className="project-header-right">
+                            <div className="project-badges">
+                                <span
+                                    className="status-tag"
+                                    style={{ backgroundColor: getStatusColor(status) }}
+                                >
+                                    {getStatusName(status)}
+                                </span>
+                                <span className={`visibility-tag ${visibility === 'Private' ? 'private' : 'public'}`}>
+                                    {getVisibilityName(visibility)}
+                                </span>
+                                {isArchived && (
+                                    <span className="archive-tag">📦 В архиве</span>
+                                )}
+                            </div>
+                            <button
+                                className={`favorite-btn ${isFavorite ? 'active' : ''}`}
+                                onClick={handleFavoriteClick}
+                                disabled={isToggling}
+                                title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}
                             >
-                                {getStatusName(status)}
-                            </span>
-                            <span className={`visibility-tag ${visibility === 'Private' ? 'private' : 'public'}`}>
-                                {getVisibilityName(visibility)}
-                            </span>
-                            {isArchived && (
-                                <span className="archive-tag">📦 В архиве</span>
-                            )}
+                                {isFavorite ? '⭐' : '☆'}
+                                {favoritesCount > 0 && (
+                                    <span className="favorites-count">{favoritesCount}</span>
+                                )}
+                            </button>
                         </div>
-                        <button
-                            className={`favorite-btn ${isFavorite ? 'active' : ''}`}
-                            onClick={handleFavoriteClick}
-                            disabled={isToggling}
-                            title={isFavorite ? 'Удалить из избранного' : 'Добавить в избранное'}
-                        >
-                            {isFavorite ? '⭐' : '☆'}
-                            {favoritesCount > 0 && (
-                                <span className="favorites-count">{favoritesCount}</span>
-                            )}
-                        </button>
                     </div>
-                </div>
 
-                {description && (
-                    <p className="project-description">{description}</p>
-                )}
-
-                <div className="project-meta">
-                    <span className="meta-item">
-                        <strong>Категория:</strong> {getCategoryName(category)}
-                    </span>
-                    {deadline && (
-                        <span className="meta-item">
-                            <strong>Дедлайн:</strong> {formatDate(deadline)}
-                        </span>
+                    {description && (
+                        <p className="project-description">{description}</p>
                     )}
-                    <span className="meta-item code-meta">
-                        <strong>Код:</strong>
-                        <span className="project-code-display">{publicCode}</span>
-                        <button
-                            className="copy-code-btn"
-                            onClick={handleCopyClick}
-                            title="Скопировать код"
-                        >
-                            📋
-                        </button>
-                    </span>
-                </div>
 
-                {tags.length > 0 && (
-                    <div className="project-card-tags">
-                        {tags.slice(0, 6).map(t => (
-                            <span
-                                key={t.id}
-                                className="project-card-tag"
-                                style={{
-                                    backgroundColor: t.color ? `${t.color}22` : '#eef2ff',
-                                    color: t.color || '#4f46e5',
-                                    borderColor: t.color || '#c7d2fe'
-                                }}
-                                title={t.name}
-                            >
-                                {t.name}
-                            </span>
-                        ))}
-                        {tags.length > 6 && (
-                            <span
-                                className="project-card-tag-more"
-                                title={tags.slice(6).map(t => t.name).join(', ')}
-                            >
-                                +{tags.length - 6}
+                    <div className="project-meta">
+                        <span className="meta-item">
+                            <strong>Категория:</strong> {getCategoryName(category)}
+                        </span>
+                        {deadline && (
+                            <span className="meta-item">
+                                <strong>Дедлайн:</strong> {formatDate(deadline)}
                             </span>
                         )}
-                    </div>
-                )}
-
-                {createdAt && (
-                    <div className="project-footer">
-                        <span className="created-at">
-                            📅 Создан: {formatDate(createdAt)}
+                        <span className="meta-item code-meta">
+                            <strong>Код:</strong>
+                            <span className="project-code-display">{publicCode}</span>
+                            <button
+                                className="copy-code-btn"
+                                onClick={handleCopyClick}
+                                title="Скопировать код"
+                            >
+                                📋
+                            </button>
                         </span>
                     </div>
-                )}
-            </div>
-        </li>
+
+                    {tags.length > 0 && (
+                        <div className="project-card-tags">
+                            {tags.slice(0, 6).map((t) => (
+                                <span
+                                    key={t.id}
+                                    className="project-card-tag"
+                                    style={{
+                                        backgroundColor: t.color ? `${t.color}22` : '#eef2ff',
+                                        color: t.color || '#4f46e5',
+                                        borderColor: t.color || '#c7d2fe',
+                                    }}
+                                    title={t.name}
+                                >
+                                    {t.name}
+                                </span>
+                            ))}
+                            {tags.length > 6 && (
+                                <span
+                                    className="project-card-tag-more"
+                                    title={tags.slice(6).map((t) => t.name).join(', ')}
+                                >
+                                    +{tags.length - 6}
+                                </span>
+                            )}
+                        </div>
+                    )}
+
+                    {createdAt && (
+                        <div className="project-footer">
+                            <span className="created-at">
+                                📅 Создан: {formatDate(createdAt)}
+                            </span>
+                        </div>
+                    )}
+                </div>
+            </li>
+
+            {contextMenu && (
+                <ProjectContextMenu
+                    x={contextMenu.x}
+                    y={contextMenu.y}
+                    project={project}
+                    isFavorite={isFavorite}
+                    onClose={() => setContextMenu(null)}
+                    onToggleFavorite={handleToggleFavoriteFromMenu}
+                    onEdit={onEdit}
+                    onInvite={onInvite}
+                    onArchive={onArchive}
+                    onUnarchive={onUnarchive}
+                    onDelete={onDelete}
+                />
+            )}
+        </>
     );
 };
 

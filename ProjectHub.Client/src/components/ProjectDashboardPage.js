@@ -10,7 +10,7 @@ import {
     getVisibilityName,
     TASK_PRIORITIES,
 } from '../utils/constants';
-import { getProjectChatByCode } from '../services/chatsApi';
+import { getProjectChatByCode, createPersonalChat } from '../services/chatsApi';
 import { getVotingsSummary } from '../services/votingsApi';
 import { getTasksBoard, getProjectTags as getTaskTags } from '../services/tasksApi';
 import {
@@ -21,13 +21,19 @@ import {
     uploadProjectCover,
     deleteProjectCover
 } from '../services/projectCoverApi';
+import {
+    sendFriendRequest,
+    cancelFriendRequest,
+    processFriendRequest,
+} from '../services/friendRequestsApi';
+import { getFriends, removeFriend } from '../services/friendsApi';
 
 import TasksBoard from './tasks/TasksBoard';
 import TaskTimeline from './tasks/TaskTimeline';
 import NotificationsDropdown from './NotificationsDropdown';
 import ProjectTagPicker from './ProjectTagPicker';
 import ProjectCover from './ProjectCover';
-import UserAvatar from './UserAvatar';   // 🆕
+import UserAvatar from './UserAvatar';
 
 import MemberCard from './MemberCard';
 import RoleManagementModal from './RoleManagementModal';
@@ -42,7 +48,9 @@ import CreateVotingModal from './CreateVotingPage';
 import {
     searchMyProjectByCode,
     archiveProject,
-    unarchiveProject
+    unarchiveProject,
+    changeMemberRoleByCodeAndEmail,
+    removeMemberFromProject,
 } from '../services/projectsApi';
 
 import '../styles/components/ProjectDashboardPage.css';
@@ -418,6 +426,113 @@ const ProjectDashboardPage = () => {
         }
     };
 
+    // ═══════════════════════════════════════════════════════════
+    //  Действия над участниками (из контекстного меню карточки)
+    // ═══════════════════════════════════════════════════════════
+
+    const handleMemberSendMessage = async (member) => {
+        try {
+            const chat = await createPersonalChat(member.email);
+            navigate(`/chats/${chat.id}`);
+        } catch (err) {
+            setNotification({ type: 'error', text: err.message || 'Не удалось открыть чат' });
+            setTimeout(() => setNotification(null), 3000);
+        }
+    };
+
+    const handleMemberAddFriend = async (member) => {
+        try {
+            await sendFriendRequest(member.email);
+            setNotification({ type: 'success', text: '✅ Заявка отправлена' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            setNotification({ type: 'error', text: err.message || 'Ошибка' });
+            setTimeout(() => setNotification(null), 3000);
+        }
+    };
+
+    const handleMemberCancelRequest = async (member, requestId) => {
+        try {
+            await cancelFriendRequest(requestId);
+            setNotification({ type: 'success', text: '✅ Заявка отменена' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            setNotification({ type: 'error', text: err.message || 'Ошибка' });
+            setTimeout(() => setNotification(null), 3000);
+        }
+    };
+
+    const handleMemberAcceptRequest = async (member, requestId) => {
+        try {
+            await processFriendRequest(requestId, true);
+            setNotification({ type: 'success', text: '✅ Заявка принята' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            setNotification({ type: 'error', text: err.message || 'Ошибка' });
+            setTimeout(() => setNotification(null), 3000);
+        }
+    };
+
+    const handleMemberRejectRequest = async (member, requestId) => {
+        try {
+            await processFriendRequest(requestId, false);
+            setNotification({ type: 'success', text: '✅ Заявка отклонена' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            setNotification({ type: 'error', text: err.message || 'Ошибка' });
+            setTimeout(() => setNotification(null), 3000);
+        }
+    };
+
+    const handleMemberRemoveFriend = async (member) => {
+        if (!window.confirm(`Удалить ${member.name} из друзей?`)) return;
+
+        try {
+            const list = await getFriends();
+            const friend = list.find((f) => f.email === member.email);
+            if (friend) {
+                await removeFriend(friend.id);
+                setNotification({ type: 'success', text: '✅ Удалён из друзей' });
+                setTimeout(() => setNotification(null), 3000);
+            }
+        } catch (err) {
+            setNotification({ type: 'error', text: err.message || 'Ошибка' });
+            setTimeout(() => setNotification(null), 3000);
+        }
+    };
+
+    const handleMemberChangeRole = async (member, newRole) => {
+        if (newRole === 'Admin') {
+            if (!window.confirm(`Назначить ${member.name} администратором?`)) return;
+        } else {
+            if (!window.confirm(`Снять с ${member.name} роль администратора?`)) return;
+        }
+
+        try {
+            await changeMemberRoleByCodeAndEmail(project.publicCode, member.email, newRole);
+            await loadProjectDetails();
+            setNotification({ type: 'success', text: '✅ Роль обновлена' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            setNotification({ type: 'error', text: err.message || 'Ошибка' });
+            setTimeout(() => setNotification(null), 3000);
+        }
+    };
+
+    const handleMemberRemoveFromProject = async (member) => {
+        if (!window.confirm(`Удалить ${member.name} из проекта?`)) return;
+
+        try {
+            await removeMemberFromProject(project.publicCode, member.email);
+            await loadProjectDetails();
+            setNotification({ type: 'success', text: '✅ Участник удалён' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            setNotification({ type: 'error', text: err.message || 'Ошибка' });
+            setTimeout(() => setNotification(null), 3000);
+        }
+    };
+
     // ── Обложка проекта ──
     const handleCoverUpload = async (e) => {
         const file = e.target.files?.[0];
@@ -573,7 +688,6 @@ const ProjectDashboardPage = () => {
                             onClick={() => setUserMenuOpen(v => !v)}
                             title="Меню пользователя"
                         >
-                            {/* 🆕 Аватар пользователя */}
                             <UserAvatar
                                 avatarUrl={user?.avatarUrl}
                                 name={user?.name}
@@ -987,7 +1101,32 @@ const ProjectDashboardPage = () => {
                             ) : (
                                 <div className="members-grid">
                                     {members.map((member) => (
-                                        <MemberCard key={member.userId} member={member} />
+                                        <MemberCard
+                                            key={member.userId}
+                                            member={{
+                                                id: member.userId,
+                                                name: member.name,
+                                                email: member.email,
+                                                specialization: member.specialization,
+                                                role: member.role,
+                                                joinedAt: member.joinedAt,
+                                                avatarUrl: member.avatarUrl,
+                                            }}
+                                            projectContext={{
+                                                projectCode: project.publicCode,
+                                                memberRole: member.role,
+                                                isOwnerViewer: userStatus === 'Owner',
+                                                isAdminViewer: userStatus === 'Admin',
+                                            }}
+                                            onSendMessage={handleMemberSendMessage}
+                                            onAddFriend={handleMemberAddFriend}
+                                            onCancelRequest={handleMemberCancelRequest}
+                                            onAcceptRequest={handleMemberAcceptRequest}
+                                            onRejectRequest={handleMemberRejectRequest}
+                                            onRemoveFriend={handleMemberRemoveFriend}
+                                            onChangeRole={handleMemberChangeRole}
+                                            onRemoveFromProject={handleMemberRemoveFromProject}
+                                        />
                                     ))}
                                 </div>
                             )}

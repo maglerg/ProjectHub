@@ -12,13 +12,17 @@ import FilterSection from './FilterSection';
 import NotificationsDropdown from './NotificationsDropdown';
 import FriendsList from './FriendsList';
 import ProjectTagsFilter from './ProjectTagsFilter';
-import UserAvatar from './UserAvatar';   // 🆕
+import UserAvatar from './UserAvatar';
+import EditProjectModal from './EditProjectModal';
+import InviteUserModal from './InviteUserModal';
 
 import {
     fetchAllProjects,
     createProject,
     fetchMyProjects,
     fetchArchivedProjects,
+    archiveProject,
+    unarchiveProject,
 } from '../services/projectsApi';
 import { searchProjectsByTags } from '../services/projectTagsApi';
 import { getFriends, removeFriend } from '../services/friendsApi';
@@ -37,8 +41,6 @@ const ProjectsPage = () => {
 
     // 📌 Только категория — без статуса
     const [selectedCategory, setSelectedCategory] = useState('');
-
-    // Фильтр по тегам (для вкладки "Найти проект")
     const [selectedTagIds, setSelectedTagIds] = useState([]);
 
     const [shouldResetForm, setShouldResetForm] = useState(false);
@@ -47,11 +49,15 @@ const ProjectsPage = () => {
     const [friends, setFriends] = useState([]);
     const [friendsLoading, setFriendsLoading] = useState(false);
 
+    // 🆕 Модалки, открываемые из контекстного меню карточки
+    const [editingProject, setEditingProject] = useState(null);
+    const [invitingProject, setInvitingProject] = useState(null);
+
     // 📌 Меню пользователя
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const userMenuRef = useRef(null);
 
-    // 📌 Закрытие меню по клику вне / Escape
+    // ── Закрытие меню пользователя ──
     useEffect(() => {
         const handleClickOutside = (e) => {
             if (userMenuRef.current && !userMenuRef.current.contains(e.target)) {
@@ -69,7 +75,7 @@ const ProjectsPage = () => {
         };
     }, []);
 
-    // 📌 Загрузка проектов
+    // ── Загрузка проектов ──
     const loadProjects = async (favoritesOnly = false, myProjectsOnly = false, category = null) => {
         setLoading(true);
         setMessage('');
@@ -84,7 +90,6 @@ const ProjectsPage = () => {
             if (Array.isArray(data)) {
                 setProjects(data);
             } else {
-                console.error('❌ Данные не являются массивом:', data);
                 setProjects([]);
             }
         } catch (error) {
@@ -96,18 +101,12 @@ const ProjectsPage = () => {
         }
     };
 
-    // 📌 Загрузка архивных проектов
     const loadArchivedProjects = async () => {
         setLoading(true);
         setMessage('');
         try {
             const data = await fetchArchivedProjects();
-            if (Array.isArray(data)) {
-                setProjects(data);
-            } else {
-                console.error('❌ Данные не являются массивом:', data);
-                setProjects([]);
-            }
+            setProjects(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('❌ Ошибка загрузки архивных проектов:', error);
             setMessage(`❌ ${error.message || 'Ошибка загрузки архива'}`);
@@ -117,7 +116,6 @@ const ProjectsPage = () => {
         }
     };
 
-    // 📌 Поиск проектов по тегам
     const searchByTags = async () => {
         if (selectedTagIds.length === 0) {
             setMessage('❌ Выберите хотя бы один тег');
@@ -137,7 +135,6 @@ const ProjectsPage = () => {
                         : '🔍 По выбранным тегам проектов не найдено'
                 );
             } else {
-                console.error('❌ Данные не являются массивом:', data);
                 setProjects([]);
             }
         } catch (error) {
@@ -149,14 +146,6 @@ const ProjectsPage = () => {
         }
     };
 
-    // 📌 Сброс фильтра тегов
-    const resetTagsFilter = () => {
-        setSelectedTagIds([]);
-        setProjects([]);
-        setMessage('');
-    };
-
-    // 📌 Загрузить друзей
     const loadFriends = async () => {
         setFriendsLoading(true);
         try {
@@ -171,7 +160,7 @@ const ProjectsPage = () => {
     };
 
     const handleFriendAdded = (newFriend) => {
-        setFriends(prev => [newFriend, ...prev]);
+        setFriends((prev) => [newFriend, ...prev]);
         setMessage('✅ Друг добавлен!');
         setTimeout(() => setMessage(''), 3000);
     };
@@ -179,7 +168,7 @@ const ProjectsPage = () => {
     const handleFriendRemoved = async (friendId) => {
         try {
             await removeFriend(friendId);
-            setFriends(prev => prev.filter(f => f.id !== friendId));
+            setFriends((prev) => prev.filter((f) => f.id !== friendId));
             setMessage('✅ Друг удален');
             setTimeout(() => setMessage(''), 3000);
         } catch (error) {
@@ -187,10 +176,9 @@ const ProjectsPage = () => {
         }
     };
 
-    // 📌 Обработчик изменения избранного
     const handleFavoriteToggle = (publicCode, isFavorite) => {
-        setProjects(prev =>
-            prev.map(p => {
+        setProjects((prev) =>
+            prev.map((p) => {
                 if (p.publicCode !== publicCode) return p;
 
                 const prevCount = p.favoritesCount || 0;
@@ -199,12 +187,79 @@ const ProjectsPage = () => {
                 return {
                     ...p,
                     isFavorite,
-                    favoritesCount: nextCount
+                    favoritesCount: nextCount,
                 };
             })
         );
     };
 
+    // 🆕 ── Обработчики контекстного меню ──
+
+    const handleContextEdit = (project) => {
+        setEditingProject(project);
+    };
+
+    const handleContextInvite = (project) => {
+        setInvitingProject(project);
+    };
+
+    const handleContextArchive = async (project) => {
+        if (!project?.publicCode) return;
+
+        if (!window.confirm(
+            `Архивировать проект «${project.name}»?\n\n` +
+            'Ожидающие заявки и приглашения будут отменены, ' +
+            'активные голосования — закрыты.'
+        )) return;
+
+        try {
+            await archiveProject(project.publicCode);
+            setMessage('📦 Проект архивирован');
+            setTimeout(() => setMessage(''), 3000);
+
+            // Перезагружаем текущий список
+            if (activeTab === 'archive') {
+                await loadArchivedProjects();
+            } else if (activeTab === 'my') {
+                await loadProjects(false, true);
+            } else {
+                await loadProjects(showFavoritesOnly, false, selectedCategory);
+            }
+        } catch (err) {
+            console.error('❌ Ошибка архивации:', err);
+            setMessage('❌ ' + err.message);
+        }
+    };
+
+    const handleContextUnarchive = async (project) => {
+        if (!project?.publicCode) return;
+
+        if (!window.confirm(
+            `Восстановить проект «${project.name}» из архива?\n\n` +
+            'Отменённые заявки и приглашения не восстановятся.'
+        )) return;
+
+        try {
+            await unarchiveProject(project.publicCode);
+            setMessage('↩️ Проект восстановлен');
+            setTimeout(() => setMessage(''), 3000);
+
+            if (activeTab === 'archive') {
+                await loadArchivedProjects();
+            } else {
+                await loadProjects(showFavoritesOnly, showMyProjectsOnly, selectedCategory);
+            }
+        } catch (err) {
+            console.error('❌ Ошибка восстановления:', err);
+            setMessage('❌ ' + err.message);
+        }
+    };
+
+    // 🗑 Удаление пока не подключено на бэке — оставляем null
+    // (если включите — передайте handleContextDelete)
+    const handleContextDelete = null;
+
+    // ── projectListProps ──
     const projectListProps = {
         projects,
         loading,
@@ -213,7 +268,13 @@ const ProjectsPage = () => {
             setMessage('✅ Код скопирован в буфер обмена!');
             setTimeout(() => setMessage(''), 3000);
         },
-        onFavoriteToggle: handleFavoriteToggle
+        onFavoriteToggle: handleFavoriteToggle,
+        // 🆕 Колбэки контекстного меню
+        onEdit: handleContextEdit,
+        onInvite: handleContextInvite,
+        onArchive: handleContextArchive,
+        onUnarchive: handleContextUnarchive,
+        onDelete: handleContextDelete,
     };
 
     const handleCreateProject = async (projectData) => {
@@ -233,12 +294,9 @@ const ProjectsPage = () => {
         }
     };
 
-    const handleCategoryChange = (value) => {
-        setSelectedCategory(value);
-    };
+    const handleCategoryChange = (value) => setSelectedCategory(value);
 
     const handleCategorySearch = () => {
-        // При поиске по категории сбрасываем теги, чтобы не путаться
         setSelectedTagIds([]);
         loadProjects(false, false, selectedCategory || null);
     };
@@ -252,7 +310,6 @@ const ProjectsPage = () => {
         setMessage('');
     };
 
-    // 📌 Обработка табов проектов
     const handleTabClick = (tab) => {
         if (activeTab === tab) {
             setActiveTab(null);
@@ -268,9 +325,7 @@ const ProjectsPage = () => {
         setActiveTab(tab);
         setMessage('');
 
-        if (tab === 'create') {
-            return;
-        }
+        if (tab === 'create') return;
 
         if (tab === 'search') {
             setShowFavoritesOnly(false);
@@ -299,7 +354,6 @@ const ProjectsPage = () => {
         }
     };
 
-    // 📌 Открыть секцию друзей
     const openFriendsSection = () => {
         setView('friends');
         setActiveTab(null);
@@ -317,7 +371,6 @@ const ProjectsPage = () => {
         setMessage('');
     };
 
-    // 📌 Меню пользователя
     const handleMenuNavigate = (path) => {
         setUserMenuOpen(false);
         navigate(path);
@@ -328,8 +381,33 @@ const ProjectsPage = () => {
         logout();
     };
 
+    // ── Модалки после сохранения ──
+
+    const handleEditUpdated = async () => {
+        setEditingProject(null);
+        setMessage('✅ Проект обновлён');
+        setTimeout(() => setMessage(''), 2500);
+        // Перезагружаем текущий список
+        if (activeTab === 'archive') {
+            await loadArchivedProjects();
+        } else if (activeTab === 'my') {
+            await loadProjects(false, true);
+        } else if (activeTab === 'favorites') {
+            await loadProjects(true, false);
+        } else {
+            await loadProjects(false, false, selectedCategory);
+        }
+    };
+
+    const handleInvitationSent = () => {
+        setInvitingProject(null);
+        setMessage('✅ Приглашение отправлено');
+        setTimeout(() => setMessage(''), 2500);
+    };
+
     useEffect(() => {
         loadProjects(false, false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     return (
@@ -341,14 +419,12 @@ const ProjectsPage = () => {
                 <div className="header-right">
                     <NotificationsDropdown />
 
-                    {/* 📌 Меню пользователя */}
                     <div className="user-menu-wrapper" ref={userMenuRef}>
                         <button
                             className={`user-menu-trigger ${userMenuOpen ? 'open' : ''}`}
-                            onClick={() => setUserMenuOpen(v => !v)}
+                            onClick={() => setUserMenuOpen((v) => !v)}
                             title="Меню пользователя"
                         >
-                            {/* 🆕 Аватар пользователя */}
                             <UserAvatar
                                 avatarUrl={user?.avatarUrl}
                                 name={user?.name}
@@ -423,9 +499,7 @@ const ProjectsPage = () => {
             </header>
 
             <main className="page-main">
-                {/* ═══════════════════════════════════════════
-                    РЕЖИМ: ДРУЗЬЯ
-                   ═══════════════════════════════════════════ */}
+                {/* РЕЖИМ: ДРУЗЬЯ */}
                 {view === 'friends' && (
                     <>
                         <div className="view-header">
@@ -447,9 +521,7 @@ const ProjectsPage = () => {
                     </>
                 )}
 
-                {/* ═══════════════════════════════════════════
-                    РЕЖИМ: ПРОЕКТЫ
-                   ═══════════════════════════════════════════ */}
+                {/* РЕЖИМ: ПРОЕКТЫ */}
                 {view === 'projects' && (
                     <>
                         <div className="tabs-container">
@@ -500,7 +572,7 @@ const ProjectsPage = () => {
                         </div>
 
                         {message && (
-                            <div className={`message ${message.includes('❌') || message.includes('Ошибка') ? 'error' : 'success'}`}>
+                            <div className={`message ${message.includes('❌') ? 'error' : 'success'}`}>
                                 {message}
                             </div>
                         )}
@@ -517,7 +589,6 @@ const ProjectsPage = () => {
 
                             {activeTab === 'search' && (
                                 <div className="search-tab-content">
-                                    {/* Фильтр по тегам */}
                                     <div className="search-tags-filter-wrap">
                                         <ProjectTagsFilter
                                             selectedTagIds={selectedTagIds}
@@ -613,6 +684,25 @@ const ProjectsPage = () => {
                     </>
                 )}
             </main>
+
+            {/* 🆕 Модалка редактирования, вызванная из контекстного меню */}
+            {editingProject && (
+                <EditProjectModal
+                    project={editingProject}
+                    onClose={() => setEditingProject(null)}
+                    onUpdated={handleEditUpdated}
+                    userRole={editingProject.userStatus || 'Member'}
+                />
+            )}
+
+            {/* 🆕 Модалка приглашения, вызванная из контекстного меню */}
+            {invitingProject && (
+                <InviteUserModal
+                    project={invitingProject}
+                    onClose={() => setInvitingProject(null)}
+                    onInvitationSent={handleInvitationSent}
+                />
+            )}
         </div>
     );
 };

@@ -3,13 +3,23 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import MemberCard from './MemberCard';
-import UserAvatar from './UserAvatar';   // 🆕
+import UserAvatar from './UserAvatar';
+import { useAuth } from '../context/AuthContext';
 import { getUserProfileByEmail } from '../services/userApi';
-import { getFriendStatus, sendFriendRequest } from '../services/friendRequestsApi';
+import {
+    getFriendStatus,
+    sendFriendRequest,
+    cancelFriendRequest,
+    processFriendRequest,
+} from '../services/friendRequestsApi';
+import { getFriends, removeFriend } from '../services/friendsApi';
+import { createPersonalChat } from '../services/chatsApi';
 import '../styles/components/FriendsList.css';
 
 const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
     const navigate = useNavigate();
+    const { user: currentUser } = useAuth();
+
     const [searchEmail, setSearchEmail] = useState('');
     const [isSearching, setIsSearching] = useState(false);
     const [foundUser, setFoundUser] = useState(null);
@@ -18,7 +28,7 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
     const [friendStatus, setFriendStatus] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
 
-    // 📌 Поиск пользователя по email
+    // ── Поиск пользователя по email ──
     const handleSearch = async (e) => {
         e.preventDefault();
         if (!searchEmail.trim()) {
@@ -39,7 +49,6 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
                     const status = await getFriendStatus(user.email);
                     setFriendStatus(status);
                 } catch (err) {
-                    console.warn('Не удалось проверить статус:', err);
                     setFriendStatus({ status: 'None', isFriend: false });
                 }
             } else {
@@ -52,20 +61,126 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
         }
     };
 
-    // 📌 Отправить заявку в друзья
-    const handleSendRequest = async () => {
-        if (!foundUser?.email || isProcessing) return;
+    // ── Отправить заявку ──
+    const handleSendRequest = async (targetUser) => {
+        const email = targetUser?.email || foundUser?.email;
+        if (!email || isProcessing) return;
 
         setIsProcessing(true);
         setNotification(null);
         try {
-            await sendFriendRequest(foundUser.email);
-            setFriendStatus({ ...friendStatus, status: 'Pending' });
+            await sendFriendRequest(email);
+
+            // обновляем статус
+            if (foundUser && foundUser.email === email) {
+                setFriendStatus((prev) => ({ ...(prev || {}), status: 'Pending' }));
+            }
+
             setNotification({ type: 'success', text: '✅ Заявка отправлена!' });
             setTimeout(() => setNotification(null), 3000);
 
-            if (onFriendAdded) {
-                onFriendAdded(foundUser);
+            if (onFriendAdded) onFriendAdded(targetUser || foundUser);
+        } catch (err) {
+            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setTimeout(() => setNotification(null), 3000);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    // ── Отменить заявку ──
+    const handleCancelRequest = async (targetUser, requestId) => {
+        if (!requestId || isProcessing) return;
+
+        setIsProcessing(true);
+        setNotification(null);
+        try {
+            await cancelFriendRequest(requestId);
+
+            if (foundUser && foundUser.email === targetUser?.email) {
+                setFriendStatus((prev) => ({ ...(prev || {}), status: 'None', requestId: null }));
+            }
+
+            setNotification({ type: 'success', text: '✅ Заявка отменена' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setTimeout(() => setNotification(null), 3000);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    // ── Принять заявку ──
+    const handleAcceptRequest = async (targetUser, requestId) => {
+        if (!requestId || isProcessing) return;
+
+        setIsProcessing(true);
+        setNotification(null);
+        try {
+            await processFriendRequest(requestId, true);
+
+            if (foundUser && foundUser.email === targetUser?.email) {
+                setFriendStatus({ status: 'Friend', isFriend: true, requestId: null });
+            }
+
+            setNotification({ type: 'success', text: '✅ Заявка принята!' });
+            setTimeout(() => setNotification(null), 3000);
+
+            // при желании можно перезагрузить список друзей
+        } catch (err) {
+            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setTimeout(() => setNotification(null), 3000);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    // ── Отклонить заявку ──
+    const handleRejectRequest = async (targetUser, requestId) => {
+        if (!requestId || isProcessing) return;
+
+        setIsProcessing(true);
+        setNotification(null);
+        try {
+            await processFriendRequest(requestId, false);
+
+            if (foundUser && foundUser.email === targetUser?.email) {
+                setFriendStatus((prev) => ({ ...(prev || {}), status: 'None', requestId: null }));
+            }
+
+            setNotification({ type: 'success', text: '✅ Заявка отклонена' });
+            setTimeout(() => setNotification(null), 3000);
+        } catch (err) {
+            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setTimeout(() => setNotification(null), 3000);
+        } finally {
+            setIsProcessing(false);
+        }
+    };
+
+    // ── Удалить из друзей ──
+    const handleRemoveFriend = async (targetUser) => {
+        if (isProcessing) return;
+
+        if (!window.confirm(`Удалить ${targetUser?.name || targetUser?.email} из друзей?`)) return;
+
+        setIsProcessing(true);
+        setNotification(null);
+        try {
+            const friendsList = await getFriends();
+            const friend = friendsList.find((f) => f.email === targetUser.email);
+            if (friend) {
+                await removeFriend(friend.id);
+
+                if (foundUser && foundUser.email === targetUser.email) {
+                    setFriendStatus({ status: 'None', isFriend: false, requestId: null });
+                }
+
+                if (onFriendRemoved) onFriendRemoved(friend.id);
+
+                setNotification({ type: 'success', text: '✅ Удалён из друзей' });
+                setTimeout(() => setNotification(null), 3000);
             }
         } catch (err) {
             setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
@@ -75,15 +190,36 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
         }
     };
 
-    // 📌 Переход в профиль
-    const handleGoToProfile = () => {
-        if (foundUser?.email) {
-            const encodedEmail = encodeURIComponent(foundUser.email);
-            navigate(`/users/${encodedEmail}`);
+    // ── Отправить сообщение ──
+    const handleSendMessage = async (targetUser) => {
+        if (!targetUser?.email || isProcessing) return;
+
+        setIsProcessing(true);
+        setNotification(null);
+        try {
+            const chat = await createPersonalChat(targetUser.email);
+            navigate(`/chats/${chat.id}`);
+        } catch (err) {
+            if (err.message?.includes('только от друзей')) {
+                setNotification({
+                    type: 'info',
+                    text: '👥 Этот пользователь принимает сообщения только от друзей.',
+                });
+            } else {
+                setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            }
+            setTimeout(() => setNotification(null), 5000);
+        } finally {
+            setIsProcessing(false);
         }
     };
 
-    // 📌 Очистить результаты поиска
+    const handleGoToProfile = () => {
+        if (foundUser?.email) {
+            navigate(`/users/${encodeURIComponent(foundUser.email)}`);
+        }
+    };
+
     const clearSearch = () => {
         setFoundUser(null);
         setSearchEmail('');
@@ -92,7 +228,6 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
         setNotification(null);
     };
 
-    // 📌 Перейти к заявкам в друзья
     const handleGoToRequests = () => {
         navigate('/friends/requests');
     };
@@ -103,9 +238,7 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
             <section className="friends-search-section">
                 <div className="friends-search-header">
                     <h2>👥 Друзья</h2>
-                    <span className="friends-count-badge">
-                        {friends.length} чел.
-                    </span>
+                    <span className="friends-count-badge">{friends.length} чел.</span>
                 </div>
 
                 <form className="search-user-form" onSubmit={handleSearch}>
@@ -117,19 +250,13 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
                             onChange={(e) => setSearchEmail(e.target.value)}
                             disabled={isSearching}
                         />
-                        <button
-                            type="submit"
-                            disabled={isSearching || !searchEmail.trim()}
-                        >
+                        <button type="submit" disabled={isSearching || !searchEmail.trim()}>
                             {isSearching ? '⏳' : '🔍 Найти'}
                         </button>
                     </div>
-                    {searchError && (
-                        <div className="search-error">❌ {searchError}</div>
-                    )}
+                    {searchError && <div className="search-error">❌ {searchError}</div>}
                 </form>
 
-                {/* ── Кнопка перехода к заявкам ── */}
                 <button
                     type="button"
                     className="btn-go-to-requests"
@@ -138,7 +265,6 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
                     📩 Заявки в друзья
                 </button>
 
-                {/* ── Результат поиска ── */}
                 {foundUser && (
                     <div className="search-result">
                         <div className="search-result-header">
@@ -153,7 +279,6 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
                         </div>
 
                         <div className="search-result-card">
-                            {/* 🆕 Аватар найденного пользователя */}
                             <div className="search-result-avatar-wrapper">
                                 <UserAvatar
                                     avatarUrl={foundUser.avatarUrl}
@@ -162,10 +287,7 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
                                     size="md"
                                 />
                                 {foundUser.isOnline && (
-                                    <span
-                                        className="search-result-online-dot"
-                                        title="Онлайн"
-                                    />
+                                    <span className="search-result-online-dot" title="Онлайн" />
                                 )}
                             </div>
                             <div className="search-result-info">
@@ -190,17 +312,14 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
                             ) : (
                                 <button
                                     className="btn-send-request"
-                                    onClick={handleSendRequest}
+                                    onClick={() => handleSendRequest(foundUser)}
                                     disabled={isProcessing}
                                 >
                                     {isProcessing ? '⏳' : '📩 Отправить заявку'}
                                 </button>
                             )}
 
-                            <button
-                                className="btn-view-profile"
-                                onClick={handleGoToProfile}
-                            >
+                            <button className="btn-view-profile" onClick={handleGoToProfile}>
                                 👤 Профиль
                             </button>
                         </div>
@@ -230,7 +349,13 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
                             <MemberCard
                                 key={friend.id}
                                 member={friend}
-                                onRemove={() => onFriendRemoved && onFriendRemoved(friend.id)}
+                                friendStatus={{
+                                    status: 'Friend',
+                                    isFriend: true,
+                                    requestId: null,
+                                }}
+                                onSendMessage={handleSendMessage}
+                                onRemoveFriend={handleRemoveFriend}
                             />
                         ))}
                     </div>
