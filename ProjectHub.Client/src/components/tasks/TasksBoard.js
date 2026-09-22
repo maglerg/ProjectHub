@@ -10,10 +10,12 @@ import {
     getProjectProgress,
     getProjectTags,
     createTag,
-    setTaskTags
+    setTaskTags,
 } from '../../services/tasksApi';
 import TaskColumn from './TaskColumn';
 import CreateTaskModal from './CreateTaskModal';
+import ColumnEditorModal from './ColumnEditorModal';
+import DeleteColumnModal from './DeleteColumnModal';
 import '../../styles/components/tasks/tasks.css';
 
 export default function TasksBoard({
@@ -42,6 +44,11 @@ export default function TasksBoard({
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [actionError, setActionError] = useState(null);
 
+    // 🆕 Состояние для управления колонками
+    const [isCreatingColumn, setIsCreatingColumn] = useState(false);
+    const [editingColumn, setEditingColumn] = useState(null);
+    const [deletingColumn, setDeletingColumn] = useState(null);
+
     // ── Загрузка доски и прогресса ──
     const loadBoard = async () => {
         try {
@@ -49,7 +56,7 @@ export default function TasksBoard({
             setError(null);
             const [boardData, progressData] = await Promise.all([
                 getTasksBoard(projectCode),
-                getProjectProgress(projectCode)
+                getProjectProgress(projectCode),
             ]);
             setColumns(boardData);
             setProgress(progressData);
@@ -78,7 +85,9 @@ export default function TasksBoard({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projectCode]);
-
+    useEffect(() => {
+        console.log('🟢 TasksBoard rendered. projectCode =', projectCode);
+    });
     // ── Проверка: задача "активная"? ──
     const isTaskActive = (t) => {
         if (t.completedAt) return true;
@@ -103,12 +112,12 @@ export default function TasksBoard({
         if (!useMy && !usePriority && !useActive && !useHideCompleted && !useTags)
             return cols;
 
-        return cols.map(col => ({
+        return cols.map((col) => ({
             ...col,
-            tasks: col.tasks.filter(t => {
+            tasks: col.tasks.filter((t) => {
                 if (useMy) {
                     const isMine = (t.assignees || []).some(
-                        a => (a.email || '').toLowerCase() === emailLower
+                        (a) => (a.email || '').toLowerCase() === emailLower
                     );
                     if (!isMine) return false;
                 }
@@ -117,13 +126,13 @@ export default function TasksBoard({
                 if (useHideCompleted && t.completedAt) return false;
 
                 if (useTags) {
-                    const taskTagIds = (t.tags || []).map(tag => tag.id);
-                    const hasAll = tagFilters.every(id => taskTagIds.includes(id));
+                    const taskTagIds = (t.tags || []).map((tag) => tag.id);
+                    const hasAll = tagFilters.every((id) => taskTagIds.includes(id));
                     if (!hasAll) return false;
                 }
 
                 return true;
-            })
+            }),
         }));
     };
 
@@ -180,7 +189,7 @@ export default function TasksBoard({
     // ── Создать тег проекта (для модалки создания задачи) ──
     const handleCreateTag = async (dto) => {
         const newTag = await createTag(projectCode, dto);
-        setAllTags(prev =>
+        setAllTags((prev) =>
             [...prev, newTag].sort((a, b) => a.name.localeCompare(b.name))
         );
         return newTag;
@@ -191,7 +200,7 @@ export default function TasksBoard({
         if (isArchived) return;
         try {
             setActionError(null);
-            setColumns(prev => moveTaskLocally(prev, taskId, columnId));
+            setColumns((prev) => moveTaskLocally(prev, taskId, columnId));
             await moveTask(projectCode, taskId, columnId);
             await loadBoard();
         } catch (e) {
@@ -199,6 +208,40 @@ export default function TasksBoard({
             setActionError(e.message);
             await loadBoard();
         }
+    };
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 УПРАВЛЕНИЕ КОЛОНКАМИ
+    // ═══════════════════════════════════════════════════════════
+
+    const handleOpenCreateColumn = () => {
+        if (isArchived) return;
+        setIsCreatingColumn(true);
+    };
+
+    const handleOpenEditColumn = (column) => {
+        if (isArchived) return;
+        if (!column) return;
+        if (column.isDefault) return;
+        setEditingColumn(column);
+    };
+
+    const handleOpenDeleteColumn = (column) => {
+        if (isArchived) return;
+        if (!column) return;
+        if (column.isDefault) return;
+        setDeletingColumn(column);
+    };
+
+    const handleColumnSaved = async () => {
+        setIsCreatingColumn(false);
+        setEditingColumn(null);
+        await loadBoard();
+    };
+
+    const handleColumnDeleted = async () => {
+        setDeletingColumn(null);
+        await loadBoard();
     };
 
     if (loading) return <div className="tasks-loading">Загрузка задач…</div>;
@@ -262,7 +305,7 @@ export default function TasksBoard({
 
             {/* ── Доска ── */}
             <div className="tasks-columns">
-                {visibleColumns.map(col => (
+                {visibleColumns.map((col) => (
                     <TaskColumn
                         key={col.id}
                         column={col}
@@ -276,8 +319,25 @@ export default function TasksBoard({
                         onUpload={handleUpload}
                         onRefresh={loadBoard}
                         onError={setActionError}
+                        onEditColumn={handleOpenEditColumn}
+                        onDeleteColumn={handleOpenDeleteColumn}
                     />
                 ))}
+
+                {/* 🆕 Кнопка «+ Колонка» — только владелец и не в архиве */}
+                {!isArchived && isOwner && (
+                    <div className="tasks-column-add">
+                        <button
+                            type="button"
+                            className="btn-add-column"
+                            onClick={handleOpenCreateColumn}
+                            title="Создать новую колонку"
+                        >
+                            <span className="btn-add-column-icon">＋</span>
+                            <span className="btn-add-column-text">Колонка</span>
+                        </button>
+                    </div>
+                )}
             </div>
 
             {!isArchived && isModalOpen && (
@@ -290,6 +350,35 @@ export default function TasksBoard({
                     onCreate={handleCreate}
                 />
             )}
+
+            {/* 🆕 Модалки управления колонками */}
+            {isCreatingColumn && (
+                <ColumnEditorModal
+                    projectCode={projectCode}
+                    column={null}
+                    onClose={() => setIsCreatingColumn(false)}
+                    onSaved={handleColumnSaved}
+                />
+            )}
+
+            {editingColumn && (
+                <ColumnEditorModal
+                    projectCode={projectCode}
+                    column={editingColumn}
+                    onClose={() => setEditingColumn(null)}
+                    onSaved={handleColumnSaved}
+                />
+            )}
+
+            {deletingColumn && (
+                <DeleteColumnModal
+                    projectCode={projectCode}
+                    column={deletingColumn}
+                    allColumns={columns}
+                    onClose={() => setDeletingColumn(null)}
+                    onDeleted={handleColumnDeleted}
+                />
+            )}
         </div>
     );
 }
@@ -298,8 +387,8 @@ export default function TasksBoard({
 function moveTaskLocally(columns, taskId, targetColumnId) {
     let movedTask = null;
 
-    const withoutTask = columns.map(col => {
-        const filtered = col.tasks.filter(t => {
+    const withoutTask = columns.map((col) => {
+        const filtered = col.tasks.filter((t) => {
             if (t.id === taskId) {
                 movedTask = t;
                 return false;
@@ -311,9 +400,15 @@ function moveTaskLocally(columns, taskId, targetColumnId) {
 
     if (!movedTask) return columns;
 
-    return withoutTask.map(col =>
+    return withoutTask.map((col) =>
         col.id === targetColumnId
-            ? { ...col, tasks: [...col.tasks, { ...movedTask, columnId: targetColumnId }] }
+            ? {
+                ...col,
+                tasks: [
+                    ...col.tasks,
+                    { ...movedTask, columnId: targetColumnId },
+                ],
+            }
             : col
     );
 }

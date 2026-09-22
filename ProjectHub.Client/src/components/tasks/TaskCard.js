@@ -1,5 +1,5 @@
 // components/tasks/TaskCard.jsx
-import React, { useRef, useState } from 'react';
+import React, {useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
     getTaskById,
@@ -74,7 +74,9 @@ export default function TaskCard({
     const handleDragEnd = () => {
         setTimeout(() => { draggedRef.current = false; }, 0);
     };
-
+    useEffect(() => {
+        console.log('🟢 TaskCard rendered:', task.id);
+    });
     const handleClick = () => {
         if (draggedRef.current) return;
         navigate(`/projects/${code}/tasks/${task.id}`);

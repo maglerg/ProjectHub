@@ -522,7 +522,389 @@ namespace ProjectHub.API.Services
 
             return await BuildTaskDtoAsync(task.Id, userId);
         }
+        // ═══════════════════════════════════════════════════════════
+        //  УПРАВЛЕНИЕ КОЛОНКАМИ
+        // ═══════════════════════════════════════════════════════════
 
+        /// <summary>Создать кастомную колонку. Только владелец.</summary>
+        public async Task<TaskColumnDto> CreateColumnAsync(
+            string projectCode, Guid userId, CreateColumnDto dto)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
+
+            if (project.OwnerId != userId)
+                throw new UnauthorizedAccessException(
+                    "Создавать колонки может только владелец проекта");
+
+            if (string.IsNullOrWhiteSpace(dto.Name))
+                throw new InvalidOperationException("Название колонки обязательно");
+
+            var name = dto.Name.Trim();
+            if (name.Length > 100)
+                throw new InvalidOperationException(
+                    "Название колонки не длиннее 100 символов");
+
+            var weight = Math.Clamp(dto.ProgressWeight, 0.0, 1.0);
+
+            // Проверка дубликата имени (регистронезависимо)
+            var exists = await _db.TaskColumns
+                .AnyAsync(c => c.ProjectId == project.Id
+                               && c.Name.ToLower() == name.ToLower());
+
+            if (exists)
+                throw new InvalidOperationException(
+                    $"Колонка с названием «{name}» уже существует");
+
+            // Находим системные крайние колонки
+            var notStartedColumn = await _db.TaskColumns
+                .FirstOrDefaultAsync(c => c.ProjectId == project.Id
+                                           && c.SystemKey == KeyNotStarted);
+
+            var completedColumn = await _db.TaskColumns
+                .FirstOrDefaultAsync(c => c.ProjectId == project.Id
+                                           && c.SystemKey == KeyCompleted);
+
+            // Определяем позицию
+            int newOrder;
+            if (dto.Order.HasValue)
+            {
+                // Нельзя поставить перед NotStarted или после Completed
+                var minOrder = (notStartedColumn?.Order ?? 0) + 1;
+                var maxOrder = (completedColumn?.Order ?? int.MaxValue) - 1;
+
+                newOrder = Math.Clamp(dto.Order.Value, minOrder, Math.Max(minOrder, maxOrder));
+
+                // Сдвигаем всё, что >= newOrder
+                var toShift = await _db.TaskColumns
+                    .Where(c => c.ProjectId == project.Id && c.Order >= newOrder)
+                    .ToListAsync();
+
+                foreach (var c in toShift)
+                    c.Order++;
+            }
+            else
+            {
+                // В конец, перед Completed
+                newOrder = (completedColumn?.Order ?? 999);
+
+                if (completedColumn != null)
+                    completedColumn.Order = newOrder + 1;
+            }
+
+            var column = new TaskColumn
+            {
+                Id = Guid.NewGuid(),
+                ProjectId = project.Id,
+                Name = name,
+                Order = newOrder,
+                IsDefault = false,
+                SystemKey = null,
+                ProgressWeight = weight
+            };
+
+            _db.TaskColumns.Add(column);
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.ColumnCreated,
+                summary: $"Создана колонка: {column.Name}",
+                link: $"/projects/{project.PublicCode}/dashboard",
+                relatedEntityId: column.Id
+            );
+
+            await _db.SaveChangesAsync();
+
+            // Пересобираем Order (на случай, если образовались дырки)
+            await NormalizeColumnOrderAsync(project.Id);
+
+            _logger.LogInformation(
+                $"Создана колонка {column.Id} «{column.Name}» в проекте {projectCode}");
+
+            return new TaskColumnDto
+            {
+                Id = column.Id,
+                Name = column.Name,
+                Order = column.Order,
+                SystemKey = column.SystemKey,
+                IsDefault = column.IsDefault,
+                ProgressWeight = column.ProgressWeight,
+                Tasks = new List<TaskDto>(),
+                TasksCount = 0
+            };
+        }
+
+        /// <summary>Обновить кастомную колонку. Только владелец.</summary>
+        public async Task<TaskColumnDto> UpdateColumnAsync(
+            string projectCode, Guid columnId, Guid userId, UpdateColumnDto dto)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
+
+            if (project.OwnerId != userId)
+                throw new UnauthorizedAccessException(
+                    "Редактировать колонки может только владелец проекта");
+
+            var column = await _db.TaskColumns
+                .FirstOrDefaultAsync(c => c.Id == columnId && c.ProjectId == project.Id)
+                ?? throw new KeyNotFoundException("Колонка не найдена");
+
+            if (column.IsDefault || !string.IsNullOrEmpty(column.SystemKey))
+                throw new InvalidOperationException(
+                    "Системные колонки нельзя редактировать");
+
+            if (string.IsNullOrWhiteSpace(dto.Name))
+                throw new InvalidOperationException("Название колонки обязательно");
+
+            var name = dto.Name.Trim();
+            if (name.Length > 100)
+                throw new InvalidOperationException(
+                    "Название колонки не длиннее 100 символов");
+
+            // Проверка дубликата имени (кроме самой колонки)
+            var exists = await _db.TaskColumns
+                .AnyAsync(c => c.ProjectId == project.Id
+                               && c.Id != columnId
+                               && c.Name.ToLower() == name.ToLower());
+
+            if (exists)
+                throw new InvalidOperationException(
+                    $"Колонка с названием «{name}» уже существует");
+
+            var oldName = column.Name;
+            var oldWeight = column.ProgressWeight;
+
+            column.Name = name;
+            column.ProgressWeight = Math.Clamp(dto.ProgressWeight, 0.0, 1.0);
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.ColumnUpdated,
+                summary: $"Обновлена колонка: {oldName} → {column.Name}",
+                link: $"/projects/{project.PublicCode}/dashboard",
+                relatedEntityId: column.Id
+            );
+
+            await _db.SaveChangesAsync();
+
+            _logger.LogInformation(
+                $"Обновлена колонка {columnId}: имя «{oldName}» → «{column.Name}», " +
+                $"вес {oldWeight} → {column.ProgressWeight}");
+
+            return new TaskColumnDto
+            {
+                Id = column.Id,
+                Name = column.Name,
+                Order = column.Order,
+                SystemKey = column.SystemKey,
+                IsDefault = column.IsDefault,
+                ProgressWeight = column.ProgressWeight,
+                Tasks = new List<TaskDto>(),
+                TasksCount = await _db.ProjectTasks.CountAsync(t => t.ColumnId == column.Id)
+            };
+        }
+
+        /// <summary>Удалить кастомную колонку с обязательным переносом задач.</summary>
+        public async Task DeleteColumnAsync(
+            string projectCode, Guid columnId, Guid userId, DeleteColumnDto dto)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
+
+            if (project.OwnerId != userId)
+                throw new UnauthorizedAccessException(
+                    "Удалять колонки может только владелец проекта");
+
+            var column = await _db.TaskColumns
+                .Include(c => c.Tasks)
+                .FirstOrDefaultAsync(c => c.Id == columnId && c.ProjectId == project.Id)
+                ?? throw new KeyNotFoundException("Колонка не найдена");
+
+            if (column.IsDefault || !string.IsNullOrEmpty(column.SystemKey))
+                throw new InvalidOperationException(
+                    "Системные колонки нельзя удалять");
+
+            var tasksCount = column.Tasks.Count;
+            var targetColumn = (TaskColumn?)null;
+
+            // Если есть задачи — обязателен перенос
+            if (tasksCount > 0)
+            {
+                if (!dto.MoveTasksToColumnId.HasValue)
+                    throw new InvalidOperationException(
+                        $"В колонке {tasksCount} задач(и). Укажите, куда их перенести");
+
+                if (dto.MoveTasksToColumnId.Value == columnId)
+                    throw new InvalidOperationException(
+                        "Нельзя перенести задачи в ту же колонку");
+
+                targetColumn = await _db.TaskColumns
+                    .FirstOrDefaultAsync(c => c.Id == dto.MoveTasksToColumnId.Value
+                                               && c.ProjectId == project.Id)
+                    ?? throw new KeyNotFoundException("Целевая колонка не найдена");
+
+                // Переносим задачи
+                var isTargetCompleted = IsKey(targetColumn, KeyCompleted);
+                var now = DateTime.UtcNow;
+
+                foreach (var task in column.Tasks)
+                {
+                    task.ColumnId = targetColumn.Id;
+                    task.UpdatedAt = now;
+
+                    if (isTargetCompleted)
+                    {
+                        // Завершаем
+                        task.CompletedAt ??= now;
+                    }
+                    else
+                    {
+                        // Если переносим из Completed — снимаем
+                        task.CompletedAt = null;
+                    }
+                }
+
+                // Логируем перенос задач
+                await _activity.LogAsync(
+                    project.Id,
+                    userId,
+                    ActivityType.ColumnDeleted,
+                    summary: $"Удалена колонка «{column.Name}». " +
+                             $"{tasksCount} задач перенесены в «{targetColumn.Name}»",
+                    link: $"/projects/{project.PublicCode}/dashboard",
+                    relatedEntityId: columnId
+                );
+            }
+            else
+            {
+                await _activity.LogAsync(
+                    project.Id,
+                    userId,
+                    ActivityType.ColumnDeleted,
+                    summary: $"Удалена колонка «{column.Name}»",
+                    link: $"/projects/{project.PublicCode}/dashboard",
+                    relatedEntityId: columnId
+                );
+            }
+
+            _db.TaskColumns.Remove(column);
+
+            await _db.SaveChangesAsync();
+
+            // Пересобираем Order
+            await NormalizeColumnOrderAsync(project.Id);
+
+            _logger.LogInformation(
+                $"Удалена колонка {columnId} «{column.Name}» в проекте {projectCode}. " +
+                $"Задач перенесено: {tasksCount}" +
+                (targetColumn != null ? $" в колонку {targetColumn.Id}" : ""));
+        }
+
+        /// <summary>Массовое изменение порядка колонок. Только владелец.</summary>
+        public async Task<List<TaskColumnDto>> ReorderColumnsAsync(
+            string projectCode, Guid userId, ReorderColumnsDto dto)
+        {
+            var project = await GetProjectByCodeOrThrowAsync(projectCode);
+            await EnsureProjectAccessAsync(project.Id, userId);
+            EnsureProjectNotArchived(project);
+
+            if (project.OwnerId != userId)
+                throw new UnauthorizedAccessException(
+                    "Менять порядок колонок может только владелец проекта");
+
+            if (dto.Orders == null || dto.Orders.Count == 0)
+                throw new InvalidOperationException("Список порядков пуст");
+
+            var columns = await _db.TaskColumns
+                .Where(c => c.ProjectId == project.Id)
+                .ToListAsync();
+
+            if (columns.Count != dto.Orders.Count)
+                throw new InvalidOperationException(
+                    "Количество элементов в списке порядков не совпадает " +
+                    "с количеством колонок");
+
+            // Проверяем, что все ID из списка существуют
+            foreach (var item in dto.Orders)
+            {
+                if (!columns.Any(c => c.Id == item.ColumnId))
+                    throw new KeyNotFoundException(
+                        $"Колонка {item.ColumnId} не найдена в проекте");
+            }
+
+            // Проверяем, что порядок уникален
+            var ordersSet = dto.Orders.Select(o => o.Order).ToHashSet();
+            if (ordersSet.Count != dto.Orders.Count)
+                throw new InvalidOperationException("Порядки должны быть уникальны");
+
+            // Проверяем границы для системных
+            var notStarted = columns.FirstOrDefault(c => c.SystemKey == KeyNotStarted);
+            var completed = columns.FirstOrDefault(c => c.SystemKey == KeyCompleted);
+            var maxOrder = dto.Orders.Max(o => o.Order);
+
+            foreach (var item in dto.Orders)
+            {
+                var col = columns.First(c => c.Id == item.ColumnId);
+
+                if (col.SystemKey == KeyNotStarted && item.Order != 0)
+                    throw new InvalidOperationException(
+                        "Колонка «Не начато» всегда первая");
+
+                if (col.SystemKey == KeyCompleted && item.Order != maxOrder)
+                    throw new InvalidOperationException(
+                        "Колонка «Завершено» всегда последняя");
+            }
+
+            // Применяем
+            foreach (var item in dto.Orders)
+            {
+                var col = columns.First(c => c.Id == item.ColumnId);
+                col.Order = item.Order;
+            }
+
+            await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.ColumnReordered,
+                summary: "Изменён порядок колонок",
+                link: $"/projects/{project.PublicCode}/dashboard"
+            );
+
+            await _db.SaveChangesAsync();
+
+            // Пересобираем Order для чистоты
+            await NormalizeColumnOrderAsync(project.Id);
+
+            // Возвращаем колонки с задачами
+            var board = await GetBoardByCodeAsync(projectCode, userId);
+            return board;
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  ВСПОМОГАТЕЛЬНЫЕ ДЛЯ КОЛОНОК
+        // ═══════════════════════════════════════════════════════════
+
+        /// <summary>Пересобирает Order колонок подряд: 0, 1, 2, ...</summary>
+        private async Task NormalizeColumnOrderAsync(Guid projectId)
+        {
+            var columns = await _db.TaskColumns
+                .Where(c => c.ProjectId == projectId)
+                .OrderBy(c => c.Order)
+                .ThenBy(c => c.Name)
+                .ToListAsync();
+
+            for (int i = 0; i < columns.Count; i++)
+            {
+                columns[i].Order = i;
+            }
+
+            await _db.SaveChangesAsync();
+        }
         // ═══════════════════════════════════════════════════════════
         //  ПОЛУЧЕНИЕ ЗАДАЧИ
         // ═══════════════════════════════════════════════════════════
@@ -1453,6 +1835,9 @@ namespace ProjectHub.API.Services
                 Name = c.Name,
                 Order = c.Order,
                 SystemKey = c.SystemKey,
+                IsDefault = c.IsDefault,
+                ProgressWeight = c.ProgressWeight,
+                TasksCount = c.Tasks?.Count ?? 0,
                 Tasks = c.Tasks
                     .Select(t => new
                     {

@@ -441,7 +441,104 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+        // ═══════════════════════════════════════════════════════════
+        //  УПРАВЛЕНИЕ КОЛОНКАМИ
+        // ═══════════════════════════════════════════════════════════
 
+        // POST /api/projects/{projectCode}/tasks/columns
+        [HttpPost("columns")]
+        public async Task<IActionResult> CreateColumn(
+            string projectCode, [FromBody] CreateColumnDto dto)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var column = await _taskService.CreateColumnAsync(projectCode, userId, dto);
+                return Ok(column);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка создания колонки");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // PUT /api/projects/{projectCode}/tasks/columns/{columnId}
+        [HttpPut("columns/{columnId}")]
+        public async Task<IActionResult> UpdateColumn(
+            string projectCode, Guid columnId, [FromBody] UpdateColumnDto dto)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var column = await _taskService.UpdateColumnAsync(
+                    projectCode, columnId, userId, dto);
+                return Ok(column);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка обновления колонки");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // DELETE /api/projects/{projectCode}/tasks/columns/{columnId}
+        [HttpDelete("columns/{columnId}")]
+        public async Task<IActionResult> DeleteColumn(
+            string projectCode, Guid columnId, [FromBody] DeleteColumnDto? dto)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                await _taskService.DeleteColumnAsync(
+                    projectCode, columnId, userId, dto ?? new DeleteColumnDto());
+                return NoContent();
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка удаления колонки");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
+
+        // PATCH /api/projects/{projectCode}/tasks/columns/reorder
+        [HttpPatch("columns/reorder")]
+        public async Task<IActionResult> ReorderColumns(
+            string projectCode, [FromBody] ReorderColumnsDto dto)
+        {
+            if (!TryGetUserId(out var userId))
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+
+            try
+            {
+                var columns = await _taskService.ReorderColumnsAsync(
+                    projectCode, userId, dto);
+                return Ok(columns);
+            }
+            catch (KeyNotFoundException ex) { return NotFound(new { error = ex.Message }); }
+            catch (UnauthorizedAccessException ex) { return Forbid(ex.Message); }
+            catch (InvalidOperationException ex) { return BadRequest(new { error = ex.Message }); }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка изменения порядка колонок");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
         // GET /api/projects/{projectCode}/tasks/search-by-tags?tagIds=...
         [HttpGet("search-by-tags")]
         public async Task<IActionResult> SearchByTags(

@@ -16,7 +16,47 @@ async function handleResponse(resp) {
     if (resp.status === 204) return null;
     return resp.json();
 }
+// ═══════════════════════════════════════════════════════════
+//  УПРАВЛЕНИЕ КОЛОНКАМИ
+// ═══════════════════════════════════════════════════════════
 
+// Создать колонку
+export const createColumn = (projectCode, { name, progressWeight = 0.5, order = null }) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/columns`, {
+        method: 'POST',
+        headers: authHeaders(),
+        body: JSON.stringify({ name, progressWeight, order })
+    }).then(handleResponse);
+
+// Обновить колонку
+export const updateColumn = (projectCode, columnId, { name, progressWeight }) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/columns/${columnId}`, {
+        method: 'PUT',
+        headers: authHeaders(),
+        body: JSON.stringify({ name, progressWeight })
+    }).then(handleResponse);
+
+// Удалить колонку (с опциональным переносом задач)
+export const deleteColumn = (projectCode, columnId, moveTasksToColumnId = null) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/columns/${columnId}`, {
+        method: 'DELETE',
+        headers: authHeaders(),
+        body: JSON.stringify({ moveTasksToColumnId })
+    }).then(async (resp) => {
+        if (!resp.ok && resp.status !== 204) {
+            const err = await resp.json().catch(() => ({}));
+            throw new Error(err.error || 'Ошибка удаления колонки');
+        }
+        return null;
+    });
+
+// Массовое изменение порядка колонок
+export const reorderColumns = (projectCode, orders) =>
+    fetch(`${API_BASE_URL}/projects/${projectCode}/tasks/columns/reorder`, {
+        method: 'PATCH',
+        headers: authHeaders(),
+        body: JSON.stringify({ orders })
+    }).then(handleResponse);
 // ═══════════════════════════════════════════════════════════
 //  ДОСКА И ПРОГРЕСС
 // ═══════════════════════════════════════════════════════════

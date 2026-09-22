@@ -2127,3 +2127,220 @@
     background: #c7d2fe;
     color: #4f46e5;
 }
+/* ═══════════════════════════════════════════════════════════
+   УПРАВЛЕНИЕ КОЛОНКАМИ
+   ═══════════════════════════════════════════════════════════ */
+
+/* ── Хедер колонки: слева имя+иконки, справа действия ── */
+.task-column-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding: 10px 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.task-column-header-left {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+}
+
+.task-column-lock {
+    font-size: 12px;
+    opacity: 0.6;
+    cursor: help;
+    flex-shrink: 0;
+}
+
+.task-column-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    flex-shrink: 0;
+    opacity: 0;
+    transition: opacity 0.15s;
+}
+
+.task-column:hover .task-column-header-actions {
+    opacity: 1;
+}
+
+.column-action-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    padding: 4px 6px;
+    border-radius: 6px;
+    line-height: 1;
+    color: #6b7280;
+    transition: background 0.15s, color 0.15s;
+}
+
+    .column-action-btn:hover {
+        background: #f3f4f6;
+        color: #111827;
+    }
+
+    .column-action-btn.danger:hover {
+        background: #fef2f2;
+        color: #dc2626;
+    }
+
+/* ── Кнопка «+ Колонка» ── */
+.tasks-column-add {
+    display: flex;
+    align-items: flex-start;
+    flex-shrink: 0;
+    min-width: 240px;
+    max-width: 280px;
+    padding-top: 4px;
+}
+
+.btn-add-column {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 12px 16px;
+    background: rgba(255, 255, 255, 0.6);
+    border: 2px dashed #d1d5db;
+    border-radius: 12px;
+    cursor: pointer;
+    color: #6b7280;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    transition: all 0.15s;
+}
+
+    .btn-add-column:hover {
+        background: #fff;
+        border-color: #4f46e5;
+        color: #4f46e5;
+    }
+
+.btn-add-column-icon {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.btn-add-column-text {
+    line-height: 1;
+}
+
+/* ── Модалка колонки ── */
+.modal-content--column {
+    max-width: 480px;
+    width: 100%;
+}
+
+.column-form {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+    padding: 20px;
+}
+
+    .column-form .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+    }
+
+    .column-form label {
+        font-size: 14px;
+        font-weight: 600;
+        color: #374151;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 8px;
+    }
+
+.column-form__weight-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: #4f46e5;
+    background: #eef2ff;
+    padding: 2px 10px;
+    border-radius: 10px;
+}
+
+.column-form input[type="text"] {
+    padding: 10px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #111827;
+    outline: none;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+    .column-form input[type="text"]:focus {
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }
+
+.column-form input[type="range"] {
+    width: 100%;
+    accent-color: #4f46e5;
+    margin: 4px 0;
+}
+
+.column-form__weight-hint {
+    display: flex;
+    justify-content: space-between;
+    font-size: 11px;
+    color: #9ca3af;
+    margin-top: -2px;
+}
+
+.column-form__weight-tip {
+    font-size: 12px;
+    color: #6b7280;
+    background: #f9fafb;
+    padding: 8px 10px;
+    border-radius: 8px;
+    line-height: 1.5;
+    margin-top: 4px;
+}
+
+/* ── Модалка удаления ── */
+.delete-column__warning {
+    padding: 12px 16px;
+    background: #fef3c7;
+    border: 1px solid #fcd34d;
+    color: #92400e;
+    border-radius: 8px;
+    font-size: 14px;
+    line-height: 1.5;
+    margin: 0 20px;
+}
+
+    .delete-column__warning b {
+        font-weight: 700;
+    }
+
+.modal-content--column select {
+    padding: 10px 14px;
+    border: 1px solid #d1d5db;
+    border-radius: 10px;
+    font-size: 14px;
+    font-family: inherit;
+    color: #111827;
+    outline: none;
+    background: #fff;
+    cursor: pointer;
+    transition: border-color 0.15s, box-shadow 0.15s;
+}
+
+    .modal-content--column select:focus {
+        border-color: #4f46e5;
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.1);
+    }

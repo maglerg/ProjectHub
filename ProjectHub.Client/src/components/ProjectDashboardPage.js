@@ -101,7 +101,9 @@ const ProjectDashboardPage = () => {
             setActiveSection(location.state.section);
         }
     }, [location.state?.section]);
-
+    useEffect(() => {
+        console.log('🟢 ProjectDashboardPage rendered. activeSection =', activeSection);
+    });
     // ── Фильтры задач ──
     const [taskFilters, setTaskFilters] = useState({
         onlyMyTasks: false,

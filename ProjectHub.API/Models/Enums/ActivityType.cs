@@ -42,6 +42,11 @@
         SubtaskCompleted = 41,
         SubtaskUncompleted = 42,
         SubtaskDeleted = 43,
+        // Колонки задач
+        ColumnCreated,
+        ColumnUpdated,
+        ColumnDeleted,
+        ColumnReordered,
 
         // ── Комментарии ──
         CommentAdded = 50,
