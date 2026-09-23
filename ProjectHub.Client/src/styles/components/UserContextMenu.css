@@ -1,94 +1,165 @@
 /* src/styles/components/UserContextMenu.css */
 
+/* ═══════════════════════════════════════════════════════════
+   КОНТЕКСТНОЕ МЕНЮ
+   ═══════════════════════════════════════════════════════════ */
+
 .user-context-menu {
     min-width: 240px;
     max-width: 320px;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
+    background: var(--color-bg, #ffffff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--radius-lg, 14px);
     box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
-    padding: 6px;
+    padding: var(--space-2, 8px);
     z-index: 10000;
-    font-size: 14px;
     font-family: inherit;
     user-select: none;
-    animation: ucm-fade-in 0.12s ease-out;
+    opacity: 0;
+    animation: ucm-fade-in 0.12s ease-out forwards;
 }
 
 @keyframes ucm-fade-in {
     from {
         opacity: 0;
-        transform: translateY(-4px);
     }
 
     to {
         opacity: 1;
-        transform: translateY(0);
     }
 }
 
-/* ── Пункт ── */
-.ucm-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    padding: 8px 10px;
-    background: none;
-    border: none;
-    border-radius: 6px;
-    color: #111827;
-    font-size: 14px;
-    font-family: inherit;
+/* ═══════════════════════════════════════════════════════════
+   ПУНКТ МЕНЮ — жёстко перебиваем .btn
+   ═══════════════════════════════════════════════════════════ */
+
+.user-context-menu .ucm-item,
+.user-context-menu button.ucm-item {
+    /* layout */
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    justify-content: flex-start !important;
+    gap: 10px !important;
+    width: 100% !important;
+    min-height: 32px !important;
+    height: auto !important;
+    padding: 6px 10px !important;
+    margin: 0 !important;
+    /* box */
+    background: transparent !important;
+    border: none !important;
+    border-radius: var(--radius-sm, 6px) !important;
+    box-shadow: none !important;
+    outline: none !important;
+    /* text — фиксированная строка, без «плавания» */
+    color: var(--color-text, #111827);
+    font-family: inherit !important;
+    font-size: 13px !important;
+    font-weight: 500 !important;
+    line-height: 20px !important;
+    letter-spacing: 0 !important;
+    text-align: left !important;
+    text-decoration: none !important;
+    white-space: nowrap !important;
+    vertical-align: middle !important;
+    /* никаких трансформаций */
+    transform: none !important;
+    transition: background-color 0.12s ease, color 0.12s ease;
     cursor: pointer;
-    text-align: left;
-    transition: background 0.1s, color 0.1s;
-    white-space: nowrap;
 }
 
-    .ucm-item:hover:not(:disabled) {
-        background: #f3f4f6;
+    .user-context-menu .ucm-item:hover:not(:disabled),
+    .user-context-menu button.ucm-item:hover:not(:disabled) {
+        background: var(--color-gray-100, #f3f4f6) !important;
+        transform: none !important;
     }
 
-    .ucm-item:disabled {
+    .user-context-menu .ucm-item:active:not(:disabled),
+    .user-context-menu button.ucm-item:active:not(:disabled) {
+        background: var(--color-gray-200, #e5e7eb) !important;
+        transform: none !important;
+    }
+
+    .user-context-menu .ucm-item:disabled {
         opacity: 0.45;
         cursor: not-allowed;
     }
 
-    .ucm-item.danger {
-        color: #dc2626;
+    /* Красный пункт */
+    .user-context-menu .ucm-item.danger,
+    .user-context-menu .ucm-item--danger {
+        color: var(--color-danger, #dc2626) !important;
     }
 
-        .ucm-item.danger:hover {
-            background: #fef2f2;
+        .user-context-menu .ucm-item.danger:hover:not(:disabled),
+        .user-context-menu .ucm-item--danger:hover:not(:disabled) {
+            background: var(--color-danger-bg, #fef2f2) !important;
         }
 
-/* ── Иконка ── */
-.ucm-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 18px;
-    flex-shrink: 0;
-    font-size: 15px;
-    line-height: 1;
+/* ═══════════════════════════════════════════════════════════
+   ИКОНКА — фиксированный квадрат, центрирование
+   ═══════════════════════════════════════════════════════════ */
+
+.user-context-menu .ucm-icon {
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex-shrink: 0 !important;
+    width: 18px !important;
+    height: 18px !important;
+    line-height: 1 !important;
+    margin: 0 !important;
+    color: var(--color-text-secondary, #6b7280);
 }
 
-/* ── Хинт (email справа) ── */
-.ucm-hint {
-    margin-left: auto;
-    font-size: 11px;
-    color: #9ca3af;
-    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-    max-width: 130px;
+    .user-context-menu .ucm-icon > svg {
+        display: block !important;
+        width: 14px !important;
+        height: 14px !important;
+    }
+
+.user-context-menu .ucm-item:hover:not(:disabled) .ucm-icon {
+    color: var(--color-text, #111827);
+}
+
+.user-context-menu .ucm-item.danger .ucm-icon,
+.user-context-menu .ucm-item--danger .ucm-icon {
+    color: currentColor;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ТЕКСТ ПУНКТА — обёртка для ровного центрирования
+   ═══════════════════════════════════════════════════════════ */
+
+/* если текст лежит прямо в button — он уже строчный,
+   но на всякий случай выровняем через line-height (уже задан выше) */
+
+/* ═══════════════════════════════════════════════════════════
+   ХИНТ (email справа)
+   ═══════════════════════════════════════════════════════════ */
+
+.user-context-menu .ucm-hint {
+    margin-left: auto !important;
+    padding-left: 12px;
+    font-family: var(--font-mono, ui-monospace, monospace);
+    font-size: 11px !important;
+    font-weight: 400 !important;
+    line-height: 20px !important;
+    color: var(--color-text-tertiary, #9ca3af);
+    max-width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
 
-/* ── Разделитель ── */
-.ucm-divider {
+/* ═══════════════════════════════════════════════════════════
+   РАЗДЕЛИТЕЛЬ
+   ═══════════════════════════════════════════════════════════ */
+
+.user-context-menu .ucm-divider {
     height: 1px;
-    margin: 4px 6px;
-    background: #f3f4f6;
+    margin: 4px 8px;
+    background: var(--color-border, #e5e7eb);
+    border: none;
 }

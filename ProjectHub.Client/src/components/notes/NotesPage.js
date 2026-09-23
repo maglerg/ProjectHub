@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, FileText, Search, RotateCcw, Plus, StickyNote } from 'lucide-react';
 import {
     getNotes,
     createNote,
@@ -11,8 +12,8 @@ import NoteEditorModal from './NoteEditorModal';
 import '../../styles/components/notes.css';
 
 const FILTERS = [
-    { value: 'All', label: '📋 Все' },
-    { value: 'Free', label: '🗒️ Свободные' }
+    { value: 'All', label: 'Все', icon: FileText },
+    { value: 'Free', label: 'Свободные', icon: StickyNote }
 ];
 
 // ── Сортировка: закреплённые сверху, затем по дате обновления ──
@@ -109,43 +110,65 @@ export default function NotesPage() {
     return (
         <div className="notes-page">
             <header className="notes-page-header">
-                <button className="btn-back" onClick={() => navigate(-1)}>
-                    ← Назад
+                <button
+                    type="button"
+                    className="btn btn--ghost btn--sm"
+                    onClick={() => navigate(-1)}
+                >
+                    <ArrowLeft size={16} />
+                    Назад
                 </button>
+
                 <div className="notes-page-title-block">
-                    <h1>📝 Мои заметки</h1>
+                    <h1>
+                        <StickyNote size={22} />
+                        Мои заметки
+                    </h1>
                     <p className="notes-page-subtitle">
                         Видны только вам. Заметки можно привязать к проекту.
                     </p>
                 </div>
-                <button className="btn-primary" onClick={handleOpenNew}>
-                    + Новая заметка
+
+                <button
+                    type="button"
+                    className="btn btn--primary"
+                    onClick={handleOpenNew}
+                >
+                    <Plus size={16} />
+                    Новая заметка
                 </button>
             </header>
 
             <div className="notes-page-toolbar">
                 <div className="notes-page-filters">
-                    {FILTERS.map(f => (
-                        <button
-                            key={f.value}
-                            type="button"
-                            className={`notes-filter-btn ${filter === f.value ? 'active' : ''}`}
-                            onClick={() => setFilter(f.value)}
-                        >
-                            {f.label}
-                        </button>
-                    ))}
+                    {FILTERS.map(f => {
+                        const Icon = f.icon;
+                        return (
+                            <button
+                                key={f.value}
+                                type="button"
+                                className={`notes-filter-btn ${filter === f.value ? 'active' : ''}`}
+                                onClick={() => setFilter(f.value)}
+                            >
+                                <Icon size={14} />
+                                {f.label}
+                            </button>
+                        );
+                    })}
                 </div>
 
                 <div className="notes-page-search-row">
                     <form className="notes-page-search" onSubmit={handleSearchSubmit}>
+                        <Search size={14} className="notes-page-search-icon" />
                         <input
                             type="text"
                             placeholder="Поиск по заметкам…"
                             value={search}
                             onChange={e => setSearch(e.target.value)}
                         />
-                        <button type="submit" className="notes-page-search-btn">🔍</button>
+                        <button type="submit" className="notes-page-search-btn">
+                            Найти
+                        </button>
                     </form>
 
                     {(search || filter !== 'All') && (
@@ -155,7 +178,8 @@ export default function NotesPage() {
                             onClick={handleReset}
                             title="Сбросить поиск и фильтры"
                         >
-                            ↺ Сбросить
+                            <RotateCcw size={14} />
+                            Сбросить
                         </button>
                     )}
                 </div>
@@ -167,11 +191,18 @@ export default function NotesPage() {
                 <div className="notes-page-error">{error}</div>
             ) : notes.length === 0 ? (
                 <div className="notes-page-empty">
-                    <div className="notes-page-empty-icon">📝</div>
+                    <div className="notes-page-empty-icon">
+                        <StickyNote size={28} />
+                    </div>
                     <h3>Заметок пока нет</h3>
                     <p>Создайте первую заметку — она видна только вам</p>
-                    <button className="btn-primary" onClick={handleOpenNew}>
-                        + Создать заметку
+                    <button
+                        type="button"
+                        className="btn btn--primary"
+                        onClick={handleOpenNew}
+                    >
+                        <Plus size={16} />
+                        Создать заметку
                     </button>
                 </div>
             ) : (

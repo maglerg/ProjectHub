@@ -1,5 +1,6 @@
 // components/notes/NotesPanel.jsx
 import React, { useEffect, useRef, useState } from 'react';
+import { StickyNote, Save, Loader2, X, Check, AlertCircle } from 'lucide-react';
 import { getNotes, createNote, updateNote } from '../../services/notesApi';
 import { formatDateTime } from '../../utils/datetime';
 import '../../styles/components/notes.css';
@@ -103,7 +104,10 @@ export default function NotesPanel({ projectCode, projectName }) {
         <div className="notes-doc-panel">
             <header className="notes-doc-panel-header">
                 <div>
-                    <h2>📝 Моя заметка</h2>
+                    <h2>
+                        <StickyNote size={20} />
+                        Моя заметка
+                    </h2>
                     <p className="notes-doc-panel-subtitle">
                         Видна только вам. Проект: <b>{projectName}</b>
                     </p>
@@ -112,8 +116,15 @@ export default function NotesPanel({ projectCode, projectName }) {
 
             {error && (
                 <div className="notes-doc-error">
-                    {error}
-                    <button onClick={() => setError(null)}>×</button>
+                    <AlertCircle size={14} />
+                    <span>{error}</span>
+                    <button
+                        type="button"
+                        onClick={() => setError(null)}
+                        aria-label="Закрыть"
+                    >
+                        <X size={14} />
+                    </button>
                 </div>
             )}
 
@@ -147,6 +158,7 @@ export default function NotesPanel({ projectCode, projectName }) {
                     <div className="note-doc-meta">
                         {savedAt && !hasChanges && (
                             <span className="note-doc-saved-at">
+                                <Check size={12} />
                                 Сохранено: {formatDateTime(savedAt)}
                             </span>
                         )}
@@ -165,7 +177,7 @@ export default function NotesPanel({ projectCode, projectName }) {
                     <div className="note-doc-actions">
                         <button
                             type="button"
-                            className="note-doc-save-btn"
+                            className="btn btn--primary btn--sm"
                             onClick={handleSave}
                             disabled={saving || !content.trim() || !hasChanges}
                             title={
@@ -174,7 +186,17 @@ export default function NotesPanel({ projectCode, projectName }) {
                                     : 'Сохранить заметку'
                             }
                         >
-                            {saving ? 'Сохранение…' : '💾 Сохранить'}
+                            {saving ? (
+                                <>
+                                    <Loader2 size={14} className="icon-spin" />
+                                    Сохранение…
+                                </>
+                            ) : (
+                                <>
+                                    <Save size={14} />
+                                    Сохранить
+                                </>
+                            )}
                         </button>
                     </div>
                 </div>

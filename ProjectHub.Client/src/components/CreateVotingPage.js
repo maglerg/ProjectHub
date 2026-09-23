@@ -87,10 +87,21 @@ export default function CreateVotingModal({
                 className="modal-content modal-content--voting"
                 onClick={e => e.stopPropagation()}
             >
-                <h3>
-                    <Vote size={20} />
-                    Новое голосование
-                </h3>
+                <div className="modal-header-row">
+                    <h3 className="modal-title">
+                        <Vote size={20} />
+                        Новое голосование
+                    </h3>
+                    <button
+                        type="button"
+                        className="btn btn--ghost btn--icon btn--sm"
+                        onClick={onClose}
+                        title="Закрыть"
+                        aria-label="Закрыть"
+                    >
+                        <X size={16} />
+                    </button>
+                </div>
 
                 <form onSubmit={handleSubmit} className="create-voting-form">
                     {error && (
@@ -133,7 +144,7 @@ export default function CreateVotingModal({
                                     />
                                     <button
                                         type="button"
-                                        className="btn btn--ghost btn--icon btn--sm"
+                                        className="btn btn--ghost btn--icon btn--sm option-remove-btn"
                                         onClick={() => handleRemoveOption(index)}
                                         disabled={options.length <= MIN_OPTIONS}
                                         title="Удалить вариант"
@@ -147,7 +158,7 @@ export default function CreateVotingModal({
 
                         <button
                             type="button"
-                            className="btn btn--secondary btn--sm"
+                            className="btn btn--secondary btn--sm add-option-btn"
                             onClick={handleAddOption}
                             disabled={options.length >= MAX_OPTIONS}
                         >
@@ -156,42 +167,75 @@ export default function CreateVotingModal({
                         </button>
                     </div>
 
+                    {/* ── Настройки голосования ── */}
                     <div className="form-group">
-                        <label className="checkbox-label">
-                            <input
-                                type="checkbox"
-                                checked={isMultipleChoice}
-                                onChange={e => setIsMultipleChoice(e.target.checked)}
-                            />
-                            <span>Можно выбрать несколько вариантов</span>
-                        </label>
+                        <label className="voting-toggles-label">Настройки</label>
 
-                        <label className="checkbox-label">
-                            <input
-                                type="checkbox"
-                                checked={allowRevote}
-                                onChange={e => setAllowRevote(e.target.checked)}
-                            />
-                            <span>Разрешить переголосовать</span>
-                        </label>
+                        <div className="voting-toggles">
+                            <label className="voting-toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={isMultipleChoice}
+                                    onChange={e => setIsMultipleChoice(e.target.checked)}
+                                />
+                                <span className="voting-toggle__text">
+                                    <span className="voting-toggle__title">
+                                        Множественный выбор
+                                    </span>
+                                    <span className="voting-toggle__hint">
+                                        Можно выбрать несколько вариантов
+                                    </span>
+                                </span>
+                            </label>
 
-                        <label className="checkbox-label">
-                            <input
-                                type="checkbox"
-                                checked={showResultsBeforeVote}
-                                onChange={e => setShowResultsBeforeVote(e.target.checked)}
-                            />
-                            <span>Показывать результаты до голосования</span>
-                        </label>
+                            <label className="voting-toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={allowRevote}
+                                    onChange={e => setAllowRevote(e.target.checked)}
+                                />
+                                <span className="voting-toggle__text">
+                                    <span className="voting-toggle__title">
+                                        Переголосование
+                                    </span>
+                                    <span className="voting-toggle__hint">
+                                        Разрешить менять свой выбор
+                                    </span>
+                                </span>
+                            </label>
 
-                        <label className="checkbox-label">
-                            <input
-                                type="checkbox"
-                                checked={isAnonymous}
-                                onChange={e => setIsAnonymous(e.target.checked)}
-                            />
-                            <span>Анонимное голосование</span>
-                        </label>
+                            <label className="voting-toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={showResultsBeforeVote}
+                                    onChange={e => setShowResultsBeforeVote(e.target.checked)}
+                                />
+                                <span className="voting-toggle__text">
+                                    <span className="voting-toggle__title">
+                                        Открытые результаты
+                                    </span>
+                                    <span className="voting-toggle__hint">
+                                        Показывать результаты до голосования
+                                    </span>
+                                </span>
+                            </label>
+
+                            <label className="voting-toggle">
+                                <input
+                                    type="checkbox"
+                                    checked={isAnonymous}
+                                    onChange={e => setIsAnonymous(e.target.checked)}
+                                />
+                                <span className="voting-toggle__text">
+                                    <span className="voting-toggle__title">
+                                        Анонимное
+                                    </span>
+                                    <span className="voting-toggle__hint">
+                                        Скрыть, кто как голосовал
+                                    </span>
+                                </span>
+                            </label>
+                        </div>
                     </div>
 
                     <div className="form-group">

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Clock, Folder, Lock, Pin, Trash2, FileText } from 'lucide-react';
 import { formatRelativeTime, formatDateTime } from '../../utils/datetime';
 import '../../styles/components/notes.css';
 
@@ -45,7 +46,9 @@ export default function NoteCard({ note, onOpen, onDelete }) {
                 </div>
 
                 {note.isPinned && (
-                    <span className="note-card-pin" title="Закреплено">📌</span>
+                    <span className="note-card-pin" title="Закреплено">
+                        <Pin size={14} fill="currentColor" />
+                    </span>
                 )}
             </div>
 
@@ -68,7 +71,8 @@ export default function NoteCard({ note, onOpen, onDelete }) {
                         className="note-card-date"
                         title={formatDateTime(note.updatedAt)}
                     >
-                        🕒 {formatRelativeTime(note.updatedAt)}
+                        <Clock size={12} />
+                        {formatRelativeTime(note.updatedAt)}
                     </span>
 
                     {hasProject && (
@@ -80,7 +84,11 @@ export default function NoteCard({ note, onOpen, onDelete }) {
                                     : 'Проект недоступен'
                             }
                         >
-                            {note.projectAccessible ? '📁' : '🔒'}{' '}
+                            {note.projectAccessible ? (
+                                <Folder size={12} />
+                            ) : (
+                                <Lock size={12} />
+                            )}
                             {note.projectName || 'Проект'}
                         </span>
                     )}
@@ -91,12 +99,13 @@ export default function NoteCard({ note, onOpen, onDelete }) {
                         type="button"
                         className="note-card-delete"
                         title="Удалить заметку"
+                        aria-label="Удалить заметку"
                         onClick={(e) => {
                             e.stopPropagation();
                             onDelete(note);
                         }}
                     >
-                        🗑️
+                        <Trash2 size={14} />
                     </button>
                 )}
             </div>

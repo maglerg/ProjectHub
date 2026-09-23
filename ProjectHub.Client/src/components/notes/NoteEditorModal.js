@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import { X, Clock, Folder, Pin, Trash2, Save, Loader2 } from 'lucide-react';
 import { formatDateTime } from '../../utils/datetime';
 import '../../styles/components/notes.css';
 
@@ -57,26 +58,30 @@ export default function NoteEditorModal({
         <div className="note-modal-overlay" onClick={onClose}>
             <div className="note-modal" onClick={e => e.stopPropagation()}>
                 <div className="note-modal-header">
-                    <div>
+                    <div className="note-modal-header-info">
                         <h3>{isNew ? 'Новая заметка' : 'Заметка'}</h3>
                         {!isNew && note?.updatedAt && (
                             <span className="note-modal-saved-at">
-                                🕒 Сохранено: {formatDateTime(note.updatedAt)}
+                                <Clock size={12} />
+                                Сохранено: {formatDateTime(note.updatedAt)}
                             </span>
                         )}
                     </div>
                     <button
-                        className="note-modal-close"
+                        type="button"
+                        className="btn btn--ghost btn--icon btn--sm"
                         onClick={onClose}
                         title="Закрыть"
+                        aria-label="Закрыть"
                     >
-                        ×
+                        <X size={16} />
                     </button>
                 </div>
 
                 {projectName && (
                     <div className="note-modal-project">
-                        📁 Привязана к проекту: <b>{projectName}</b>
+                        <Folder size={12} />
+                        Привязана к проекту: <b>{projectName}</b>
                     </div>
                 )}
 
@@ -118,7 +123,8 @@ export default function NoteEditorModal({
                                 checked={isPinned}
                                 onChange={e => setIsPinned(e.target.checked)}
                             />
-                            📌 Закрепить
+                            <Pin size={12} />
+                            <span>Закрепить</span>
                         </label>
 
                         <span className="note-modal-counter">
@@ -134,15 +140,17 @@ export default function NoteEditorModal({
                         {!isNew && onDelete && (
                             <button
                                 type="button"
-                                className="note-modal-delete"
+                                className="btn btn--danger-outline btn--sm"
                                 onClick={handleDelete}
                             >
-                                🗑️ Удалить
+                                <Trash2 size={14} />
+                                Удалить
                             </button>
                         )}
                         <div className="note-modal-actions-right">
                             <button
                                 type="button"
+                                className="btn btn--secondary"
                                 onClick={onClose}
                                 disabled={saving}
                             >
@@ -150,10 +158,20 @@ export default function NoteEditorModal({
                             </button>
                             <button
                                 type="submit"
-                                className="btn-primary"
+                                className="btn btn--primary"
                                 disabled={saving || !content.trim()}
                             >
-                                {saving ? 'Сохранение…' : 'Сохранить'}
+                                {saving ? (
+                                    <>
+                                        <Loader2 size={14} className="icon-spin" />
+                                        Сохранение…
+                                    </>
+                                ) : (
+                                    <>
+                                        <Save size={14} />
+                                        Сохранить
+                                    </>
+                                )}
                             </button>
                         </div>
                     </div>

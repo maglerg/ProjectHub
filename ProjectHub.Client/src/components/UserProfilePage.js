@@ -10,15 +10,22 @@ import {
     Check,
     UserPlus,
     Undo2,
-    Mail,
     MessageCircle,
     Users,
+    Globe,
     FileText,
     Inbox,
+    CalendarDays,
+    Mail,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getUserProfileByEmail } from '../services/userApi';
-import { getFriendStatus, sendFriendRequest, cancelFriendRequest, processFriendRequest } from '../services/friendRequestsApi';
+import {
+    getFriendStatus,
+    sendFriendRequest,
+    cancelFriendRequest,
+    processFriendRequest,
+} from '../services/friendRequestsApi';
 import { getFriends, removeFriend } from '../services/friendsApi';
 import { createPersonalChat } from '../services/chatsApi';
 import UserAvatar from './UserAvatar';
@@ -32,13 +39,18 @@ const UserProfilePage = () => {
     const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [friendStatus, setFriendStatus] = useState({ status: 'None', isFriend: false, requestId: null });
+    const [friendStatus, setFriendStatus] = useState({
+        status: 'None',
+        isFriend: false,
+        requestId: null,
+    });
     const [isProcessing, setIsProcessing] = useState(false);
     const [notification, setNotification] = useState(null);
     const [isFriend, setIsFriend] = useState(false);
 
     useEffect(() => {
         loadUserProfile();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [email]);
 
     const loadUserProfile = async () => {
@@ -74,10 +86,10 @@ const UserProfilePage = () => {
         try {
             await sendFriendRequest(user.email);
             setFriendStatus({ ...friendStatus, status: 'Pending' });
-            setNotification({ type: 'success', text: '✅ Заявка отправлена!' });
+            setNotification({ type: 'success', text: 'Заявка отправлена' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
-            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setNotification({ type: 'error', text: err.message || 'Ошибка' });
             setTimeout(() => setNotification(null), 3000);
         } finally {
             setIsProcessing(false);
@@ -93,10 +105,10 @@ const UserProfilePage = () => {
         try {
             await cancelFriendRequest(friendStatus.requestId);
             setFriendStatus({ ...friendStatus, status: 'None', requestId: null });
-            setNotification({ type: 'success', text: '✅ Заявка отменена' });
+            setNotification({ type: 'success', text: 'Заявка отменена' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
-            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setNotification({ type: 'error', text: err.message || 'Ошибка' });
             setTimeout(() => setNotification(null), 3000);
         } finally {
             setIsProcessing(false);
@@ -111,16 +123,16 @@ const UserProfilePage = () => {
         setNotification(null);
         try {
             const friendsList = await getFriends();
-            const friend = friendsList.find(f => f.email === user.email);
+            const friend = friendsList.find((f) => f.email === user.email);
             if (friend) {
                 await removeFriend(friend.id);
                 setIsFriend(false);
                 setFriendStatus({ status: 'None', isFriend: false, requestId: null });
-                setNotification({ type: 'success', text: '✅ Удален из друзей' });
+                setNotification({ type: 'success', text: 'Удалён из друзей' });
                 setTimeout(() => setNotification(null), 3000);
             }
         } catch (err) {
-            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setNotification({ type: 'error', text: err.message || 'Ошибка' });
             setTimeout(() => setNotification(null), 3000);
         } finally {
             setIsProcessing(false);
@@ -137,10 +149,10 @@ const UserProfilePage = () => {
             await processFriendRequest(friendStatus.requestId, true);
             setIsFriend(true);
             setFriendStatus({ status: 'Friend', isFriend: true, requestId: null });
-            setNotification({ type: 'success', text: '✅ Заявка принята! Вы теперь друзья' });
+            setNotification({ type: 'success', text: 'Заявка принята — вы теперь друзья' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
-            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setNotification({ type: 'error', text: err.message || 'Ошибка' });
             setTimeout(() => setNotification(null), 3000);
         } finally {
             setIsProcessing(false);
@@ -156,10 +168,10 @@ const UserProfilePage = () => {
         try {
             await processFriendRequest(friendStatus.requestId, false);
             setFriendStatus({ ...friendStatus, status: 'None', requestId: null });
-            setNotification({ type: 'success', text: '✅ Заявка отклонена' });
+            setNotification({ type: 'success', text: 'Заявка отклонена' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
-            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+            setNotification({ type: 'error', text: err.message || 'Ошибка' });
             setTimeout(() => setNotification(null), 3000);
         } finally {
             setIsProcessing(false);
@@ -180,10 +192,10 @@ const UserProfilePage = () => {
             if (err.message?.includes('только от друзей')) {
                 setNotification({
                     type: 'info',
-                    text: '👥 Этот пользователь принимает сообщения только от друзей. Отправьте заявку в друзья.'
+                    text: 'Этот пользователь принимает сообщения только от друзей. Отправьте заявку в друзья.',
                 });
             } else {
-                setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
+                setNotification({ type: 'error', text: err.message || 'Ошибка' });
             }
             setTimeout(() => setNotification(null), 5000);
             setIsProcessing(false);
@@ -193,10 +205,8 @@ const UserProfilePage = () => {
     if (loading) {
         return (
             <div className="user-profile-loading">
-                <div className="spinner">
-                    <Loader2 size={32} className="icon-spin" />
-                </div>
-                <p>Загрузка профиля...</p>
+                <Loader2 size={32} className="icon-spin" />
+                <p>Загрузка профиля…</p>
             </div>
         );
     }
@@ -204,8 +214,8 @@ const UserProfilePage = () => {
     if (error) {
         return (
             <div className="user-profile-error">
-                <div className="error-icon">
-                    <X size={32} />
+                <div className="user-profile-state-icon">
+                    <X size={28} />
                 </div>
                 <h3>Ошибка загрузки</h3>
                 <p>{error}</p>
@@ -224,11 +234,11 @@ const UserProfilePage = () => {
     if (!user) {
         return (
             <div className="user-profile-not-found">
-                <div className="not-found-icon">
-                    <User size={32} />
+                <div className="user-profile-state-icon">
+                    <User size={28} />
                 </div>
                 <h3>Пользователь не найден</h3>
-                <p>Возможно, пользователь был удален</p>
+                <p>Возможно, пользователь был удалён</p>
                 <button
                     type="button"
                     className="btn btn--secondary"
@@ -243,7 +253,11 @@ const UserProfilePage = () => {
 
     const isOwnProfile = currentUser?.email === user.email;
 
-    // 📌 Определяем, что показывать
+    // 📌 Реальная настройка приватности (никаких хардкодов)
+    const chatPrivacy = user.chatPrivacy || 'All';
+    const isFriendsOnly = chatPrivacy === 'FriendsOnly';
+
+    // 📌 Кнопка «дружбы»
     const renderFriendButton = () => {
         if (isFriend) {
             return (
@@ -294,11 +308,11 @@ const UserProfilePage = () => {
         if (friendStatus.status === 'Received') {
             return (
                 <div className="friend-request-received">
-                    <span>
+                    <span className="friend-request-received__text">
                         <Inbox size={14} />
                         Вам отправлена заявка в друзья
                     </span>
-                    <div className="friend-request-actions">
+                    <div className="friend-request-received__actions">
                         <button
                             type="button"
                             className="btn btn--primary btn--sm"
@@ -374,76 +388,89 @@ const UserProfilePage = () => {
                     Назад
                 </button>
                 <h1>
-                    <User size={24} />
+                    <User size={20} />
                     Профиль пользователя
                 </h1>
             </header>
 
             <div className="user-profile-content">
                 {notification && (
-                    <div className={`notification ${notification.type}`}>
+                    <div className={`user-profile-notification ${notification.type}`}>
                         {notification.text}
                     </div>
                 )}
 
                 <div className="user-profile-card">
-                    {/* 🆕 Аватар пользователя */}
-                    <div className="user-profile-avatar-wrapper">
-                        <UserAvatar
-                            avatarUrl={user.avatarUrl}
-                            name={user.name}
-                            email={user.email}
-                            size="xl"
-                        />
-                        {user.isOnline && (
-                            <span
-                                className="profile-online-dot"
-                                title="Онлайн"
+                    {/* ── Шапка профиля: аватар + имя + специализация ── */}
+                    <div className="user-profile-hero">
+                        <div className="user-profile-avatar-wrapper">
+                            <UserAvatar
+                                avatarUrl={user.avatarUrl}
+                                name={user.name}
+                                email={user.email}
+                                size="xl"
                             />
-                        )}
+                            <span
+                                className={`profile-online-dot ${user.isOnline ? 'online' : 'offline'}`}
+                                title={user.isOnline ? 'Онлайн' : 'Оффлайн'}
+                            />
+                        </div>
+
+                        <div className="user-profile-hero-info">
+                            <h2 className="user-profile-name">{user.name}</h2>
+                            <p className="user-profile-specialization">
+                                {user.specialization || 'Специализация не указана'}
+                            </p>
+                            <div className="user-profile-hero-status">
+                                <span className={`user-status ${user.isOnline ? 'online' : 'offline'}`}>
+                                    {user.isOnline ? 'Онлайн' : 'Оффлайн'}
+                                </span>
+                            </div>
+                        </div>
                     </div>
 
+                    {/* ── Информация ── */}
                     <div className="user-profile-info">
                         <div className="info-row">
-                            <span className="info-label">Имя</span>
-                            <span className="info-value">{user.name}</span>
-                        </div>
-                        <div className="info-row">
-                            <span className="info-label">Email</span>
+                            <span className="info-label">
+                                <Mail size={14} />
+                                Email
+                            </span>
                             <span className="info-value">{user.email}</span>
                         </div>
                         <div className="info-row">
-                            <span className="info-label">Специализация</span>
-                            <span className="info-value">{user.specialization || 'Не указана'}</span>
-                        </div>
-                        <div className="info-row">
-                            <span className="info-label">Статус</span>
-                            <span className={`user-status ${user.isOnline ? 'online' : 'offline'}`}>
-                                {user.isOnline ? '🟢 Онлайн' : '⚫ Оффлайн'}
+                            <span className="info-label">
+                                <CalendarDays size={14} />
+                                На сайте с
                             </span>
-                        </div>
-                        <div className="info-row">
-                            <span className="info-label">На сайте с</span>
                             <span className="info-value">
                                 {new Date(user.createdAt).toLocaleDateString('ru-RU', {
                                     day: '2-digit',
-                                    month: '2-digit',
-                                    year: 'numeric'
+                                    month: 'long',
+                                    year: 'numeric',
                                 })}
                             </span>
                         </div>
                         <div className="info-row">
                             <span className="info-label">
                                 <MessageCircle size={14} />
-                                Сообщения
+                                Кто может писать
                             </span>
-                            <span className="info-value privacy-badge">
-                                <Users size={14} />
-                                Только от друзей
-                            </span>
+                            {isFriendsOnly ? (
+                                <span className="privacy-badge privacy-badge--friends">
+                                    <Users size={13} />
+                                    Только друзья
+                                </span>
+                            ) : (
+                                <span className="privacy-badge privacy-badge--all">
+                                    <Globe size={13} />
+                                    Все пользователи
+                                </span>
+                            )}
                         </div>
                     </div>
 
+                    {/* ── О себе ── */}
                     {user.description && (
                         <div className="user-profile-description">
                             <h3>
@@ -454,6 +481,7 @@ const UserProfilePage = () => {
                         </div>
                     )}
 
+                    {/* ── Статистика ── */}
                     <div className="user-profile-stats">
                         <div className="stat-card">
                             <span className="stat-number">{user.projectsCount || 0}</span>
@@ -465,28 +493,31 @@ const UserProfilePage = () => {
                         </div>
                     </div>
 
-                    <div className="user-profile-actions">
-                        {!isOwnProfile && renderFriendButton()}
+                    {/* ── Действия ── */}
+                    {!isOwnProfile && (
+                        <div className="user-profile-actions">
+                            {renderFriendButton()}
 
-                        <button
-                            type="button"
-                            className="btn btn--secondary"
-                            onClick={handleSendMessage}
-                            disabled={isProcessing}
-                        >
-                            {isProcessing ? (
-                                <>
-                                    <Loader2 size={16} className="icon-spin" />
-                                    Отправка…
-                                </>
-                            ) : (
-                                <>
-                                    <MessageCircle size={16} />
-                                    Отправить сообщение
-                                </>
-                            )}
-                        </button>
-                    </div>
+                            <button
+                                type="button"
+                                className="btn btn--secondary"
+                                onClick={handleSendMessage}
+                                disabled={isProcessing}
+                            >
+                                {isProcessing ? (
+                                    <>
+                                        <Loader2 size={16} className="icon-spin" />
+                                        Отправка…
+                                    </>
+                                ) : (
+                                    <>
+                                        <MessageCircle size={16} />
+                                        Отправить сообщение
+                                    </>
+                                )}
+                            </button>
+                        </div>
+                    )}
                 </div>
             </div>
         </div>
