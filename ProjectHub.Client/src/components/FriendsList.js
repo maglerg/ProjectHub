@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Users,
     Search,
     Loader2,
     UserPlus,
@@ -12,7 +11,6 @@ import {
     Check,
     X,
     Inbox,
-    Send,
 } from 'lucide-react';
 import MemberCard from './MemberCard';
 import UserAvatar from './UserAvatar';
@@ -83,7 +81,6 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
         try {
             await sendFriendRequest(email);
 
-            // обновляем статус
             if (foundUser && foundUser.email === email) {
                 setFriendStatus((prev) => ({ ...(prev || {}), status: 'Pending' }));
             }
@@ -138,8 +135,6 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
 
             setNotification({ type: 'success', text: '✅ Заявка принята!' });
             setTimeout(() => setNotification(null), 3000);
-
-            // при желании можно перезагрузить список друзей
         } catch (err) {
             setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
             setTimeout(() => setNotification(null), 3000);
@@ -249,11 +244,10 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
             {/* ── Поиск пользователя ── */}
             <section className="friends-search-section">
                 <div className="friends-search-header">
-                    <h2>
-                        <Users size={20} />
-                        Друзья
-                    </h2>
-                    <span className="friends-count-badge">{friends.length} чел.</span>
+                    <h3 className="friends-section-title">Найти нового друга</h3>
+                    <span className="friends-count-badge">
+                        {friends.length} чел.
+                    </span>
                 </div>
 
                 <form className="search-user-form" onSubmit={handleSearch}>

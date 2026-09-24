@@ -1,7 +1,7 @@
 /* projecthub.client/src/styles/components/notes.css */
 
 /* ═══════════════════════════════════════════════════════════
-   ЗАМЕТКА ВНУТРИ ПРОЕКТА (NotesPanel)
+   1. ЗАМЕТКА ВНУТРИ ПРОЕКТА (NotesPanel)
    ═══════════════════════════════════════════════════════════ */
 
 .notes-doc-panel {
@@ -73,15 +73,15 @@
     font-size: var(--text-sm, 13px);
 }
 
-/* ── Сам документ (лист) ── */
+/* ── Документ (лист) ── */
 .note-doc {
     display: flex;
     flex-direction: column;
     gap: var(--space-4, 16px);
+    padding: var(--space-8, 32px) var(--space-10, 40px);
     background: var(--color-bg, #ffffff);
     border: 1px solid var(--color-border, #e5e7eb);
     border-radius: var(--radius-xl, 20px);
-    padding: var(--space-8, 32px) var(--space-10, 40px);
     box-shadow: var(--shadow-sm, 0 1px 3px rgba(0, 0, 0, 0.06));
     transition: box-shadow var(--transition-base, 200ms) ease, border-color var(--transition-base, 200ms) ease;
 }
@@ -91,7 +91,6 @@
         border-color: var(--color-gray-300, #d1d5db);
     }
 
-/* ── Заголовок документа ── */
 .note-doc-title {
     width: 100%;
     padding: 0;
@@ -119,7 +118,6 @@
         font-weight: var(--font-semibold, 600);
     }
 
-/* ── Тело документа ── */
 .note-doc-content {
     width: 100%;
     min-height: 160px;
@@ -140,7 +138,6 @@
         color: var(--color-gray-300, #d1d5db);
     }
 
-/* ── Футер документа ── */
 .note-doc-footer {
     display: flex;
     justify-content: space-between;
@@ -184,95 +181,37 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
-   СТРАНИЦА /notes
+   2. СТРАНИЦА ЗАМЕТОК (встроенная в ProjectsPage)
    ═══════════════════════════════════════════════════════════ */
+
 .notes-page {
-    min-height: 100vh;
-    background: var(--color-bg-secondary, #f9fafb);
-    /* убрали max-width и padding — они уйдут на header/inner */
-}
-
-/* ── Шапка — sticky-панель с белым фоном ── */
-.notes-page-header {
-    position: sticky;
-    top: 0;
-    z-index: var(--z-sticky, 200);
     display: flex;
-    align-items: center;
-    gap: var(--space-4, 16px);
-    flex-wrap: wrap;
-    padding: var(--space-4, 16px) var(--space-8, 32px);
-    background: var(--color-bg, #ffffff);
-    border-bottom: 1px solid var(--color-border, #e5e7eb);
-    box-shadow: var(--shadow-xs, 0 1px 2px rgba(0, 0, 0, 0.04));
+    flex-direction: column;
+    gap: var(--space-5, 20px);
 }
 
-.notes-page-title-block {
-    flex: 1;
-    min-width: 200px;
-}
-
-.notes-page-header h1 {
-    display: flex;
-    align-items: center;
-    gap: var(--space-2, 8px);
+/* ── Встроенный режим: без отступов, без фона, без max-width ── */
+.notes-page--embedded {
+    padding: 0;
     margin: 0;
-    font-size: var(--text-xl, 18px);
-    font-weight: var(--font-semibold, 600);
-    color: var(--color-text, #111827);
-    line-height: var(--leading-tight, 1.25);
+    max-width: none;
+    min-height: auto;
+    background: transparent;
 }
 
-.notes-page-subtitle {
-    margin: var(--space-1, 4px) 0 0;
-    font-size: var(--text-sm, 13px);
-    color: var(--color-text-secondary, #6b7280);
-}
-
-.notes-page-header > .btn--primary {
-    margin-left: auto;
-}
-
-/* ── Тулбар — теперь отдельная полоса под шапкой ── */
+/* ── Тулбар: фильтры + поиск + кнопка создания ── */
 .notes-page-toolbar {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     gap: var(--space-3, 12px);
-    margin: 0;
-    padding: var(--space-4, 16px) var(--space-8, 32px);
-    flex-wrap: wrap;
-    background: var(--color-bg, #ffffff);
-    border-bottom: 1px solid var(--color-border, #e5e7eb);
-}
-
-/* ── Контент страницы — с отступами по бокам ── */
-.notes-page-grid,
-.notes-page-empty,
-.notes-page-loading,
-.notes-page-error {
-    max-width: 1200px;
-    margin: 0 auto;
-    padding: var(--space-6, 24px) var(--space-8, 32px);
-}
-
-.notes-page-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: var(--space-4, 16px);
-}
-
-/* ── Тулбар ── */
-.notes-page-toolbar {
-    display: flex;
-    justify-content: space-between;
-    gap: var(--space-3, 12px);
-    margin-bottom: var(--space-5, 20px);
     flex-wrap: wrap;
 }
 
 .notes-page-filters {
     display: flex;
     gap: var(--space-2, 8px);
+    flex-wrap: wrap;
 }
 
 .notes-filter-btn {
@@ -289,7 +228,7 @@
     font-weight: var(--font-medium, 500);
     line-height: 1.2;
     cursor: pointer;
-    transition: background-color var(--transition-fast, 150ms) ease, border-color var(--transition-fast, 150ms) ease, color var(--transition-fast, 150ms) ease, transform var(--transition-fast, 150ms) ease;
+    transition: background-color var(--transition-fast, 150ms) ease, border-color var(--transition-fast, 150ms) ease, color var(--transition-fast, 150ms) ease, transform var(--transition-fast, 150ms) ease, box-shadow var(--transition-fast, 150ms) ease;
 }
 
     .notes-filter-btn:hover:not(.active) {
@@ -340,7 +279,7 @@
 
 .notes-page-search input {
     flex: 1;
-    min-width: 220px;
+    min-width: 200px;
     padding: 8px 0;
     background: transparent;
     border: none;
@@ -359,12 +298,12 @@
     background: transparent;
     border: none;
     border-left: 1px solid var(--color-border, #e5e7eb);
+    border-radius: 0 var(--radius-sm, 6px) var(--radius-sm, 6px) 0;
     color: var(--color-primary-500, #4f46e5);
     font-family: inherit;
     font-size: var(--text-sm, 13px);
     font-weight: var(--font-semibold, 600);
     cursor: pointer;
-    border-radius: 0 var(--radius-sm, 6px) var(--radius-sm, 6px) 0;
     transition: background var(--transition-fast, 150ms) ease;
 }
 
@@ -393,6 +332,12 @@
         background: var(--color-danger-bg, #fef2f2);
         border-color: #fca5a5;
     }
+
+/* 🆕 Кнопка «Новая заметка» в тулбаре */
+.notes-page-new-btn {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
 
 /* ── Состояния ── */
 .notes-page-loading,
@@ -425,14 +370,15 @@
     justify-content: center;
     width: 64px;
     height: 64px;
-    border-radius: var(--radius-full, 9999px);
     background: var(--color-primary-50, #eef2ff);
     color: var(--color-primary-500, #4f46e5);
+    border-radius: var(--radius-full, 9999px);
 }
 
 .notes-page-empty h3 {
     margin: 0;
     font-size: var(--text-lg, 16px);
+    font-weight: var(--font-semibold, 600);
     color: var(--color-text, #111827);
 }
 
@@ -442,7 +388,7 @@
     font-size: var(--text-sm, 13px);
 }
 
-/* ── Сетка ── */
+/* ── Сетка карточек ── */
 .notes-page-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -450,7 +396,7 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
-   КАРТОЧКА ЗАМЕТКИ
+   3. КАРТОЧКА ЗАМЕТКИ
    ═══════════════════════════════════════════════════════════ */
 
 .note-card {
@@ -470,7 +416,6 @@
     transition: box-shadow var(--transition-base, 200ms) ease, transform var(--transition-fast, 150ms) ease, border-color var(--transition-base, 200ms) ease;
 }
 
-    /* Акцентная полоска слева */
     .note-card::before {
         content: '';
         position: absolute;
@@ -492,7 +437,6 @@
         outline-offset: 2px;
     }
 
-/* ── Шапка карточки ── */
 .note-card-header {
     display: flex;
     align-items: flex-start;
@@ -528,12 +472,11 @@
     flex-shrink: 0;
     width: 22px;
     height: 22px;
-    border-radius: var(--radius-full, 9999px);
     background: var(--color-warning-bg, #fffbeb);
     color: var(--color-warning, #f59e0b);
+    border-radius: var(--radius-full, 9999px);
 }
 
-/* ── Превью ── */
 .note-card-preview {
     flex: 1;
     margin: 0;
@@ -553,7 +496,6 @@
     font-style: italic;
 }
 
-/* ── Футер карточки ── */
 .note-card-footer {
     display: flex;
     align-items: center;
@@ -630,7 +572,7 @@
     color: var(--color-danger, #dc2626);
 }
 
-/* ── Цветовые варианты ── */
+/* ── Цветовые варианты карточки ── */
 .note-card--free {
     background: linear-gradient(135deg, #eff6ff 0%, #ffffff 55%);
     border-color: #dbeafe;
@@ -650,19 +592,19 @@
     }
 
 /* ═══════════════════════════════════════════════════════════
-   МОДАЛКА РЕДАКТОРА
+   4. МОДАЛКА РЕДАКТОРА
    ═══════════════════════════════════════════════════════════ */
 
 .note-modal-overlay {
     position: fixed;
     inset: 0;
+    z-index: var(--z-modal, 500);
     display: flex;
     justify-content: center;
     align-items: center;
     padding: var(--space-5, 20px);
     background: rgba(17, 24, 39, 0.5);
     backdrop-filter: blur(2px);
-    z-index: var(--z-modal, 500);
 }
 
 .note-modal {
@@ -833,26 +775,13 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
-   АДАПТИВ
+   5. АДАПТИВ
    ═══════════════════════════════════════════════════════════ */
 
 @media (max-width: 600px) {
-    .notes-page {
-        padding: var(--space-4, 16px);
-    }
-
-    .notes-page-header h1 {
-        font-size: var(--text-2xl, 22px);
-    }
-
-    .notes-page-header > .btn--primary {
-        margin-left: 0;
-        width: 100%;
-        justify-content: center;
-    }
-
     .notes-page-toolbar {
         flex-direction: column;
+        align-items: stretch;
     }
 
     .notes-page-search-row {
@@ -867,6 +796,11 @@
         .notes-page-search input {
             min-width: 0;
         }
+
+    .notes-page-new-btn {
+        width: 100%;
+        justify-content: center;
+    }
 
     .notes-page-grid {
         grid-template-columns: 1fr;
@@ -895,3 +829,36 @@
         border-radius: var(--radius-lg, 14px);
     }
 }
+/* ═══════════════════════════════════════════════════════════
+   Кнопка «Перейти к проекту» на карточке заметки
+   ═══════════════════════════════════════════════════════════ */
+
+.note-card-go-project {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-1, 4px);
+    align-self: flex-start;
+    margin-top: var(--space-1, 4px);
+    padding: 6px 12px;
+    background: var(--color-primary-50, #eef2ff);
+    color: var(--color-primary-600, #4338ca);
+    border: 1px solid var(--color-primary-200, #c7d2fe);
+    border-radius: var(--radius-full, 9999px);
+    font-family: inherit;
+    font-size: var(--text-xs, 12px);
+    font-weight: var(--font-medium, 500);
+    line-height: 1.2;
+    cursor: pointer;
+    transition: background var(--transition-fast, 150ms) ease, border-color var(--transition-fast, 150ms) ease, color var(--transition-fast, 150ms) ease, transform var(--transition-fast, 150ms) ease;
+}
+
+    .note-card-go-project:hover {
+        background: var(--color-primary-100, #e0e7ff);
+        border-color: var(--color-primary-500, #4f46e5);
+        color: var(--color-primary-500, #4f46e5);
+    }
+
+    .note-card-go-project:active {
+        transform: scale(0.97);
+    }

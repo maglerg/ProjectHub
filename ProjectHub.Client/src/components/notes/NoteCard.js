@@ -1,5 +1,8 @@
+// projecthub.client/src/components/notes/NoteCard.js
+
 import React from 'react';
-import { Clock, Folder, Lock, Pin, Trash2, FileText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Clock, Folder, Lock, Pin, Trash2, ExternalLink } from 'lucide-react';
 import { formatRelativeTime, formatDateTime } from '../../utils/datetime';
 import '../../styles/components/notes.css';
 
@@ -10,6 +13,8 @@ const COLOR_FREE = '#3b82f6';
 const COLOR_PROJECT = '#8b5cf6';
 
 export default function NoteCard({ note, onOpen, onDelete }) {
+    const navigate = useNavigate();
+
     const hasProject = !!note.projectCode;
 
     // Приоритет: сначала явный note.color (если задан), иначе — по привязке
@@ -28,6 +33,20 @@ export default function NoteCard({ note, onOpen, onDelete }) {
     const preview = hasRealTitle
         ? (note.content || '').trim().slice(0, 200)
         : (note.content || '').trim().slice(60, 260);
+
+    // 🆕 Переход к проекту (по публичному коду)
+    const handleGoToProject = (e) => {
+        e.stopPropagation();   // не открывать заметку
+        if (!note.projectCode) return;
+
+        if (note.projectAccessible) {
+            // Есть доступ — на дашборд
+            navigate(`/projects/${note.projectCode}/dashboard`);
+        } else {
+            // Нет доступа — на публичную страницу
+            navigate(`/projects/${note.projectCode}`);
+        }
+    };
 
     return (
         <div
@@ -62,6 +81,23 @@ export default function NoteCard({ note, onOpen, onDelete }) {
                 <p className="note-card-preview note-card-preview-empty">
                     Пустая заметка
                 </p>
+            )}
+
+            {/* 🆕 Кнопка «Перейти к проекту» — только для проектных заметок */}
+            {hasProject && (
+                <button
+                    type="button"
+                    className="note-card-go-project"
+                    onClick={handleGoToProject}
+                    title={
+                        note.projectAccessible
+                            ? `Открыть проект «${note.projectName}»`
+                            : `Проект «${note.projectName}» — открыть публичную страницу`
+                    }
+                >
+                    <ExternalLink size={12} />
+                    Перейти к проекту
+                </button>
             )}
 
             {/* ── Футер ── */}

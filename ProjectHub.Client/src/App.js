@@ -22,6 +22,7 @@ import ChatPage from './components/ChatPage';
 import VotingsListPage from './components/VotingsListPage';
 import CreateVotingPage from './components/CreateVotingPage';
 import VotingPage from './components/VotingPage';
+import './styles/components/ProjectTagPicker.css';
 
 import TaskDetailsPage from './components/tasks/TaskDetailsPage';
 import ProjectHistoryPage from './components/ProjectHistoryPage';

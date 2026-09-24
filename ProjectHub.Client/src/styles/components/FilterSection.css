@@ -1,126 +1,101 @@
 /* src/styles/components/FilterSection.css */
 
+/* ═══════════════════════════════════════════════════════════
+   КОНТЕЙНЕР
+   ═══════════════════════════════════════════════════════════ */
+
 .filter-section {
-    background: #fff;
-    padding: 20px 25px;
-    border-radius: 12px;
-    margin: 20px 0;
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-    border: 1px solid #e8e8e8;
-}
-
-    .filter-section h3 {
-        margin: 0 0 15px 0;
-        color: #2c3e50;
-        font-size: 18px;
-    }
-
-.filter-controls {
     display: flex;
-    gap: 20px;
     align-items: flex-end;
+    gap: var(--space-3, 12px);
     flex-wrap: wrap;
 }
 
-.filter-group {
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-    flex: 1;
-    min-width: 150px;
-}
+    /* ═══════════════════════════════════════════════════════════
+   ГРУППА ПОЛЕЙ
+   ═══════════════════════════════════════════════════════════ */
 
-    .filter-group label {
-        font-size: 14px;
-        font-weight: 500;
-        color: #555;
+    .filter-section .filter-group {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2, 8px);
+        /* компактнее: не на всю ширину */
+        flex: 0 1 320px;
+        min-width: 220px;
     }
 
-.filter-select {
-    padding: 10px 12px;
-    border: 2px solid #ddd;
-    border-radius: 8px;
-    font-size: 14px;
-    background: white;
-    transition: all 0.3s ease;
-    cursor: pointer;
-}
+        .filter-section .filter-group label {
+            font-size: var(--text-sm, 13px);
+            font-weight: var(--font-medium, 500);
+            color: var(--color-text, #374151);
+        }
 
-    .filter-select:focus {
-        outline: none;
-        border-color: #3498db;
-        box-shadow: 0 0 0 3px rgba(52, 152, 219, 0.15);
+        /* ═══════════════════════════════════════════════════════════
+   SELECT
+   ═══════════════════════════════════════════════════════════ */
+
+        .filter-section .filter-group select {
+            width: 100%;
+            padding: 10px 40px 10px 14px;
+            background: var(--color-bg, #ffffff);
+            color: var(--color-text, #111827);
+            border: 1px solid var(--color-border-strong, #d1d5db);
+            border-radius: var(--radius-md, 10px);
+            font-family: inherit;
+            font-size: var(--text-sm, 13px);
+            font-weight: var(--font-medium, 500);
+            line-height: 1.4;
+            outline: none;
+            cursor: pointer;
+            /* своя стрелка */
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            transition: border-color var(--transition-fast, 150ms) ease, box-shadow var(--transition-fast, 150ms) ease, background-color var(--transition-fast, 150ms) ease;
+        }
+
+            .filter-section .filter-group select:hover:not(:disabled) {
+                border-color: var(--color-gray-400, #9ca3af);
+            }
+
+            .filter-section .filter-group select:focus {
+                border-color: var(--color-primary-500, #4f46e5);
+                box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+            }
+
+            .filter-section .filter-group select:disabled {
+                background-color: var(--color-bg-secondary, #f9fafb);
+                color: var(--color-text-tertiary, #9ca3af);
+                cursor: not-allowed;
+            }
+
+    /* ═══════════════════════════════════════════════════════════
+   КНОПКИ — с нормальным расстоянием друг от друга
+   ═══════════════════════════════════════════════════════════ */
+
+    .filter-section .btn {
+        flex-shrink: 0;
+        height: 40px; /* одинаковая высота с select */
+        padding: 0 18px;
     }
 
-.btn-reset-filters {
-    background: #95a5a6;
-    color: white;
-    padding: 10px 25px;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.3s ease;
-    height: 42px;
-    white-space: nowrap;
-}
-
-    .btn-reset-filters:hover:not(:disabled) {
-        background: #7f8c8d;
-        transform: translateY(-2px);
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    }
-
-    .btn-reset-filters:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-.filter-loading {
-    margin-top: 12px;
-    color: #3498db;
-    font-size: 14px;
-    font-weight: 500;
-}
-
-/* Адаптивность */
-@media (max-width: 768px) {
-    .filter-controls {
+/* ── Адаптив ── */
+@media (max-width: 600px) {
+    .filter-section {
         flex-direction: column;
         align-items: stretch;
     }
 
-    .filter-group {
-        min-width: auto;
-    }
+        .filter-section .filter-group {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
 
-    .btn-reset-filters {
-        width: 100%;
-        justify-content: center;
-    }
+        .filter-section .btn {
+            width: 100%;
+            justify-content: center;
+        }
 }
-
-.btn-search-category {
-    background: #4a90e2;
-    color: #fff;
-    padding: 10px 24px;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 600;
-    font-family: inherit;
-    transition: background 0.2s;
-    height: 42px;
-    white-space: nowrap;
-}
-
-    .btn-search-category:hover:not(:disabled) {
-        background: #357abd;
-    }
-
-    .btn-search-category:disabled {
-        opacity: 0.6;
-        cursor: not-allowed;
-    }

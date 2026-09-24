@@ -1,7 +1,10 @@
 // projecthub.client/src/components/tasks/TasksBoard.js
 
 import React, { useEffect, useState } from 'react';
-import { Plus, Archive, X, AlertTriangle } from 'lucide-react';
+import {
+    Plus, Archive, X, AlertTriangle,
+    Columns3, Rows3,
+} from 'lucide-react';
 import {
     getTasksBoard,
     takeTask,
@@ -24,9 +27,7 @@ export default function TasksBoard({
     projectDeadline,
     currentUserEmail,
     isOwner,
-    // 📌 Фильтры приходят снаружи (панель в сайдбаре дашборда)
     filters = {},
-    // 📌 Проект в архиве — только просмотр
     isArchived = false,
 }) {
     const {
@@ -44,6 +45,9 @@ export default function TasksBoard({
     const [error, setError] = useState(null);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [actionError, setActionError] = useState(null);
+
+    // 🆕 Раскладка колонок: 'vertical' — столбцами, 'horizontal' — рядами
+    const [layout, setLayout] = useState('vertical');
 
     // 🆕 Состояние для управления колонками
     const [isCreatingColumn, setIsCreatingColumn] = useState(false);
@@ -86,9 +90,7 @@ export default function TasksBoard({
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [projectCode]);
-    useEffect(() => {
-        console.log('🟢 TasksBoard rendered. projectCode =', projectCode);
-    });
+
     // ── Проверка: задача "активная"? ──
     const isTaskActive = (t) => {
         if (t.completedAt) return true;
@@ -245,6 +247,11 @@ export default function TasksBoard({
         await loadBoard();
     };
 
+    // 🆕 Переключение раскладки
+    const toggleLayout = () => {
+        setLayout((prev) => (prev === 'vertical' ? 'horizontal' : 'vertical'));
+    };
+
     if (loading) return <div className="tasks-loading">Загрузка задач…</div>;
     if (error) return <div className="tasks-error">Ошибка: {error}</div>;
 
@@ -255,6 +262,30 @@ export default function TasksBoard({
                 <h2>Задачи</h2>
 
                 <div className="tasks-board-actions">
+                    {/* 🆕 Переключатель раскладки колонок */}
+                    <button
+                        type="button"
+                        className="btn btn--secondary btn--sm tasks-layout-toggle"
+                        onClick={toggleLayout}
+                        title={
+                            layout === 'vertical'
+                                ? 'Расположить блоки рядами'
+                                : 'Расположить блоки столбцами'
+                        }
+                    >
+                        {layout === 'vertical' ? (
+                            <>
+                                <Rows3 size={14} />
+                                Рядами
+                            </>
+                        ) : (
+                            <>
+                                <Columns3 size={14} />
+                                Столбцами
+                            </>
+                        )}
+                    </button>
+
                     {!isArchived && (
                         <button
                             type="button"
@@ -316,7 +347,7 @@ export default function TasksBoard({
             )}
 
             {/* ── Доска ── */}
-            <div className="tasks-columns">
+            <div className={`tasks-columns tasks-columns--${layout}`}>
                 {visibleColumns.map((col) => (
                     <TaskColumn
                         key={col.id}

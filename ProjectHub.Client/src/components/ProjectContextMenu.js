@@ -4,7 +4,6 @@ import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Link as LinkIcon,
-    ExternalLink,
     Clipboard,
     Star,
     Pencil,
@@ -40,7 +39,7 @@ const ProjectContextMenu = ({
     const menuRef = useRef(null);
     const closeTimer = useRef(null);
 
-    // ── Одно активное подменю (для быстрых переходов и удаления) ──
+    // ── Одно активное подменю ──
     const [openSubmenu, setOpenSubmenu] = useState(null); // null | 'goto'
 
     // ── Роли ──
@@ -54,15 +53,6 @@ const ProjectContextMenu = ({
     const canManage = (isOwner || isAdmin) && !isArchived;
     const canOwner = isOwner;
     const canQuickNav = isMember && !isArchived;
-
-    // ── URL проекта ──
-    const buildProjectUrl = () => {
-        if (!project?.publicCode) return '';
-        const path = isMember
-            ? `/projects/${project.publicCode}/dashboard`
-            : `/projects/${project.publicCode}`;
-        return `${window.location.origin}${path}`;
-    };
 
     // ── Закрытие по клику вне, Escape, скроллу ──
     useEffect(() => {
@@ -129,13 +119,6 @@ const ProjectContextMenu = ({
         onClose();
     };
 
-    const handleOpenNewTab = () => {
-        const url = buildProjectUrl();
-        if (!url) return;
-        window.open(url, '_blank', 'noopener,noreferrer');
-        onClose();
-    };
-
     const handleCopyCode = async () => {
         if (!project?.publicCode) return;
         try {
@@ -144,22 +127,6 @@ const ProjectContextMenu = ({
             // fallback
             const el = document.createElement('textarea');
             el.value = project.publicCode;
-            document.body.appendChild(el);
-            el.select();
-            document.execCommand('copy');
-            el.remove();
-        }
-        onClose();
-    };
-
-    const handleCopyLink = async () => {
-        const url = buildProjectUrl();
-        if (!url) return;
-        try {
-            await navigator.clipboard.writeText(url);
-        } catch {
-            const el = document.createElement('textarea');
-            el.value = url;
             document.body.appendChild(el);
             el.select();
             document.execCommand('copy');
@@ -241,31 +208,11 @@ const ProjectContextMenu = ({
             <button
                 type="button"
                 className="btn btn--ghost btn--sm pcm-item"
-                onClick={handleOpenNewTab}
-                disabled={isArchived && !isMember}
-            >
-                <span className="pcm-icon"><ExternalLink size={14} /></span>
-                Открыть в новой вкладке
-            </button>
-
-            <button
-                type="button"
-                className="btn btn--ghost btn--sm pcm-item"
                 onClick={handleCopyCode}
             >
                 <span className="pcm-icon"><Clipboard size={14} /></span>
                 Копировать код
                 <span className="pcm-hint">{project?.publicCode}</span>
-            </button>
-
-            <button
-                type="button"
-                className="btn btn--ghost btn--sm pcm-item"
-                onClick={handleCopyLink}
-                disabled={isArchived && !isMember}
-            >
-                <span className="pcm-icon"><LinkIcon size={14} /></span>
-                Копировать ссылку
             </button>
 
             {/* ═══ Раздел 2: Избранное ═══ */}

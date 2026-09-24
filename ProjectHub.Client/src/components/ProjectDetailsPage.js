@@ -420,44 +420,65 @@ const ProjectDetailsPage = () => {
                 {!isMember && !isArchived && (
                     <section className="join-section">
                         {userStatus === 'Pending' ? (
-                            <div className="pending-application success">
-                                <Check size={16} />
-                                Заявка успешно отправлена! Ожидайте ответа от владельца проекта.
+                            <div className="join-status join-status--pending">
+                                <Check size={18} />
+                                <div className="join-status__text">
+                                    <span className="join-status__title">
+                                        Заявка отправлена
+                                    </span>
+                                    <span className="join-status__hint">
+                                        Ожидайте ответа от владельца проекта
+                                    </span>
+                                </div>
                             </div>
                         ) : (
-                            <div className="join-form-wrapper">
-                                <h3>
-                                    <Users size={18} />
-                                    Присоединиться к проекту
-                                </h3>
+                            <>
+                                <header className="join-header">
+                                    <div className="join-header-icon">
+                                        <Users size={18} />
+                                    </div>
+                                    <div className="join-header-text">
+                                        <h3>Присоединиться к проекту</h3>
+                                        <p>Отправьте заявку владельцу — он рассмотрит её в ближайшее время</p>
+                                    </div>
+                                </header>
+
                                 <div className="join-form">
+                                    <label className="join-form-label" htmlFor="join-message">
+                                        Сообщение <span className="join-form-optional">(необязательно)</span>
+                                    </label>
                                     <textarea
-                                        placeholder="Напишите сообщение владельцу проекта (необязательно)"
+                                        id="join-message"
+                                        className="join-textarea"
+                                        placeholder="Напишите пару слов о себе: почему хотите в проект, чем можете помочь…"
                                         value={message}
                                         onChange={(e) => setMessage(e.target.value)}
                                         rows="3"
                                         disabled={!canSubmitApplication || isSubmitting}
                                     />
-                                    <button
-                                        type="button"
-                                        className="btn btn--primary"
-                                        onClick={handleSubmitApplication}
-                                        disabled={!canSubmitApplication || isSubmitting}
-                                    >
-                                        {isSubmitting ? (
-                                            <>
-                                                <Loader2 size={16} className="icon-spin" />
-                                                Отправка...
-                                            </>
-                                        ) : (
-                                            <>
-                                                <Mail size={16} />
-                                                Отправить заявку
-                                            </>
-                                        )}
-                                    </button>
+
+                                    <div className="join-form-actions">
+                                        <button
+                                            type="button"
+                                            className="btn btn--primary"
+                                            onClick={handleSubmitApplication}
+                                            disabled={!canSubmitApplication || isSubmitting}
+                                        >
+                                            {isSubmitting ? (
+                                                <>
+                                                    <Loader2 size={16} className="icon-spin" />
+                                                    Отправка…
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Mail size={16} />
+                                                    Отправить заявку
+                                                </>
+                                            )}
+                                        </button>
+                                    </div>
                                 </div>
-                            </div>
+                            </>
                         )}
                     </section>
                 )}

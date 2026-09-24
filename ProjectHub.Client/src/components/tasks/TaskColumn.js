@@ -4,6 +4,57 @@ import React, { useState } from 'react';
 import { Lock, Pencil, Trash2 } from 'lucide-react';
 import TaskCard from './TaskCard';
 
+/**
+ * Определяет тип колонки по её названию.
+ * Возвращает один из: 'not-started' | 'in-progress' | 'done' | 'custom'.
+ */
+const getColumnType = (column) => {
+    if (!column?.isDefault) return 'custom';
+
+    const name = (column.name || '').toLowerCase().trim();
+
+    // ── Завершено — проверяем ПЕРВЫМ, чтобы «выполнено» не попалось в другие ветки
+    if (
+        name.includes('заверш') ||
+        name.includes('готов') ||
+        name.includes('done') ||
+        name.includes('complete') ||
+        name.includes('выполнено')
+    ) {
+        return 'done';
+    }
+
+    // ── В процессе / В работе
+    if (
+        name.includes('процесс') ||
+        name.includes('работ') ||
+        name.includes('прогресс') ||
+        name.includes('progress') ||
+        name.includes('process') ||
+        name.includes('doing') ||
+        name.includes('in progress') ||
+        name.includes('in-progress')
+    ) {
+        return 'in-progress';
+    }
+
+    // ── Не начато / Бэклог / To Do
+    if (
+        name.includes('не начат') ||
+        name.includes('бэклог') ||
+        name.includes('backlog') ||
+        name.includes('todo') ||
+        name.includes('to do') ||
+        name.includes('to-do') ||
+        name.includes('к выполнению') ||
+        name.includes('сделать')
+    ) {
+        return 'not-started';
+    }
+
+    return 'custom';
+};
+
 export default function TaskColumn({
     column,
     columns,
@@ -51,10 +102,21 @@ export default function TaskColumn({
     const canManage = isOwner && !isArchived && !column.isDefault;
 
     const tasksCount = column.tasks?.length ?? 0;
+    const columnType = getColumnType(column);
+
+    // Собираем классы динамически, чтобы не было пустых пробелов
+    const columnClassName = [
+        'task-column',
+        `task-column--${columnType}`,
+        isDragOver ? 'drag-over' : '',
+        isArchived ? 'task-column--archived' : '',
+    ]
+        .filter(Boolean)
+        .join(' ');
 
     return (
         <div
-            className={`task-column ${isDragOver ? 'drag-over' : ''} ${isArchived ? 'task-column--archived' : ''}`}
+            className={columnClassName}
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}

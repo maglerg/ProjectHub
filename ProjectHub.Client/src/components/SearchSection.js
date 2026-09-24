@@ -102,11 +102,9 @@ const SearchSection = ({ onProjectFound }) => {
     return (
         <div className="search-section">
             <div className="search-header">
-                <h3>
-                    <Search size={18} />
-                    Поиск проекта по коду
-                </h3>
-                <span className="search-hint">Введите код в формате ABC-123-DEF</span>
+                <span className="search-hint">
+                    Введите код в формате <b>ABC-123-DEF</b>
+                </span>
             </div>
 
             <div className="search-form">

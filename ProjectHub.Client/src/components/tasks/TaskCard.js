@@ -65,7 +65,7 @@ export default function TaskCard({
 
     const priorityInfo = getPriorityInfo(task.priority);
     const priorityColor = getPriorityColor(task.priority);
-    const PriorityIcon = priorityInfo.lucideIcon;   // ← добавим в constants.js (см. ниже)
+    const PriorityIcon = priorityInfo.lucideIcon;
 
     // ── Эффективный дедлайн ──
     const effectiveDue = task.effectiveDueDate;
@@ -212,10 +212,18 @@ export default function TaskCard({
         }
     };
 
+    // ── Классы корневого элемента ──
+    const cardClassName = [
+        'task-card',
+        canDrag ? 'task-card--draggable' : 'task-card--locked',
+        isArchived ? 'task-card--archived' : '',
+        isMine ? 'task-card--mine' : '',
+    ].filter(Boolean).join(' ');
+
     return (
         <>
             <div
-                className={`task-card ${canDrag ? 'task-card--draggable' : 'task-card--locked'} ${isArchived ? 'task-card--archived' : ''}`}
+                className={cardClassName}
                 draggable={canDrag}
                 onDragStart={handleDragStart}
                 onDragEnd={handleDragEnd}

@@ -10,6 +10,7 @@ import '../styles/components/MemberCard.css';
 
 const MemberCard = ({
     member,
+    isMe = false,             // 🆕 флаг «это текущий пользователь»
     onRemove,
     // 🆕 Опциональные пропсы для контекстного меню
     friendStatus,             // { status, isFriend, requestId }
@@ -74,7 +75,7 @@ const MemberCard = ({
     return (
         <>
             <div
-                className="member-card clickable"
+                className={`member-card clickable ${isMe ? 'is-me' : ''}`}
                 onClick={handleCardClick}
                 onContextMenu={handleContextMenu}
                 role="button"

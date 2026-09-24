@@ -1107,6 +1107,15 @@ const ProjectDashboardPage = () => {
                                 )}
                             </div>
 
+                            {/* 📌 1. ОПИСАНИЕ — теперь идёт первым после заголовка */}
+                            {project.description && (
+                                <div className="description-section">
+                                    <h3 className="subsection-title">Описание</h3>
+                                    <p>{project.description}</p>
+                                </div>
+                            )}
+
+                            {/* 📌 2. ИНФОРМАЦИЯ — идёт после описания, в аккуратной сетке 2×N */}
                             <div className="info-grid">
                                 <div className="info-item">
                                     <span className="info-label">
@@ -1159,13 +1168,7 @@ const ProjectDashboardPage = () => {
                                 </div>
                             </div>
 
-                            {project.description && (
-                                <div className="description-section">
-                                    <h3 className="subsection-title">Описание</h3>
-                                    <p>{project.description}</p>
-                                </div>
-                            )}
-
+                            {/* 📌 3. ТЕГИ — идут последними, аккуратной строкой */}
                             <div className="project-tags-section">
                                 <h3 className="subsection-title">Теги проекта</h3>
 
@@ -1185,9 +1188,9 @@ const ProjectDashboardPage = () => {
                                                     key={t.id}
                                                     className="project-tag-chip"
                                                     style={{
-                                                        backgroundColor: t.color ? `${t.color}22` : '#eef2ff',
+                                                        backgroundColor: t.color ? `${t.color}1a` : '#eef2ff',
                                                         color: t.color || '#4f46e5',
-                                                        borderColor: t.color || '#c7d2fe'
+                                                        borderColor: t.color ? `${t.color}55` : '#c7d2fe'
                                                     }}
                                                 >
                                                     {t.name}
@@ -1236,34 +1239,38 @@ const ProjectDashboardPage = () => {
                                 </div>
                             ) : (
                                 <div className="members-grid">
-                                    {members.map((member) => (
-                                        <MemberCard
-                                            key={member.userId}
-                                            member={{
-                                                id: member.userId,
-                                                name: member.name,
-                                                email: member.email,
-                                                specialization: member.specialization,
-                                                role: member.role,
-                                                joinedAt: member.joinedAt,
-                                                avatarUrl: member.avatarUrl,
-                                            }}
-                                            projectContext={{
-                                                projectCode: project.publicCode,
-                                                memberRole: member.role,
-                                                isOwnerViewer: userStatus === 'Owner',
-                                                isAdminViewer: userStatus === 'Admin',
-                                            }}
-                                            onSendMessage={handleMemberSendMessage}
-                                            onAddFriend={handleMemberAddFriend}
-                                            onCancelRequest={handleMemberCancelRequest}
-                                            onAcceptRequest={handleMemberAcceptRequest}
-                                            onRejectRequest={handleMemberRejectRequest}
-                                            onRemoveFriend={handleMemberRemoveFriend}
-                                            onChangeRole={handleMemberChangeRole}
-                                            onRemoveFromProject={handleMemberRemoveFromProject}
-                                        />
-                                    ))}
+                                    {members.map((member) => {
+                                        const isMe = member.email?.toLowerCase() === user?.email?.toLowerCase();
+                                        return (
+                                            <MemberCard
+                                                key={member.userId}
+                                                isMe={isMe}
+                                                member={{
+                                                    id: member.userId,
+                                                    name: member.name,
+                                                    email: member.email,
+                                                    specialization: member.specialization,
+                                                    role: member.role,
+                                                    joinedAt: member.joinedAt,
+                                                    avatarUrl: member.avatarUrl,
+                                                }}
+                                                projectContext={{
+                                                    projectCode: project.publicCode,
+                                                    memberRole: member.role,
+                                                    isOwnerViewer: userStatus === 'Owner',
+                                                    isAdminViewer: userStatus === 'Admin',
+                                                }}
+                                                onSendMessage={handleMemberSendMessage}
+                                                onAddFriend={handleMemberAddFriend}
+                                                onCancelRequest={handleMemberCancelRequest}
+                                                onAcceptRequest={handleMemberAcceptRequest}
+                                                onRejectRequest={handleMemberRejectRequest}
+                                                onRemoveFriend={handleMemberRemoveFriend}
+                                                onChangeRole={handleMemberChangeRole}
+                                                onRemoveFromProject={handleMemberRemoveFromProject}
+                                            />
+                                        );
+                                    })}
                                 </div>
                             )}
                         </section>

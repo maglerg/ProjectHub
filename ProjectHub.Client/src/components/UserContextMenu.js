@@ -4,7 +4,6 @@ import React, { useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     User,
-    ExternalLink,
     Mail,
     MessageCircle,
     UserPlus,
@@ -95,12 +94,6 @@ const UserContextMenu = ({
     // ── Определяем, мой ли это профиль ──
     const isSelf = !!currentUser && currentUser.email === user.email;
 
-    // ── URL профиля ──
-    const buildProfileUrl = () => {
-        if (!user?.email) return '';
-        return `${window.location.origin}/users/${encodeURIComponent(user.email)}`;
-    };
-
     // ═══════════════════════════════════════════════════════════
     //  ДЕЙСТВИЯ
     // ═══════════════════════════════════════════════════════════
@@ -108,13 +101,6 @@ const UserContextMenu = ({
     const handleOpenProfile = () => {
         if (!user.email) return;
         navigate(`/users/${encodeURIComponent(user.email)}`);
-        onClose();
-    };
-
-    const handleOpenNewTab = () => {
-        const url = buildProfileUrl();
-        if (!url) return;
-        window.open(url, '_blank');
         onClose();
     };
 
@@ -259,15 +245,6 @@ const UserContextMenu = ({
             >
                 <span className="ucm-icon"><User size={14} /></span>
                 Открыть профиль
-            </button>
-
-            <button
-                type="button"
-                className="btn btn--ghost btn--sm ucm-item"
-                onClick={handleOpenNewTab}
-            >
-                <span className="ucm-icon"><ExternalLink size={14} /></span>
-                Открыть в новой вкладке
             </button>
 
             <button

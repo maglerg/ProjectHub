@@ -1,0 +1,284 @@
+/* projecthub.client/src/styles/components/ProjectTagPicker.css */
+
+/* ═══════════════════════════════════════════════════════════
+   ЕДИНЫЙ ЧИП ТЕГА ПРОЕКТА
+   Используется в: ProjectDashboardPage, ProjectTagPicker,
+   ProjectTagsFilter, EditProjectModal
+   ═══════════════════════════════════════════════════════════ */
+
+.project-tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1, 4px);
+    padding: 3px 10px;
+    border: 1px solid transparent;
+    border-radius: var(--radius-full, 9999px);
+    font-size: var(--text-xs, 12px);
+    font-weight: var(--font-medium, 500);
+    line-height: 1.5;
+    white-space: nowrap;
+    transition: background-color var(--transition-fast, 150ms) ease, border-color var(--transition-fast, 150ms) ease, transform var(--transition-fast, 150ms) ease;
+}
+
+    /* Если рядом есть крестик — уменьшаем правый padding */
+    .project-tag-chip:has(.project-tag-chip__remove) {
+        padding-right: 4px;
+    }
+
+/* ── Крестик «убрать тег» ── */
+.project-tag-chip__remove {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    margin-left: 2px;
+    background: transparent;
+    border: none;
+    border-radius: var(--radius-full, 9999px);
+    color: inherit;
+    opacity: 0.55;
+    cursor: pointer;
+    transition: opacity var(--transition-fast, 150ms) ease, background var(--transition-fast, 150ms) ease;
+}
+
+    .project-tag-chip__remove:hover {
+        opacity: 1;
+        background: rgba(0, 0, 0, 0.08);
+    }
+
+/* ═══════════════════════════════════════════════════════════
+   ВЫБРАННЫЕ ТЕГИ (строка над полем)
+   ═══════════════════════════════════════════════════════════ */
+
+.project-tag-picker__selected {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2, 8px);
+    margin-bottom: var(--space-2, 8px);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ПИКЕР — КОНТЕЙНЕР И ПОЛЕ ВВОДА
+   ═══════════════════════════════════════════════════════════ */
+
+.project-tag-picker {
+    position: relative;
+    width: 100%;
+}
+
+.project-tag-picker__input-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2, 8px);
+    height: 36px;
+    padding: 0 var(--space-3, 12px);
+    background: var(--color-bg, #ffffff);
+    border: 1px solid var(--color-border-strong, #d1d5db);
+    border-radius: var(--radius-md, 10px);
+    cursor: text;
+    transition: border-color var(--transition-fast, 150ms) ease, box-shadow var(--transition-fast, 150ms) ease, background var(--transition-fast, 150ms) ease;
+}
+
+    .project-tag-picker__input-wrap:hover:not(.disabled) {
+        border-color: var(--color-primary-200, #c7d2fe);
+    }
+
+    .project-tag-picker__input-wrap.open,
+    .project-tag-picker__input-wrap:focus-within {
+        border-color: var(--color-primary-500, #4f46e5);
+        box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+    }
+
+.project-tag-picker__icon {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    color: var(--color-text-tertiary, #9ca3af);
+}
+
+.project-tag-picker__input {
+    flex: 1;
+    min-width: 0;
+    height: 100%;
+    background: transparent;
+    border: none;
+    outline: none;
+    font-family: inherit;
+    font-size: var(--text-sm, 13px);
+    color: var(--color-text, #111827);
+}
+
+    .project-tag-picker__input::placeholder {
+        color: var(--color-text-tertiary, #9ca3af);
+    }
+
+.project-tag-picker__clear {
+    flex-shrink: 0;
+    color: var(--color-text-tertiary, #9ca3af);
+}
+
+    .project-tag-picker__clear:hover {
+        color: var(--color-text, #111827);
+    }
+
+/* ═══════════════════════════════════════════════════════════
+   ПИКЕР — DROPDOWN
+   ═══════════════════════════════════════════════════════════ */
+
+.project-tag-picker__dropdown {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0;
+    right: 0;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: var(--space-1, 4px);
+    background: var(--color-bg, #ffffff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--radius-lg, 14px);
+    box-shadow: var(--shadow-lg, 0 12px 28px rgba(0, 0, 0, 0.12));
+    z-index: var(--z-dropdown, 100);
+    animation: pickerFadeIn 0.12s ease-out;
+}
+
+@keyframes pickerFadeIn {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+.project-tag-picker__list {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.project-tag-picker__empty {
+    padding: var(--space-3, 12px);
+    text-align: center;
+    font-size: var(--text-sm, 13px);
+    color: var(--color-text-tertiary, #9ca3af);
+}
+
+/* ── Пункт списка ── */
+.project-tag-picker__item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2, 8px);
+    padding: 8px 10px;
+    border-radius: var(--radius-sm, 6px);
+    cursor: pointer;
+    user-select: none;
+    font-size: var(--text-sm, 13px);
+    transition: background var(--transition-fast, 150ms) ease;
+}
+
+    .project-tag-picker__item:hover:not(.disabled) {
+        background: var(--color-primary-50, #eef2ff);
+    }
+
+    .project-tag-picker__item.checked {
+        background: var(--color-primary-100, #e0e7ff);
+    }
+
+    .project-tag-picker__item.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .project-tag-picker__item input[type="checkbox"] {
+        flex-shrink: 0;
+        width: 15px;
+        height: 15px;
+        accent-color: var(--color-primary-500, #4f46e5);
+        cursor: pointer;
+    }
+
+        .project-tag-picker__item input[type="checkbox"]:disabled {
+            cursor: not-allowed;
+        }
+
+.project-tag-picker__dot {
+    flex-shrink: 0;
+    width: 12px;
+    height: 12px;
+    border-radius: var(--radius-full, 9999px);
+}
+
+.project-tag-picker__name {
+    flex: 1;
+    min-width: 0;
+    color: var(--color-text, #111827);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.project-tag-picker__count {
+    flex-shrink: 0;
+    padding: 1px 6px;
+    background: var(--color-gray-100, #f3f4f6);
+    color: var(--color-text-secondary, #6b7280);
+    border-radius: var(--radius-sm, 6px);
+    font-size: 11px;
+    font-weight: var(--font-medium, 500);
+}
+
+.project-tag-picker__item.checked .project-tag-picker__count {
+    background: var(--color-primary-200, #c7d2fe);
+    color: var(--color-primary-700, #3730a3);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ПИКЕР — СОЗДАНИЕ НОВОГО ТЕГА
+   ═══════════════════════════════════════════════════════════ */
+
+.project-tag-picker__create {
+    display: flex;
+    gap: var(--space-2, 8px);
+    align-items: center;
+    padding: var(--space-2, 8px);
+    margin-top: var(--space-1, 4px);
+    border-top: 1px solid var(--color-border, #e5e7eb);
+}
+
+    .project-tag-picker__create input[type="color"] {
+        flex-shrink: 0;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        background: none;
+        border: 1px solid var(--color-border-strong, #d1d5db);
+        border-radius: var(--radius-sm, 6px);
+        cursor: pointer;
+    }
+
+/* ── Ошибка ── */
+.project-tag-picker__error {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2, 8px);
+    padding: 8px 10px;
+    margin-top: var(--space-1, 4px);
+    background: var(--color-danger-bg, #fef2f2);
+    color: var(--color-danger, #dc2626);
+    border-radius: var(--radius-md, 10px);
+    font-size: var(--text-xs, 12px);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   АДАПТИВ
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 600px) {
+    .project-tag-picker__input-wrap {
+        height: 34px;
+    }
+}

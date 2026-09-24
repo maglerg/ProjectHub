@@ -7,7 +7,7 @@ import {
     Plus,
     Search,
     User,
-    Users,       // ← добавить
+    Users,
     Star,
     Archive,
     MessageCircle,
@@ -16,7 +16,7 @@ import {
     LogOut,
     ChevronDown,
     ArrowLeft,
-    Rocket,      // ← добавить
+    Rocket,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import '../styles/components/ProjectsPage.css';
@@ -31,6 +31,9 @@ import ProjectTagsFilter from './ProjectTagsFilter';
 import UserAvatar from './UserAvatar';
 import EditProjectModal from './EditProjectModal';
 import InviteUserModal from './InviteUserModal';
+import ChatsListPage from './ChatsListPage';
+import NotesPage from './notes/NotesPage';
+import { searchProjectsByTags, setProjectTags } from '../services/projectTagsApi';
 
 import {
     fetchAllProjects,
@@ -40,14 +43,15 @@ import {
     archiveProject,
     unarchiveProject,
 } from '../services/projectsApi';
-import { searchProjectsByTags } from '../services/projectTagsApi';
 import { getFriends, removeFriend } from '../services/friendsApi';
+
+// 🆕 Ключ для sessionStorage
+const TAB_STORAGE_KEY = 'projects.activeTab';
 
 const ProjectsPage = () => {
     const { user, logout } = useAuth();
     const navigate = useNavigate();
 
-    // 📌 Какое представление сейчас открыто: 'projects' | 'friends'
     const [view, setView] = useState('projects');
 
     const [projects, setProjects] = useState([]);
@@ -55,7 +59,6 @@ const ProjectsPage = () => {
     const [message, setMessage] = useState('');
     const [activeTab, setActiveTab] = useState(null);
 
-    // 📌 Только категория — без статуса
     const [selectedCategory, setSelectedCategory] = useState('');
     const [selectedTagIds, setSelectedTagIds] = useState([]);
 
@@ -65,11 +68,9 @@ const ProjectsPage = () => {
     const [friends, setFriends] = useState([]);
     const [friendsLoading, setFriendsLoading] = useState(false);
 
-    // 🆕 Модалки, открываемые из контекстного меню карточки
     const [editingProject, setEditingProject] = useState(null);
     const [invitingProject, setInvitingProject] = useState(null);
 
-    // 📌 Меню пользователя
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const userMenuRef = useRef(null);
 
@@ -89,6 +90,39 @@ const ProjectsPage = () => {
             document.removeEventListener('mousedown', handleClickOutside);
             document.removeEventListener('keydown', handleKey);
         };
+    }, []);
+
+    // 🆕 Загрузка данных для восстановленного таба
+    const loadTabData = (tab) => {
+        if (tab === 'my') {
+            setShowMyProjectsOnly(true);
+            setShowFavoritesOnly(false);
+            loadProjects(false, true);
+        } else if (tab === 'favorites') {
+            setShowFavoritesOnly(true);
+            setShowMyProjectsOnly(false);
+            loadProjects(true, false);
+        } else if (tab === 'archive') {
+            setShowFavoritesOnly(false);
+            setShowMyProjectsOnly(false);
+            loadArchivedProjects();
+        } else if (tab === 'create') {
+            // пустая форма, ничего грузить не нужно
+        } else if (tab === 'search' || tab === 'chats' || tab === 'notes') {
+            setShowFavoritesOnly(false);
+            setShowMyProjectsOnly(false);
+            setProjects([]);
+        }
+    };
+
+    // 🆕 Восстановление активного таба при монтировании
+    useEffect(() => {
+        const savedTab = sessionStorage.getItem(TAB_STORAGE_KEY);
+        if (savedTab) {
+            setActiveTab(savedTab);
+            loadTabData(savedTab);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // ── Загрузка проектов ──
@@ -209,7 +243,7 @@ const ProjectsPage = () => {
         );
     };
 
-    // ── Обработчики контекстного меню ──
+    // ── Контекстное меню ──
 
     const handleContextEdit = (project) => {
         setEditingProject(project);
@@ -272,7 +306,6 @@ const ProjectsPage = () => {
 
     const handleContextDelete = null;
 
-    // ── projectListProps ──
     const projectListProps = {
         projects,
         loading,
@@ -293,7 +326,22 @@ const ProjectsPage = () => {
         setLoading(true);
         try {
             const newProject = await createProject(projectData);
-            setMessage(`✅ Проект "${newProject.name}" успешно создан! Код: ${newProject.publicCode}`);
+
+            if (Array.isArray(projectData.tagIds) && projectData.tagIds.length > 0) {
+                try {
+                    await setProjectTags(newProject.publicCode, projectData.tagIds);
+                } catch (tagErr) {
+                    console.error('❌ Ошибка привязки тегов:', tagErr);
+                    setMessage(
+                        `⚠️ Проект создан, но теги не привязались: ${tagErr.message}`
+                    );
+                    setTimeout(() => setMessage(''), 5000);
+                }
+            }
+
+            setMessage(
+                `✅ Проект "${newProject.name}" успешно создан! Код: ${newProject.publicCode}`
+            );
             setShowFavoritesOnly(false);
             setShowMyProjectsOnly(false);
             await loadProjects(false, false);
@@ -322,9 +370,27 @@ const ProjectsPage = () => {
         setMessage('');
     };
 
+    const pluralProjects = (n) => {
+        const mod10 = n % 10;
+        const mod100 = n % 100;
+        if (mod10 === 1 && mod100 !== 11) return 'проект';
+        if (mod10 >= 2 && mod10 <= 4 && (mod100 < 10 || mod100 >= 20)) return 'проекта';
+        return 'проектов';
+    };
+
+    // 🆕 Централизованное переключение таба с сохранением в sessionStorage
+    const changeTab = (tab) => {
+        setActiveTab(tab);
+        if (tab) {
+            sessionStorage.setItem(TAB_STORAGE_KEY, tab);
+        } else {
+            sessionStorage.removeItem(TAB_STORAGE_KEY);
+        }
+    };
+
     const handleTabClick = (tab) => {
         if (activeTab === tab) {
-            setActiveTab(null);
+            changeTab(null);
             setMessage('');
             setProjects([]);
             setShowFavoritesOnly(false);
@@ -334,7 +400,7 @@ const ProjectsPage = () => {
             return;
         }
 
-        setActiveTab(tab);
+        changeTab(tab);
         setMessage('');
 
         if (tab === 'create') return;
@@ -363,12 +429,24 @@ const ProjectsPage = () => {
             setSelectedTagIds([]);
             setSelectedCategory('');
             loadArchivedProjects();
+        } else if (tab === 'chats') {
+            setShowFavoritesOnly(false);
+            setShowMyProjectsOnly(false);
+            setSelectedTagIds([]);
+            setSelectedCategory('');
+            setProjects([]);
+        } else if (tab === 'notes') {
+            setShowFavoritesOnly(false);
+            setShowMyProjectsOnly(false);
+            setSelectedTagIds([]);
+            setSelectedCategory('');
+            setProjects([]);
         }
     };
 
     const openFriendsSection = () => {
         setView('friends');
-        setActiveTab(null);
+        changeTab(null);
         setMessage('');
         setShowFavoritesOnly(false);
         setShowMyProjectsOnly(false);
@@ -379,7 +457,7 @@ const ProjectsPage = () => {
 
     const backToProjects = () => {
         setView('projects');
-        setActiveTab(null);
+        changeTab(null);
         setMessage('');
     };
 
@@ -390,10 +468,9 @@ const ProjectsPage = () => {
 
     const handleLogout = () => {
         setUserMenuOpen(false);
+        sessionStorage.removeItem(TAB_STORAGE_KEY);
         logout();
     };
-
-    // ── Модалки после сохранения ──
 
     const handleEditUpdated = async () => {
         setEditingProject(null);
@@ -417,8 +494,12 @@ const ProjectsPage = () => {
         setTimeout(() => setMessage(''), 2500);
     };
 
+    // 🆕 Первичная загрузка доски — только если в sessionStorage не было сохранённого таба
     useEffect(() => {
-        loadProjects(false, false);
+        const savedTab = sessionStorage.getItem(TAB_STORAGE_KEY);
+        if (!savedTab) {
+            loadProjects(false, false);
+        }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -426,11 +507,36 @@ const ProjectsPage = () => {
         <div className="projects-page">
             <header className="page-header">
                 <div className="header-left">
+                    {/* 🆕 Кнопка Назад — только в режиме друзей */}
+                    {view === 'friends' && (
+                        <button
+                            type="button"
+                            className="btn btn--ghost btn--sm"
+                            onClick={backToProjects}
+                            title="Вернуться к проектам"
+                            aria-label="Вернуться к проектам"
+                        >
+                            <ArrowLeft size={16} />
+                            Назад
+                        </button>
+                    )}
+
+                    {/* 🆕 Заголовок меняется в зависимости от view */}
                     <h1>
-                        <Folder size={28} />
-                        ProjectHub
+                        {view === 'friends' ? (
+                            <>
+                                <Users size={24} />
+                                Друзья
+                            </>
+                        ) : (
+                            <>
+                                <Folder size={28} />
+                                ProjectHub
+                            </>
+                        )}
                     </h1>
                 </div>
+
                 <div className="header-right">
                     <NotificationsDropdown />
 
@@ -523,26 +629,12 @@ const ProjectsPage = () => {
             <main className="page-main">
                 {/* РЕЖИМ: ДРУЗЬЯ */}
                 {view === 'friends' && (
-                    <>
-                        <div className="view-header">
-                            <button
-                                type="button"
-                                className="btn btn--ghost btn--sm"
-                                onClick={backToProjects}
-                            >
-                                <ArrowLeft size={16} />
-                                Назад
-                            </button>
-                            <h2 className="view-title"> </h2>
-                        </div>
-
-                        <FriendsList
-                            friends={friends}
-                            loading={friendsLoading}
-                            onFriendAdded={handleFriendAdded}
-                            onFriendRemoved={handleFriendRemoved}
-                        />
-                    </>
+                    <FriendsList
+                        friends={friends}
+                        loading={friendsLoading}
+                        onFriendAdded={handleFriendAdded}
+                        onFriendRemoved={handleFriendRemoved}
+                    />
                 )}
 
                 {/* РЕЖИМ: ПРОЕКТЫ */}
@@ -591,8 +683,8 @@ const ProjectsPage = () => {
                             </button>
                             <button
                                 type="button"
-                                className="tab-btn"
-                                onClick={() => navigate('/chats')}
+                                className={`tab-btn ${activeTab === 'chats' ? 'active' : ''}`}
+                                onClick={() => handleTabClick('chats')}
                                 title="Чаты"
                             >
                                 <MessageCircle size={16} />
@@ -600,8 +692,8 @@ const ProjectsPage = () => {
                             </button>
                             <button
                                 type="button"
-                                className="tab-btn"
-                                onClick={() => navigate('/notes')}
+                                className={`tab-btn ${activeTab === 'notes' ? 'active' : ''}`}
+                                onClick={() => handleTabClick('notes')}
                                 title="Мои заметки"
                             >
                                 <FileText size={16} />
@@ -620,39 +712,87 @@ const ProjectsPage = () => {
                                 <CreateProjectForm
                                     onSubmit={handleCreateProject}
                                     loading={loading}
-                                    onCancel={() => setActiveTab(null)}
+                                    onCancel={() => changeTab(null)}
                                     resetForm={shouldResetForm}
                                 />
                             )}
 
                             {activeTab === 'search' && (
-                                <div className="search-tab-content">
-                                    <div className="search-tags-filter-wrap">
-                                        <ProjectTagsFilter
-                                            selectedTagIds={selectedTagIds}
-                                            onChange={setSelectedTagIds}
-                                            onSearch={searchByTags}
-                                            disabled={loading}
-                                        />
-                                    </div>
+                                <div className="search-tab">
 
-                                    <SearchSection />
+                                    {/* ═══ Способ 1: поиск по тегам ═══ */}
+                                    <section className="search-method">
+                                        <header className="search-method-header">
+                                            <div className="search-method-title">
+                                                <span className="search-method-number">1</span>
+                                                <h3>Поиск по тегам</h3>
+                                            </div>
+                                            <p className="search-method-hint">
+                                                Выберите до 5 тегов — найдём проекты, где есть все выбранные
+                                            </p>
+                                        </header>
 
-                                    <div className="search-filters">
-                                        <h4>Или найдите по категории:</h4>
-                                        <FilterSection
-                                            selectedCategory={selectedCategory}
-                                            onCategoryChange={handleCategoryChange}
-                                            onSearch={handleCategorySearch}
-                                            onReset={resetFilters}
-                                            loading={loading}
-                                        />
-                                    </div>
-
-                                    {projects.length > 0 && (
-                                        <div className="search-results">
-                                            <ProjectList {...projectListProps} />
+                                        <div className="search-method-body">
+                                            <ProjectTagsFilter
+                                                selectedTagIds={selectedTagIds}
+                                                onChange={setSelectedTagIds}
+                                                onSearch={searchByTags}
+                                                disabled={loading}
+                                            />
                                         </div>
+                                    </section>
+
+                                    {/* ═══ Способ 2: поиск по коду ═══ */}
+                                    <section className="search-method">
+                                        <header className="search-method-header">
+                                            <div className="search-method-title">
+                                                <span className="search-method-number">2</span>
+                                                <h3>Поиск по коду</h3>
+                                            </div>
+                                            <p className="search-method-hint">
+                                                Если знаете код проекта — введите его для точного поиска
+                                            </p>
+                                        </header>
+
+                                        <div className="search-method-body">
+                                            <SearchSection />
+                                        </div>
+                                    </section>
+
+                                    {/* ═══ Способ 3: поиск по категории ═══ */}
+                                    <section className="search-method">
+                                        <header className="search-method-header">
+                                            <div className="search-method-title">
+                                                <span className="search-method-number">3</span>
+                                                <h3>Поиск по категории</h3>
+                                            </div>
+                                            <p className="search-method-hint">
+                                                Выберите категорию — покажем все проекты в ней
+                                            </p>
+                                        </header>
+
+                                        <div className="search-method-body">
+                                            <FilterSection
+                                                selectedCategory={selectedCategory}
+                                                onCategoryChange={handleCategoryChange}
+                                                onSearch={handleCategorySearch}
+                                                onReset={resetFilters}
+                                                loading={loading}
+                                            />
+                                        </div>
+                                    </section>
+
+                                    {/* ═══ Результаты ═══ */}
+                                    {projects.length > 0 && (
+                                        <section className="search-results-block">
+                                            <header className="search-results-header">
+                                                <h3>Результаты поиска</h3>
+                                                <span className="search-results-count">
+                                                    {projects.length} {pluralProjects(projects.length)}
+                                                </span>
+                                            </header>
+                                            <ProjectList {...projectListProps} />
+                                        </section>
                                     )}
                                 </div>
                             )}
@@ -719,6 +859,20 @@ const ProjectsPage = () => {
                                 </div>
                             )}
 
+                            {/* ЧАТЫ — встроенная панель под табами */}
+                            {activeTab === 'chats' && (
+                                <div className="list-tab-content">
+                                    <ChatsListPage />
+                                </div>
+                            )}
+
+                            {/* ЗАМЕТКИ — встроенная панель под табами */}
+                            {activeTab === 'notes' && (
+                                <div className="list-tab-content">
+                                    <NotesPage />
+                                </div>
+                            )}
+
                             {!activeTab && (
                                 <div className="empty-state">
                                     <div className="empty-state-icon">
@@ -733,7 +887,7 @@ const ProjectsPage = () => {
                 )}
             </main>
 
-            {/* Модалка редактирования, вызванная из контекстного меню */}
+            {/* Модалка редактирования */}
             {editingProject && (
                 <EditProjectModal
                     project={editingProject}
@@ -743,7 +897,7 @@ const ProjectsPage = () => {
                 />
             )}
 
-            {/* Модалка приглашения, вызванная из контекстного меню */}
+            {/* Модалка приглашения */}
             {invitingProject && (
                 <InviteUserModal
                     project={invitingProject}

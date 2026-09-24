@@ -1,6 +1,7 @@
+// projecthub.client/src/components/notes/NotesPage.js
+
 import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, FileText, Search, RotateCcw, Plus, StickyNote } from 'lucide-react';
+import { FileText, Search, RotateCcw, Plus, StickyNote } from 'lucide-react';
 import {
     getNotes,
     createNote,
@@ -16,7 +17,7 @@ const FILTERS = [
     { value: 'Free', label: 'Свободные', icon: StickyNote }
 ];
 
-// ── Сортировка: закреплённые сверху, затем по дате обновления ──
+// Сортировка: закреплённые сверху, затем по дате обновления
 const sortNotes = (list) =>
     [...list].sort((a, b) => {
         if (a.isPinned !== b.isPinned) return a.isPinned ? -1 : 1;
@@ -24,8 +25,6 @@ const sortNotes = (list) =>
     });
 
 export default function NotesPage() {
-    const navigate = useNavigate();
-
     const [notes, setNotes] = useState([]);
     const [filter, setFilter] = useState('All');
     const [search, setSearch] = useState('');
@@ -108,37 +107,8 @@ export default function NotesPage() {
     };
 
     return (
-        <div className="notes-page">
-            <header className="notes-page-header">
-                <button
-                    type="button"
-                    className="btn btn--ghost btn--sm"
-                    onClick={() => navigate(-1)}
-                >
-                    <ArrowLeft size={16} />
-                    Назад
-                </button>
-
-                <div className="notes-page-title-block">
-                    <h1>
-                        <StickyNote size={22} />
-                        Мои заметки
-                    </h1>
-                    <p className="notes-page-subtitle">
-                        Видны только вам. Заметки можно привязать к проекту.
-                    </p>
-                </div>
-
-                <button
-                    type="button"
-                    className="btn btn--primary"
-                    onClick={handleOpenNew}
-                >
-                    <Plus size={16} />
-                    Новая заметка
-                </button>
-            </header>
-
+        <div className="notes-page notes-page--embedded">
+            {/* ── Тулбар: фильтры + поиск + кнопка создания ── */}
             <div className="notes-page-toolbar">
                 <div className="notes-page-filters">
                     {FILTERS.map(f => {
@@ -182,6 +152,16 @@ export default function NotesPage() {
                             Сбросить
                         </button>
                     )}
+
+                    {/* 🆕 Кнопка создания — переехала сюда из шапки */}
+                    <button
+                        type="button"
+                        className="btn btn--primary btn--sm notes-page-new-btn"
+                        onClick={handleOpenNew}
+                    >
+                        <Plus size={14} />
+                        Новая заметка
+                    </button>
                 </div>
             </div>
 

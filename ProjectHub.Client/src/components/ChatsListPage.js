@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, Loader2, X, Users } from 'lucide-react';
+import { MessageCircle, Loader2, X } from 'lucide-react';
 import { getChats } from '../services/chatsApi';
 import UserAvatar from './UserAvatar';
 import ChatCover from './ChatCover';
@@ -68,6 +68,13 @@ const ChatsListPage = () => {
         return chat.name || 'Чат';
     };
 
+    // 🆕 Открыть чат.
+    //    Полагаемся на то, что ProjectsPage уже сохранил activeTab='chats'
+    //    в sessionStorage — при возврате через navigate(-1) таб восстановится сам.
+    const openChat = (chatId) => {
+        navigate(`/chats/${chatId}`);
+    };
+
     if (loading) {
         return (
             <div className="chats-loading">
@@ -87,36 +94,12 @@ const ChatsListPage = () => {
                 </div>
                 <h3>Ошибка</h3>
                 <p>{error}</p>
-                <button
-                    type="button"
-                    className="btn btn--secondary"
-                    onClick={() => navigate('/projects')}
-                >
-                    <ArrowLeft size={16} />
-                    Вернуться к проектам
-                </button>
             </div>
         );
     }
 
     return (
         <div className="chats-list-page">
-            <header className="chats-header">
-                <button
-                    type="button"
-                    className="btn btn--ghost btn--sm"
-                    onClick={() => navigate('/projects')}
-                >
-                    <ArrowLeft size={16} />
-                    Назад
-                </button>
-                <h1>
-                    <MessageCircle size={24} />
-                    Чаты
-                </h1>
-                <span className="chats-count">{chats.length}</span>
-            </header>
-
             <div className="chats-content">
                 {chats.length === 0 ? (
                     <div className="no-chats">
@@ -130,7 +113,6 @@ const ChatsListPage = () => {
                             className="btn btn--primary"
                             onClick={() => navigate('/projects')}
                         >
-                            <Users size={16} />
                             Найти друзей
                         </button>
                     </div>
@@ -144,19 +126,18 @@ const ChatsListPage = () => {
                                 <div
                                     key={chat.id}
                                     className={`chat-item ${chat.unreadCount > 0 ? 'unread' : ''}`}
-                                    onClick={() => navigate(`/chats/${chat.id}`)}
+                                    onClick={() => openChat(chat.id)}
                                     role="button"
                                     tabIndex={0}
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' || e.key === ' ') {
                                             e.preventDefault();
-                                            navigate(`/chats/${chat.id}`);
+                                            openChat(chat.id);
                                         }
                                     }}
                                 >
                                     <div className="chat-item-avatar-wrapper">
                                         {isPersonal && otherUser ? (
-                                            // Личный чат — аватар собеседника
                                             <UserAvatar
                                                 avatarUrl={otherUser.avatarUrl}
                                                 name={otherUser.name}
@@ -164,7 +145,6 @@ const ChatsListPage = () => {
                                                 size="md"
                                             />
                                         ) : (
-                                            // 🆕 Групповой чат — обложка проекта
                                             <div className="chat-item-cover">
                                                 <ChatCover chat={chat} size="md" />
                                             </div>

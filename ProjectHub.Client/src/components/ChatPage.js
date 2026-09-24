@@ -146,31 +146,27 @@ const ChatPage = ({
     }, [chatId]);
 
     // ═══════════════════════════════════════════════════════════
-    //  🆕 АВТОФОКУС: пользователь печатает — фокус в поле ввода
+    //  АВТОФОКУС: пользователь печатает — фокус в поле ввода
     // ═══════════════════════════════════════════════════════════
     useEffect(() => {
-        // В архивном чате нет формы ввода — ничего не делаем
         if (isArchived) return;
         if (!chatId) return;
 
         const handleGlobalKeyDown = (e) => {
             const active = document.activeElement;
 
-            // Если фокус уже в поле ввода/текстареа — не мешаем
             const isInInput =
                 active &&
                 (active.tagName === 'INPUT' ||
                     active.tagName === 'TEXTAREA' ||
                     active.isContentEditable);
 
-            // Если открыта модалка / панель эмодзи — не перехватываем
             const isInsideOverlay =
                 active &&
                 active.closest(
                     '[role="dialog"], .emoji-picker, .modal-overlay, .edit-modal-overlay'
                 );
 
-            // Служебные и модифицирующие клавиши игнорируем
             if (
                 e.ctrlKey ||
                 e.metaKey ||
@@ -195,11 +191,8 @@ const ChatPage = ({
             if (!isPrintable && !isBackspace && !isDelete) return;
             if (isInInput || isInsideOverlay) return;
 
-            // 🆕 Переводим фокус в поле ввода
             textareaRef.current?.focus();
 
-            // 🆕 Печатаемый символ дописываем вручную, чтобы не потерялся
-            //    (после смены фокуса браузер может не вставить его сам)
             if (isPrintable) {
                 setNewMessage((prev) => prev + e.key);
                 e.preventDefault();
@@ -219,13 +212,11 @@ const ChatPage = ({
         if (isArchived) return;
         if (sending || uploadingFile) return;
 
-        // Если есть прикреплённый файл — отправляем файл
         if (attachedFile) {
             await handleSendFile();
             return;
         }
 
-        // Пустое сообщение не отправляем
         if (!newMessage.trim()) return;
 
         setSending(true);
@@ -397,8 +388,15 @@ const ChatPage = ({
         navigate(`/users/${encodedEmail}`);
     };
 
+    // 🆕 Назад к списку чатов.
+    //    Просто navigate(-1) — ProjectsPage сам восстановит таб из sessionStorage.
+    //    Если истории нет (прямой заход) — идём на /projects.
     const goBackToChats = () => {
-        navigate('/chats');
+        if (window.history.length > 1) {
+            navigate(-1);
+        } else {
+            navigate('/projects');
+        }
     };
 
     if (loading) {

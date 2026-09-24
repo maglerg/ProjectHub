@@ -1,121 +1,64 @@
 /* src/styles/components/ProjectTagsFilter.css */
 
+/* ═══════════════════════════════════════════════════════════
+   КОНТЕЙНЕР ФИЛЬТРА
+   ═══════════════════════════════════════════════════════════ */
+
 .project-tags-filter {
     position: relative;
-    background: #fff;
-    padding: 16px 18px;
-    border-radius: 12px;
-    border: 1px solid #e5e7eb;
     display: flex;
     flex-direction: column;
-    gap: 12px;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+    gap: var(--space-3, 12px);
+    padding: var(--space-4, 16px) var(--space-5, 18px);
+    background: var(--color-bg, #ffffff);
+    border: 1px solid var(--color-border, #e5e7eb);
+    border-radius: var(--radius-lg, 14px);
+    box-shadow: var(--shadow-xs, 0 1px 2px rgba(0, 0, 0, 0.04));
 }
 
 /* ── Заголовок ── */
 .project-tags-filter__label {
-    font-size: 14px;
-    font-weight: 600;
-    color: #374151;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2, 8px);
+    font-size: var(--text-sm, 13px);
+    font-weight: var(--font-semibold, 600);
+    color: var(--color-text, #374151);
     user-select: none;
 }
 
 .project-tags-filter__count {
-    font-size: 12px;
-    font-weight: 600;
-    color: #4f46e5;
-    background: #eef2ff;
+    display: inline-flex;
+    align-items: center;
     padding: 2px 8px;
-    border-radius: 10px;
+    background: var(--color-primary-50, #eef2ff);
+    color: var(--color-primary-500, #4f46e5);
+    border-radius: var(--radius-full, 9999px);
+    font-size: var(--text-xs, 12px);
+    font-weight: var(--font-semibold, 600);
     line-height: 1.4;
 }
 
 /* ── Действия внизу ── */
 .project-tags-filter__actions {
     display: flex;
-    gap: 8px;
-    margin-top: 2px;
+    gap: var(--space-2, 8px);
     flex-wrap: wrap;
+    margin-top: var(--space-1, 4px);
 }
-
-.project-tags-filter__search-btn {
-    flex: 1;
-    min-width: 140px;
-    padding: 9px 16px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: #fff;
-    border: none;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 600;
-    font-family: inherit;
-    cursor: pointer;
-    transition: transform 0.15s, box-shadow 0.15s, opacity 0.15s;
-}
-
-    .project-tags-filter__search-btn:hover:not(:disabled) {
-        transform: translateY(-1px);
-        box-shadow: 0 4px 15px rgba(102, 126, 234, 0.35);
-    }
-
-    .project-tags-filter__search-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-        transform: none;
-        box-shadow: none;
-    }
-
-.project-tags-filter__reset-btn {
-    padding: 9px 16px;
-    background: #f3f4f6;
-    color: #374151;
-    border: 1px solid #d1d5db;
-    border-radius: 8px;
-    font-size: 14px;
-    font-weight: 500;
-    font-family: inherit;
-    cursor: pointer;
-    transition: background 0.15s, border-color 0.15s;
-}
-
-    .project-tags-filter__reset-btn:hover:not(:disabled) {
-        background: #e5e7eb;
-        border-color: #9ca3af;
-    }
-
-    .project-tags-filter__reset-btn:disabled {
-        opacity: 0.5;
-        cursor: not-allowed;
-    }
-
-/* ── Переиспользуемые классы из ProjectTagPicker.css ──
-   Компонент использует .project-tag-picker__input-wrap,
-   .project-tag-picker__dropdown, .project-tag-picker__item и др.
-   Если ProjectTagPicker.css уже импортируется где-то ещё — 
-   ничего дополнительно делать не нужно.
-   Если нет — раскомментируйте нужные блоки ниже. */
-
-/*
-.project-tag-picker__input-wrap { ... }
-.project-tag-picker__dropdown { ... }
-.project-tag-picker__item { ... }
-*/
 
 /* ── Адаптив ── */
 @media (max-width: 600px) {
     .project-tags-filter {
-        padding: 14px;
+        padding: var(--space-3, 12px);
     }
 
     .project-tags-filter__actions {
         flex-direction: column;
     }
 
-    .project-tags-filter__search-btn,
-    .project-tags-filter__reset-btn {
-        width: 100%;
-    }
+        .project-tags-filter__actions .btn {
+            width: 100%;
+            justify-content: center;
+        }
 }

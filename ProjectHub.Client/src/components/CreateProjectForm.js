@@ -1,8 +1,9 @@
 // projecthub.client/src/components/CreateProjectForm.js
 
 import React, { useState, useEffect } from 'react';
-import { Loader2, Check, Plus } from 'lucide-react';
+import { Loader2, Plus, Tag as TagIcon } from 'lucide-react';
 import { PROJECT_CATEGORIES, PROJECT_VISIBILITY } from '../utils/constants';
+import ProjectTagPicker from './ProjectTagPicker';
 import '../styles/components/CreateProjectForm.css';
 
 const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
@@ -13,6 +14,9 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
         visibility: 'Public',
         deadline: ''
     });
+
+    // 🆕 Выбранные теги проекта
+    const [selectedTagIds, setSelectedTagIds] = useState([]);
 
     const [errors, setErrors] = useState({});
 
@@ -26,6 +30,7 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
                 visibility: 'Public',
                 deadline: ''
             });
+            setSelectedTagIds([]);
             setErrors({});
         }
     }, [resetForm]);
@@ -75,7 +80,8 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
 
         const submitData = {
             ...formData,
-            deadline: new Date(formData.deadline).toISOString()
+            deadline: new Date(formData.deadline).toISOString(),
+            tagIds: selectedTagIds,   // 🆕 пробрасываем теги
         };
 
         onSubmit(submitData);
@@ -180,6 +186,22 @@ const CreateProjectForm = ({ onSubmit, loading, onCancel, resetForm }) => {
                     {errors.deadline && (
                         <span className="form-error-text">{errors.deadline}</span>
                     )}
+                </div>
+
+                {/* 🆕 Теги проекта */}
+                <div className="form-group">
+                    <label className="form-label">
+                        <TagIcon size={14} />
+                        Теги проекта
+                        <span className="form-hint">
+                            (необязательно, до 15)
+                        </span>
+                    </label>
+                    <ProjectTagPicker
+                        selectedTagIds={selectedTagIds}
+                        onChange={setSelectedTagIds}
+                        disabled={loading}
+                    />
                 </div>
 
                 <div className="form-actions">

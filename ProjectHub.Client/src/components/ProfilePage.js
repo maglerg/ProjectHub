@@ -26,7 +26,7 @@ import {
     deleteUserAvatar,
 } from '../services/userAvatarApi';
 import { SPECIALIZATIONS } from '../utils/constants';
-import { getUser, setUser as setUserInStorage } from '../utils/storage';
+import { setUser as setUserInStorage } from '../utils/storage';
 import UserAvatar from './UserAvatar';
 import '../styles/components/ProfilePage.css';
 
@@ -44,7 +44,7 @@ const ProfilePage = () => {
     const [success, setSuccess] = useState(null);
     const [isEditing, setIsEditing] = useState(false);
 
-    // 🆕 Аватар
+    // Аватар
     const [uploadingAvatar, setUploadingAvatar] = useState(false);
     const [avatarError, setAvatarError] = useState(null);
 
@@ -53,7 +53,7 @@ const ProfilePage = () => {
         email: '',
         specialization: '',
         description: '',
-        chatPrivacy: 'All'
+        chatPrivacy: 'All',
     });
 
     useEffect(() => {
@@ -72,7 +72,7 @@ const ProfilePage = () => {
                 email: data.email || '',
                 specialization: data.specialization || '',
                 description: data.description || '',
-                chatPrivacy: data.chatPrivacy || 'All'
+                chatPrivacy: data.chatPrivacy || 'All',
             });
             setUserInStorage(data);
         } catch (err) {
@@ -98,7 +98,7 @@ const ProfilePage = () => {
             setUser(updated);
             setProfile(updated);
             setUserInStorage(updated);
-            setSuccess('✅ Профиль успешно обновлен!');
+            setSuccess('✅ Профиль успешно обновлён!');
             setIsEditing(false);
         } catch (err) {
             setError(err.message || 'Ошибка обновления профиля');
@@ -114,14 +114,14 @@ const ProfilePage = () => {
             email: profile?.email || '',
             specialization: profile?.specialization || '',
             description: profile?.description || '',
-            chatPrivacy: profile?.chatPrivacy || 'All'
+            chatPrivacy: profile?.chatPrivacy || 'All',
         });
         setError(null);
         setSuccess(null);
         setAvatarError(null);
     };
 
-    // 🆕 ── Загрузка аватара ──
+    // ── Загрузка аватара ──
     const handleAvatarUpload = async (e) => {
         const file = e.target.files?.[0];
         if (!file) return;
@@ -159,7 +159,7 @@ const ProfilePage = () => {
         }
     };
 
-    // 🆕 ── Удаление аватара ──
+    // ── Удаление аватара ──
     const handleAvatarDelete = async () => {
         if (!profile?.avatarUrl) return;
         if (!window.confirm('Удалить аватар?')) return;
@@ -186,10 +186,8 @@ const ProfilePage = () => {
     if (loading) {
         return (
             <div className="profile-loading">
-                <div className="spinner">
-                    <Loader2 size={32} className="icon-spin" />
-                </div>
-                <p>Загрузка профиля...</p>
+                <Loader2 size={32} className="icon-spin" />
+                <p>Загрузка профиля…</p>
             </div>
         );
     }
@@ -197,8 +195,8 @@ const ProfilePage = () => {
     if (error && !profile) {
         return (
             <div className="profile-error">
-                <div className="error-icon">
-                    <X size={32} />
+                <div className="profile-state-icon">
+                    <X size={28} />
                 </div>
                 <h3>Ошибка загрузки</h3>
                 <p>{error}</p>
@@ -214,6 +212,9 @@ const ProfilePage = () => {
         );
     }
 
+    // Значение приватности для отображения
+    const isFriendsOnly = formData.chatPrivacy === 'FriendsOnly';
+
     return (
         <div className="profile-page">
             <header className="profile-header">
@@ -225,15 +226,17 @@ const ProfilePage = () => {
                     <ArrowLeft size={16} />
                     Назад
                 </button>
+
                 <h1>
-                    <User size={24} />
+                    <User size={22} />
                     Профиль пользователя
                 </h1>
+
                 <div className="header-actions">
                     {!isEditing ? (
                         <button
                             type="button"
-                            className="btn btn--secondary btn--sm"
+                            className="btn btn--primary btn--sm"
                             onClick={() => setIsEditing(true)}
                         >
                             <Pencil size={14} />
@@ -262,20 +265,20 @@ const ProfilePage = () => {
 
             <div className="profile-content">
                 {success && (
-                    <div className="success-message">
+                    <div className="profile-notification success">
                         <Check size={14} />
                         {success}
                     </div>
                 )}
                 {error && (
-                    <div className="error-message">
+                    <div className="profile-notification error">
                         <AlertCircle size={14} />
                         {error}
                     </div>
                 )}
 
                 <div className="profile-card">
-                    {/* 🆕 ── АВАТАР ── */}
+                    {/* ── АВАТАР ── */}
                     <div className="profile-avatar-section">
                         <UserAvatar
                             avatarUrl={profile?.avatarUrl}
@@ -337,10 +340,12 @@ const ProfilePage = () => {
                         )}
                     </div>
 
+                    {/* ── ФОРМА ── */}
                     <form onSubmit={handleSubmit} className="profile-form">
                         <div className="form-group">
-                            <label>Имя</label>
+                            <label htmlFor="profile-name">Имя</label>
                             <input
+                                id="profile-name"
                                 type="text"
                                 name="name"
                                 value={formData.name}
@@ -351,21 +356,22 @@ const ProfilePage = () => {
                         </div>
 
                         <div className="form-group">
-                            <label>Email</label>
+                            <label htmlFor="profile-email">Email</label>
                             <input
+                                id="profile-email"
                                 type="email"
                                 name="email"
                                 value={formData.email}
-                                onChange={handleChange}
-                                disabled={true}
+                                disabled
                                 className="disabled-field"
                             />
                             <span className="field-hint">Email нельзя изменить</span>
                         </div>
 
                         <div className="form-group">
-                            <label>Специализация</label>
+                            <label htmlFor="profile-spec">Специализация</label>
                             <select
+                                id="profile-spec"
                                 name="specialization"
                                 value={formData.specialization}
                                 onChange={handleChange}
@@ -380,73 +386,95 @@ const ProfilePage = () => {
                         </div>
 
                         <div className="form-group">
-                            <label>О себе</label>
+                            <label htmlFor="profile-desc">О себе</label>
                             <textarea
+                                id="profile-desc"
                                 name="description"
                                 value={formData.description}
                                 onChange={handleChange}
                                 disabled={!isEditing || saving}
-                                placeholder="Расскажите о своем опыте, навыках, интересах..."
+                                placeholder="Расскажите о своём опыте, навыках, интересах…"
                                 rows="4"
                             />
                         </div>
 
-                        {/* 📌 НАСТРОЙКА ПРИВАТНОСТИ ЧАТОВ */}
-                        <div className="form-group privacy-group">
-                            <label>
+                        {/* 📌 КТО МОЖЕТ МНЕ ПИСАТЬ */}
+                        <div className="privacy-group">
+                            <label className="form-label-with-icon">
                                 <Info size={16} />
                                 Кто может мне писать
                             </label>
-                            <div className="privacy-options">
-                                <label className={`privacy-option ${formData.chatPrivacy === 'All' ? 'selected' : ''}`}>
-                                    <input
-                                        type="radio"
-                                        name="chatPrivacy"
-                                        value="All"
-                                        checked={formData.chatPrivacy === 'All'}
-                                        onChange={handleChange}
-                                        disabled={!isEditing || saving}
-                                    />
-                                    <div className="privacy-option-content">
-                                        <span className="privacy-icon">
-                                            <Globe size={20} />
-                                        </span>
-                                        <div className="privacy-text">
-                                            <span className="privacy-title">Все пользователи</span>
-                                            <span className="privacy-description">
-                                                Любой может отправить вам сообщение
-                                            </span>
-                                        </div>
-                                    </div>
-                                </label>
 
-                                <label className={`privacy-option ${formData.chatPrivacy === 'FriendsOnly' ? 'selected' : ''}`}>
-                                    <input
-                                        type="radio"
-                                        name="chatPrivacy"
-                                        value="FriendsOnly"
-                                        checked={formData.chatPrivacy === 'FriendsOnly'}
-                                        onChange={handleChange}
-                                        disabled={!isEditing || saving}
-                                    />
-                                    <div className="privacy-option-content">
-                                        <span className="privacy-icon">
-                                            <Users size={20} />
-                                        </span>
-                                        <div className="privacy-text">
-                                            <span className="privacy-title">Только друзья</span>
-                                            <span className="privacy-description">
-                                                Писать смогут только ваши друзья
-                                            </span>
-                                        </div>
+                            {isEditing ? (
+                                /* ── Режим редактирования: 2 опции ── */
+                                <>
+                                    <div className="privacy-options">
+                                        <label className={`privacy-option ${formData.chatPrivacy === 'All' ? 'selected' : ''}`}>
+                                            <input
+                                                type="radio"
+                                                name="chatPrivacy"
+                                                value="All"
+                                                checked={formData.chatPrivacy === 'All'}
+                                                onChange={handleChange}
+                                                disabled={saving}
+                                            />
+                                            <div className="privacy-option-content">
+                                                <span className="privacy-icon">
+                                                    <Globe size={20} />
+                                                </span>
+                                                <div className="privacy-text">
+                                                    <span className="privacy-title">Все пользователи</span>
+                                                    <span className="privacy-description">
+                                                        Любой может отправить вам сообщение
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </label>
+
+                                        <label className={`privacy-option ${formData.chatPrivacy === 'FriendsOnly' ? 'selected' : ''}`}>
+                                            <input
+                                                type="radio"
+                                                name="chatPrivacy"
+                                                value="FriendsOnly"
+                                                checked={formData.chatPrivacy === 'FriendsOnly'}
+                                                onChange={handleChange}
+                                                disabled={saving}
+                                            />
+                                            <div className="privacy-option-content">
+                                                <span className="privacy-icon">
+                                                    <Users size={20} />
+                                                </span>
+                                                <div className="privacy-text">
+                                                    <span className="privacy-title">Только друзья</span>
+                                                    <span className="privacy-description">
+                                                        Писать смогут только ваши друзья
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </label>
                                     </div>
-                                </label>
-                            </div>
-                            {formData.chatPrivacy === 'FriendsOnly' && (
-                                <span className="field-hint">
-                                    <Info size={12} />
-                                    Вы по-прежнему сможете писать всем пользователям
-                                </span>
+                                    {isFriendsOnly && (
+                                        <span className="field-hint">
+                                            <Info size={12} />
+                                            Вы по-прежнему сможете писать всем пользователям
+                                        </span>
+                                    )}
+                                </>
+                            ) : (
+                                /* ── Режим просмотра: одно информационное поле ── */
+                                <div className={`privacy-view ${isFriendsOnly ? 'friends' : 'all'}`}>
+                                    {isFriendsOnly ? (
+                                        <>
+                                            <Users size={16} />
+                                            <span>Только друзья</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Globe size={16} />
+                                            <span>Все пользователи</span>
+                                        </>
+                                    )}
+                                </div>
                             )}
                         </div>
 
@@ -460,7 +488,7 @@ const ProfilePage = () => {
                                     {saving ? (
                                         <>
                                             <Loader2 size={16} className="icon-spin" />
-                                            Сохранение...
+                                            Сохранение…
                                         </>
                                     ) : (
                                         <>
@@ -474,6 +502,7 @@ const ProfilePage = () => {
                     </form>
                 </div>
 
+                {/* ── СТАТИСТИКА ── */}
                 <div className="profile-stats">
                     <div className="stat-card">
                         <span className="stat-number">{profile?.projectsCount || 0}</span>
@@ -484,8 +513,10 @@ const ProfilePage = () => {
                         <span className="stat-label">Завершено</span>
                     </div>
                     <div className="stat-card">
-                        <span className="stat-number">{profile?.isOnline ? '🟢' : '⚫'}</span>
-                        <span className="stat-label">{profile?.isOnline ? 'Онлайн' : 'Оффлайн'}</span>
+                        <span className={`stat-dot ${profile?.isOnline ? 'online' : 'offline'}`} />
+                        <span className="stat-label">
+                            {profile?.isOnline ? 'Онлайн' : 'Оффлайн'}
+                        </span>
                     </div>
                 </div>
             </div>
