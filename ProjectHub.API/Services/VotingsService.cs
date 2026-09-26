@@ -1,8 +1,10 @@
 ﻿// Services/VotingsService.cs
 
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ProjectHub.API.Data;
 using ProjectHub.API.DTOs.VoteDtos;
+using ProjectHub.API.Hubs;
 using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
 
@@ -14,6 +16,7 @@ public class VotingsService
     private readonly ILogger<VotingsService> _logger;
     private readonly NotificationService _notificationService;
     private readonly ActivityService _activity;
+    private readonly IHubContext<ChatHub> _hubContext;
 
     private const int MinOptions = 2;
     private const int MaxOptions = 10;
@@ -22,12 +25,14 @@ public class VotingsService
         AppDbContext dbContext,
         ILogger<VotingsService> logger,
         NotificationService notificationService,
-        ActivityService activity)
+        ActivityService activity,
+        IHubContext<ChatHub> hubContext)
     {
         _dbContext = dbContext;
         _logger = logger;
         _notificationService = notificationService;
         _activity = activity;
+        _hubContext = hubContext;
     }
 
     // 📌 Создать голосование
@@ -100,7 +105,8 @@ public class VotingsService
 
         _dbContext.VotingOptions.AddRange(votingOptions);
 
-        await _activity.LogAsync(
+        // 🆕 Сохраняем activity
+        var activity = await _activity.LogAsync(
             project.Id,
             userId,
             ActivityType.VotingCreated,
@@ -110,6 +116,9 @@ public class VotingsService
         );
 
         await _dbContext.SaveChangesAsync();
+
+        // 🆕 ── SignalR: ActivityAdded (история) ──
+        await _activity.EmitActivityAsync(activity, project.PublicCode);
 
         _logger.LogInformation($"Создано голосование {voting.Id} в проекте {projectCode}");
 
@@ -134,7 +143,12 @@ public class VotingsService
             );
         }
 
-        return await BuildVotingDtoAsync(voting.Id, userId);
+        var resultDto = await BuildVotingDtoAsync(voting.Id, userId);
+
+        // ── SignalR: VotingCreated (список голосований) ──
+        await EmitToProjectAsync(project.PublicCode, "VotingCreated", resultDto);
+
+        return resultDto;
     }
 
     // 📌 Список голосований проекта
@@ -226,7 +240,8 @@ public class VotingsService
 
         _dbContext.VotingVotes.AddRange(newVotes);
 
-        await _activity.LogAsync(
+        // 🆕 Сохраняем activity
+        var activity = await _activity.LogAsync(
             voting.ProjectId,
             userId,
             ActivityType.VotingVoted,
@@ -237,11 +252,19 @@ public class VotingsService
 
         await _dbContext.SaveChangesAsync();
 
+        // 🆕 ── SignalR: ActivityAdded ──
+        await _activity.EmitActivityAsync(activity, voting.Project.PublicCode);
+
         await _notificationService.DeleteVotingNotificationAsync(userId, votingId);
 
         _logger.LogInformation($"Пользователь {userId} проголосовал в {votingId}");
 
-        return await BuildVotingDtoAsync(votingId, userId);
+        var resultDto = await BuildVotingDtoAsync(votingId, userId);
+
+        // ── SignalR: VoteCast (обновлённые результаты) ──
+        await EmitToProjectAsync(voting.Project.PublicCode, "VoteCast", resultDto);
+
+        return resultDto;
     }
 
     // 📌 Закрыть голосование
@@ -263,13 +286,10 @@ public class VotingsService
             throw new UnauthorizedAccessException(
                 "Только автор голосования, владелец или админ проекта может закрыть его");
 
-        // 📌 Закрытие разрешено даже в архиве — оно не создаёт нового контента.
-        // Если хочешь блокировать — раскомментируй строку ниже.
-        // EnsureProjectNotArchived(voting.Project);
-
         voting.IsClosed = true;
 
-        await _activity.LogAsync(
+        // 🆕 Сохраняем activity
+        var activity = await _activity.LogAsync(
             voting.ProjectId,
             userId,
             ActivityType.VotingClosed,
@@ -280,9 +300,17 @@ public class VotingsService
 
         await _dbContext.SaveChangesAsync();
 
+        // 🆕 ── SignalR: ActivityAdded ──
+        await _activity.EmitActivityAsync(activity, voting.Project.PublicCode);
+
         _logger.LogInformation($"Голосование {votingId} закрыто пользователем {userId}");
 
-        return await BuildVotingDtoAsync(votingId, userId);
+        var resultDto = await BuildVotingDtoAsync(votingId, userId);
+
+        // ── SignalR: VotingClosed (список/модалка) ──
+        await EmitToProjectAsync(voting.Project.PublicCode, "VotingClosed", resultDto);
+
+        return resultDto;
     }
 
     // 📌 Удалить голосование
@@ -306,6 +334,8 @@ public class VotingsService
 
         EnsureProjectNotArchived(voting.Project);
 
+        var projectCode = voting.Project.PublicCode;
+
         _dbContext.Votings.Remove(voting);
         await _dbContext.SaveChangesAsync();
 
@@ -313,6 +343,12 @@ public class VotingsService
 
         _logger.LogInformation(
             $"Голосование {votingId} удалено пользователем {userId}");
+
+        // 🆕 ── SignalR: VotingDeleted (список голосований) ──
+        await EmitToProjectAsync(projectCode, "VotingDeleted", new
+        {
+            VotingId = votingId,
+        });
     }
 
     // 📌 Краткая сводка
@@ -462,5 +498,28 @@ public class VotingsService
             TotalVoters = totalVoters,
             TotalProjectMembers = participantIds.Count
         };
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR — ХЕЛПЕР ЭМИТА
+    // ═══════════════════════════════════════════════════════════
+
+    private async Task EmitToProjectAsync(
+        string projectCode, string eventName, object payload)
+    {
+        if (string.IsNullOrWhiteSpace(projectCode)) return;
+
+        try
+        {
+            await _hubContext.Clients
+                .Group($"project:{projectCode}")
+                .SendAsync(eventName, payload);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "SignalR: не удалось отправить {EventName} в project:{ProjectCode}",
+                eventName, projectCode);
+        }
     }
 }

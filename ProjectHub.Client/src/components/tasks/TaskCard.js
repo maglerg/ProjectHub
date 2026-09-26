@@ -81,6 +81,7 @@ export default function TaskCard({
         draggedRef.current = true;
         e.dataTransfer.setData('taskId', task.id);
         e.dataTransfer.effectAllowed = 'move';
+        console.log('DRAG START:', task.id);
     };
 
     const handleDragEnd = () => {

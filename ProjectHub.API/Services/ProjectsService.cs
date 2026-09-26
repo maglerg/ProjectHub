@@ -90,7 +90,8 @@ namespace ProjectHub.API.Services
 
             _dbContext.TaskColumns.AddRange(defaultColumns);
 
-            await _activity.LogAsync(
+            // 🆕 Сохраняем activity для эмита
+            var activity = await _activity.LogAsync(
                 projectEntity.Id,
                 userId,
                 ActivityType.ProjectCreated,
@@ -100,6 +101,9 @@ namespace ProjectHub.API.Services
             );
 
             await _dbContext.SaveChangesAsync();
+
+            // 🆕 ── SignalR: событие истории ──
+            await _activity.EmitActivityAsync(activity, projectEntity.PublicCode);
 
             _logger.LogInformation($"Создан проект с кодом: {publicCode}");
 
@@ -150,7 +154,8 @@ namespace ProjectHub.API.Services
 
             _dbContext.ProjectMembers.Add(member);
 
-            await _activity.LogAsync(
+            // 🆕 Сохраняем activity
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.MemberJoined,
@@ -160,6 +165,9 @@ namespace ProjectHub.API.Services
             );
 
             await _dbContext.SaveChangesAsync();
+
+            // 🆕 ── SignalR ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
 
             _logger.LogInformation($"Пользователь {userId} успешно присоединился к проекту {publicCode}");
             return true;
@@ -213,7 +221,7 @@ namespace ProjectHub.API.Services
                 .Include(p => p.Members).ThenInclude(m => m.User)
                 .Include(p => p.Favorites)
                 .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
-                .Where(p => !p.IsArchived)   // ← архивные не показываем в избранном
+                .Where(p => !p.IsArchived)
                 .OrderByDescending(p => p.FavoritesCount)
                 .ToListAsync();
 
@@ -323,10 +331,6 @@ namespace ProjectHub.API.Services
         //  ПОИСК ПРОЕКТОВ ПО ТЕГАМ
         // ═══════════════════════════════════════════════════════════
 
-        /// <summary>
-        /// Поиск публичных проектов по тегам.
-        /// Проект должен содержать ВСЕ указанные теги (логика И).
-        /// </summary>
         public async Task<List<ProjectResponse>> SearchPublicProjectsByTagsAsync(
             List<Guid> tagIds,
             Guid? currentUserId = null,
@@ -458,7 +462,8 @@ namespace ProjectHub.API.Services
             var oldRole = member.Role;
             member.Role = role;
 
-            await _activity.LogAsync(
+            // 🆕 Сохраняем activity
+            var activity = await _activity.LogAsync(
                 project.Id,
                 ownerId,
                 ActivityType.MemberRoleChanged,
@@ -468,6 +473,9 @@ namespace ProjectHub.API.Services
             );
 
             await _dbContext.SaveChangesAsync();
+
+            // 🆕 ── SignalR ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
 
             _logger.LogInformation($"Роль участника {memberEmail} изменена на {role} в проекте {projectCode}");
 
@@ -546,49 +554,61 @@ namespace ProjectHub.API.Services
 
             project.UpdatedAt = DateTime.UtcNow;
 
-            // Логируем точечные изменения
+            // 🆕 Собираем все activity для эмита (их может быть несколько)
+            var activities = new List<ProjectActivity?>();
+
             if (oldName != project.Name)
             {
-                await _activity.LogAsync(
+                var a = await _activity.LogAsync(
                     project.Id, userId,
                     ActivityType.ProjectUpdated,
                     summary: $"Название проекта: {oldName} → {project.Name}",
                     link: $"/projects/{project.PublicCode}",
                     relatedEntityId: project.Id
                 );
+                activities.Add(a);
             }
 
             if (oldDeadline != project.Deadline)
             {
-                await _activity.LogAsync(
+                var a = await _activity.LogAsync(
                     project.Id, userId,
                     ActivityType.ProjectDeadlineChanged,
                     summary: $"Дедлайн проекта изменён: {oldDeadline:dd.MM.yyyy} → {project.Deadline:dd.MM.yyyy}",
                     link: $"/projects/{project.PublicCode}",
                     relatedEntityId: project.Id
                 );
+                activities.Add(a);
             }
 
             if (oldVisibility != project.Visibility)
             {
-                await _activity.LogAsync(
+                var a = await _activity.LogAsync(
                     project.Id, userId,
                     ActivityType.ProjectVisibilityChanged,
                     summary: $"Видимость проекта: {oldVisibility} → {project.Visibility}",
                     link: $"/projects/{project.PublicCode}",
                     relatedEntityId: project.Id
                 );
+                activities.Add(a);
             }
 
-            await _activity.LogAsync(
+            var generalActivity = await _activity.LogAsync(
                 project.Id, userId,
                 ActivityType.ProjectUpdated,
                 summary: "Проект обновлён",
                 link: $"/projects/{project.PublicCode}",
                 relatedEntityId: project.Id
             );
+            activities.Add(generalActivity);
 
             await _dbContext.SaveChangesAsync();
+
+            // 🆕 ── SignalR: эмитим все накопленные activity ──
+            foreach (var a in activities)
+            {
+                await _activity.EmitActivityAsync(a, project.PublicCode);
+            }
 
             _logger.LogInformation($"Проект {code} обновлен пользователем {userId}");
 
@@ -599,13 +619,6 @@ namespace ProjectHub.API.Services
         //  АРХИВИРОВАНИЕ
         // ═══════════════════════════════════════════════════════════
 
-        /// <summary>
-        /// Архивировать проект. Только владелец.
-        ///   • pending-заявки отклоняются и удаляются;
-        ///   • pending-приглашения отменяются и удаляются;
-        ///   • активные голосования закрываются;
-        ///   • пишется событие в историю.
-        /// </summary>
         public async Task<ProjectResponse> ArchiveProjectAsync(string code, Guid userId)
         {
             var project = await _dbContext.Projects
@@ -692,8 +705,8 @@ namespace ProjectHub.API.Services
                 v.IsClosed = true;
             }
 
-            // ── Событие в историю ──
-            await _activity.LogAsync(
+            // 🆕 Сохраняем activity
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.ProjectArchived,
@@ -703,6 +716,9 @@ namespace ProjectHub.API.Services
             );
 
             await _dbContext.SaveChangesAsync();
+
+            // 🆕 ── SignalR ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
 
             _logger.LogInformation(
                 $"Проект {code} архивирован пользователем {userId}. " +
@@ -718,10 +734,6 @@ namespace ProjectHub.API.Services
             return MapToResponse(withMembers);
         }
 
-        /// <summary>
-        /// Восстановить проект из архива. Только владелец.
-        /// Заявки и приглашения не возвращаются.
-        /// </summary>
         public async Task<ProjectResponse> UnarchiveProjectAsync(string code, Guid userId)
         {
             var project = await _dbContext.Projects
@@ -740,7 +752,8 @@ namespace ProjectHub.API.Services
             project.ArchivedById = null;
             project.UpdatedAt = DateTime.UtcNow;
 
-            await _activity.LogAsync(
+            // 🆕 Сохраняем activity
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.ProjectUnarchived,
@@ -750,6 +763,9 @@ namespace ProjectHub.API.Services
             );
 
             await _dbContext.SaveChangesAsync();
+
+            // 🆕 ── SignalR ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
 
             _logger.LogInformation(
                 $"Проект {code} восстановлен из архива пользователем {userId}");
@@ -813,7 +829,8 @@ namespace ProjectHub.API.Services
 
             _dbContext.ProjectMembers.Remove(member);
 
-            await _activity.LogAsync(
+            // 🆕 Сохраняем activity
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.MemberRemoved,
@@ -823,6 +840,9 @@ namespace ProjectHub.API.Services
             );
 
             await _dbContext.SaveChangesAsync();
+
+            // 🆕 ── SignalR ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
 
             _logger.LogInformation($"Пользователь {memberEmail} удален из проекта {projectCode} пользователем {userId}");
 
@@ -861,12 +881,13 @@ namespace ProjectHub.API.Services
 
             return true;
         }
-        private static readonly string[] AllowedImageExtensions =
-{
-    ".png", ".jpg", ".jpeg", ".gif", ".webp"
-};
 
-        private const long MaxCoverSizeBytes = 5 * 1024 * 1024; // 5 МБ
+        private static readonly string[] AllowedImageExtensions =
+        {
+            ".png", ".jpg", ".jpeg", ".gif", ".webp"
+        };
+
+        private const long MaxCoverSizeBytes = 5 * 1024 * 1024;
 
         public async Task<ProjectResponse> UploadCoverAsync(
             string projectCode, Guid userId, IFormFile file)
@@ -901,7 +922,6 @@ namespace ProjectHub.API.Services
                 throw new InvalidOperationException(
                     $"Тип файла {ext} не разрешён");
 
-            // Удаляем старую обложку с диска
             if (!string.IsNullOrWhiteSpace(project.CoverImageUrl))
             {
                 try
@@ -975,6 +995,7 @@ namespace ProjectHub.API.Services
 
             return MapToResponse(withAll);
         }
+
         // ═══════════════════════════════════════════════════════════
         //  ВСПОМОГАТЕЛЬНЫЕ
         // ═══════════════════════════════════════════════════════════
@@ -1025,10 +1046,6 @@ namespace ProjectHub.API.Services
                 $"Не удалось сгенерировать уникальный код после {MaxAttempts} попыток");
         }
 
-        // ═══════════════════════════════════════════════════════════
-        //  МАППЕР
-        // ═══════════════════════════════════════════════════════════
-
         private ProjectResponse MapToResponse(Project entity)
         {
             return new ProjectResponse
@@ -1055,11 +1072,9 @@ namespace ProjectHub.API.Services
                     Specialization = m.User.Specialization.ToString(),
                     Role = m.Role.ToString(),
                     JoinedAt = m.JoinedAt,
-                AvatarUrl = m.User.AvatarUrl    // 🆕
+                    AvatarUrl = m.User.AvatarUrl
                 }).ToList(),
 
-
-                // 📌 Теги проекта
                 Tags = entity.TagLinks?
                     .Select(l => new ProjectTagBriefDto
                     {

@@ -1,9 +1,10 @@
 // projecthub.client/src/components/ProjectHistoryPage.js
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { ArrowLeft, History, Loader2, X } from 'lucide-react';
 import { getProjectHistory } from '../services/projectsApi';
+import { signalr } from '../services/signalrService';
 import {
     ACTIVITY_FILTERS,
     getActivityInfo
@@ -29,6 +30,9 @@ export default function ProjectHistoryPage({ embedded = false }) {
     const [loadingMore, setLoadingMore] = useState(false);
     const [error, setError] = useState(null);
 
+    // 🆕 Дедупликация по Id — защита от гонок REST + SignalR
+    const seenIdsRef = useRef(new Set());
+
     // ── Фильтры без исключённых групп ──
     const visibleFilters = ACTIVITY_FILTERS.filter(
         f => !EXCLUDED_GROUPS.includes(f.value)
@@ -53,8 +57,14 @@ export default function ProjectHistoryPage({ embedded = false }) {
             if (reset) {
                 setItems(newItems);
                 setSkip(0);
+                // 🆕 Сбрасываем дедупликацию
+                seenIdsRef.current = new Set(newItems.map(i => i.id));
             } else {
-                setItems(prev => [...prev, ...newItems]);
+                // 🆕 Фильтруем дубли, которые могли прийти через SignalR
+                const fresh = newItems.filter(i => !seenIdsRef.current.has(i.id));
+                fresh.forEach(i => seenIdsRef.current.add(i.id));
+
+                setItems(prev => [...prev, ...fresh]);
             }
 
             setTotal(page.total || 0);
@@ -69,6 +79,50 @@ export default function ProjectHistoryPage({ embedded = false }) {
 
     useEffect(() => {
         loadPage(true);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [code]);
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR: подписка на новые события истории.
+    //     JoinProject/LeaveProject делает ProjectDashboardPage.
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        if (!code) return;
+
+        // ── Новое событие истории ──
+        const handleActivityAdded = (activity) => {
+            if (!activity?.id) return;
+
+            // Защита от дублей (если это событие уже пришло через REST)
+            if (seenIdsRef.current.has(activity.id)) return;
+            seenIdsRef.current.add(activity.id);
+
+            // Добавляем в начало — новая активность всегда сверху
+            setItems((prev) => [activity, ...prev]);
+            setTotal((t) => t + 1);
+        };
+
+        // ── Reconnect — перезагружаем всю ленту ──
+        const handleReconnected = () => {
+            console.log('🔄 SignalR reconnected, refreshing history…');
+            seenIdsRef.current = new Set();
+            loadPage(true);
+        };
+
+        signalr.on('ActivityAdded', handleActivityAdded);
+        signalr.on('_reconnected', handleReconnected);
+
+        // Ленивый connect — на случай если родитель ещё не успел
+        signalr.connect().catch((err) => {
+            console.warn('SignalR connect from ProjectHistoryPage failed:', err);
+        });
+
+        return () => {
+            signalr.off('ActivityAdded', handleActivityAdded);
+            signalr.off('_reconnected', handleReconnected);
+
+            // LeaveProject НЕ вызываем — это делает ProjectDashboardPage
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [code]);
 

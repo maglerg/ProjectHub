@@ -74,6 +74,7 @@ export default function TaskColumn({
 
     const handleDragOver = (e) => {
         if (isArchived) return;
+        console.log('DRAG OVER:', column.id, column.name);
         e.preventDefault();
         setIsDragOver(true);
     };
@@ -86,12 +87,13 @@ export default function TaskColumn({
 
     const handleDrop = (e) => {
         if (isArchived) return;
+        console.log('DROP:', column.id, column.name);
         e.preventDefault();
         setIsDragOver(false);
 
         const taskId = e.dataTransfer.getData('taskId');
         if (!taskId) return;
-
+        console.log('DROP TASK ID:', taskId);
         const alreadyHere = column.tasks.some((t) => t.id === taskId);
         if (alreadyHere) return;
 

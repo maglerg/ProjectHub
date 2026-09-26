@@ -1,6 +1,6 @@
 // projecthub.client/src/components/tasks/TaskDetailsPage.js
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -48,6 +48,7 @@ import {
     setTaskTags
 } from '../../services/tasksApi';
 import { searchMyProjectByCode } from '../../services/projectsApi';
+import { signalr } from '../../services/signalrService';
 import { useAuth } from '../../context/AuthContext';
 import TaskComments from './TaskComments';
 import '../../styles/components/tasks/tasks.css';
@@ -58,12 +59,11 @@ export default function TaskDetailsPage() {
     const { user } = useAuth();
     const [searchParams] = useSearchParams();
 
-    // ?edit=1 открывает форму редактирования сразу
     const startInEditMode = searchParams.get('edit') === '1';
 
     // ── Основное состояние ──
     const [task, setTask] = useState(null);
-    const [project, setProject] = useState(null);         // для isArchived
+    const [project, setProject] = useState(null);
     const [columns, setColumns] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -83,7 +83,6 @@ export default function TaskDetailsPage() {
     });
     const [saving, setSaving] = useState(false);
 
-    // 🆕 Комментарии — теперь в отдельном компоненте
     const commentsRef = useRef(null);
 
     // ── Вложения ──
@@ -104,15 +103,19 @@ export default function TaskDetailsPage() {
     const [tagSubmitting, setTagSubmitting] = useState(false);
     const [showTagPicker, setShowTagPicker] = useState(false);
 
+    // 🆕 Refs — чтобы обработчики SignalR видели актуальное
+    const taskIdRef = useRef(taskId);
+    useEffect(() => { taskIdRef.current = taskId; }, [taskId]);
+
     // ═══════════════════════════════════════════════════════════
     //  ЗАГРУЗКА
     // ═══════════════════════════════════════════════════════════
 
-    const loadAll = async () => {
+    const loadAll = useCallback(async () => {
+        if (!code || !taskId) return;
         setLoading(true);
         setError(null);
         try {
-            // 🆕 getTaskComments убран — комментарии грузит сам TaskComments
             const [taskData, board, tagsData, projectData] = await Promise.all([
                 getTaskById(code, taskId),
                 getTasksBoard(code),
@@ -123,6 +126,7 @@ export default function TaskDetailsPage() {
             setColumns(board);
             setAllTags(tagsData);
             setProject(projectData);
+
             setForm({
                 title: taskData.title,
                 description: taskData.description || '',
@@ -134,7 +138,6 @@ export default function TaskDetailsPage() {
                 noDueDate: !taskData.dueDate
             });
 
-            // Открываем форму, если пришли с ?edit=1 и проект не архивный
             if (startInEditMode && !projectData?.isArchived) {
                 setIsEditing(true);
             }
@@ -144,15 +147,136 @@ export default function TaskDetailsPage() {
         } finally {
             setLoading(false);
         }
-    };
+    }, [code, taskId, startInEditMode]);
 
     useEffect(() => {
-        if (code && taskId) loadAll();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [code, taskId]);
+        loadAll();
+    }, [loadAll]);
 
-    // 📦 Архив — страница только для чтения
     const isArchived = !!project?.isArchived;
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR: JoinProject + обработчики, релевантные задаче
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        if (!code || !taskId) return;
+
+        let cancelled = false;
+
+        // ── Изменение самой задачи (кто-то другой её отредактировал) ──
+        const handleTaskUpdated = (updated) => {
+            if (updated?.id !== taskIdRef.current) return;
+            setTask((prev) => prev ? { ...prev, ...updated } : updated);
+        };
+
+        const handleTaskMoved = (payload) => {
+            const updated = payload?.task;
+            if (updated?.id !== taskIdRef.current) return;
+            setTask((prev) => prev ? { ...prev, ...updated } : updated);
+        };
+
+        const handleTaskTaken = (updated) => {
+            if (updated?.id !== taskIdRef.current) return;
+            setTask((prev) => prev ? { ...prev, ...updated } : updated);
+        };
+
+        const handleTaskLeft = (updated) => {
+            if (updated?.id !== taskIdRef.current) return;
+            setTask((prev) => prev ? { ...prev, ...updated } : updated);
+        };
+
+        // Если задачу удалили — уходим на дашборд
+        const handleTaskDeleted = (payload) => {
+            const deletedId = payload?.taskId;
+            if (deletedId !== taskIdRef.current) return;
+            setActionError('Эта задача была удалена');
+            setTimeout(() => {
+                navigate(`/projects/${code}/dashboard`);
+            }, 1500);
+        };
+
+        // ── Подзадачи — обновляем task целиком (мог поменяться columnId) ──
+        const handleSubtaskChanged = (payload) => {
+            const updated = payload?.task;
+            if (!updated) return;
+            if (updated.id !== taskIdRef.current) return;
+            setTask((prev) => prev ? { ...prev, ...updated } : updated);
+        };
+
+        // ── Теги задачи ──
+        const handleTaskTagsUpdated = (updated) => {
+            if (updated?.id !== taskIdRef.current) return;
+            setTask((prev) => prev ? { ...prev, ...updated } : updated);
+        };
+
+        // ── Теги проекта (создание/удаление) — обновляем allTags ──
+        const handleTaskTagCreated = (tag) => {
+            if (!tag?.id) return;
+            setAllTags((prev) => {
+                if (prev.some((t) => t.id === tag.id)) return prev;
+                return [...prev, tag].sort((a, b) => a.name.localeCompare(b.name));
+            });
+        };
+
+        const handleTaskTagDeleted = (payload) => {
+            const tagId = payload?.tagId;
+            if (!tagId) return;
+            setAllTags((prev) => prev.filter((t) => t.id !== tagId));
+            setTask((prev) =>
+                prev
+                    ? { ...prev, tags: (prev.tags || []).filter((t) => t.id !== tagId) }
+                    : prev
+            );
+        };
+
+        // ── Reconnect ──
+        const handleReconnected = () => {
+            console.log('🔄 SignalR reconnected, refreshing task…');
+            signalr.invoke('JoinProject', code).catch(() => { });
+            loadAll();
+        };
+
+        signalr.on('TaskUpdated', handleTaskUpdated);
+        signalr.on('TaskMoved', handleTaskMoved);
+        signalr.on('TaskTaken', handleTaskTaken);
+        signalr.on('TaskLeft', handleTaskLeft);
+        signalr.on('TaskDeleted', handleTaskDeleted);
+        signalr.on('SubtaskAdded', handleSubtaskChanged);
+        signalr.on('SubtaskDeleted', handleSubtaskChanged);
+        signalr.on('TaskTagsUpdated', handleTaskTagsUpdated);
+        signalr.on('TaskTagCreated', handleTaskTagCreated);
+        signalr.on('TaskTagDeleted', handleTaskTagDeleted);
+        signalr.on('_reconnected', handleReconnected);
+
+        (async () => {
+            try {
+                await signalr.connect();
+                if (cancelled) return;
+                await signalr.invoke('JoinProject', code);
+            } catch (err) {
+                console.warn('Не удалось присоединиться к SignalR-проекту:', err);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+
+            signalr.off('TaskUpdated', handleTaskUpdated);
+            signalr.off('TaskMoved', handleTaskMoved);
+            signalr.off('TaskTaken', handleTaskTaken);
+            signalr.off('TaskLeft', handleTaskLeft);
+            signalr.off('TaskDeleted', handleTaskDeleted);
+            signalr.off('SubtaskAdded', handleSubtaskChanged);
+            signalr.off('SubtaskDeleted', handleSubtaskChanged);
+            signalr.off('TaskTagsUpdated', handleTaskTagsUpdated);
+            signalr.off('TaskTagCreated', handleTaskTagCreated);
+            signalr.off('TaskTagDeleted', handleTaskTagDeleted);
+            signalr.off('_reconnected', handleReconnected);
+
+            signalr.invoke('LeaveProject', code).catch(() => { });
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [code, taskId, loadAll, navigate]);
 
     // ═══════════════════════════════════════════════════════════
     //  ЗАДАЧА — ДЕЙСТВИЯ
@@ -163,7 +287,9 @@ export default function TaskDetailsPage() {
         try {
             setActionError(null);
             const updated = await takeTask(code, taskId);
-            setTask(updated);
+            if (!signalr.isConnected()) {
+                setTask(updated);
+            }
         } catch (e) {
             setActionError(e.message);
         }
@@ -182,7 +308,9 @@ export default function TaskDetailsPage() {
         try {
             setActionError(null);
             const updated = await leaveTask(code, taskId, isSelf ? null : email);
-            setTask(updated);
+            if (!signalr.isConnected()) {
+                setTask(updated);
+            }
         } catch (e) {
             setActionError(e.message);
         }
@@ -218,7 +346,9 @@ export default function TaskDetailsPage() {
                     ? null
                     : new Date(form.dueDate).toISOString()
             });
-            setTask(updated);
+            if (!signalr.isConnected()) {
+                setTask(updated);
+            }
             setIsEditing(false);
         } catch (e) {
             console.error('❌ Ошибка сохранения задачи:', e);
@@ -254,7 +384,6 @@ export default function TaskDetailsPage() {
         }
     };
 
-    // 🆕 Прокрутка к комментариям при клике на кнопку в хедере
     const scrollToComments = () => {
         commentsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     };
@@ -286,10 +415,13 @@ export default function TaskDetailsPage() {
         try {
             setActionError(null);
             const newAtt = await uploadTaskAttachment(code, taskId, file);
-            setTask(prev => ({
-                ...prev,
-                attachments: [...(prev.attachments || []), newAtt]
-            }));
+
+            if (!signalr.isConnected()) {
+                setTask((prev) => ({
+                    ...prev,
+                    attachments: [...(prev.attachments || []), newAtt]
+                }));
+            }
         } catch (err) {
             console.error('❌ Ошибка загрузки файла:', err);
             setActionError(err.message);
@@ -313,10 +445,13 @@ export default function TaskDetailsPage() {
         try {
             setActionError(null);
             await deleteTaskAttachment(code, taskId, att.id);
-            setTask(prev => ({
-                ...prev,
-                attachments: (prev.attachments || []).filter(a => a.id !== att.id)
-            }));
+
+            if (!signalr.isConnected()) {
+                setTask((prev) => ({
+                    ...prev,
+                    attachments: (prev.attachments || []).filter((a) => a.id !== att.id)
+                }));
+            }
         } catch (e) {
             setActionError(e.message);
         }
@@ -337,16 +472,20 @@ export default function TaskDetailsPage() {
             setActionError(null);
             const newSubtask = await addTaskSubtask(code, taskId, title);
 
-            setTask(prev => {
-                const updated = {
-                    ...prev,
-                    subtasks: [...(prev.subtasks || []), newSubtask]
-                };
-                updated.hasSubtasks = updated.subtasks.length > 0;
-                updated.totalSubtasksCount = updated.subtasks.length;
-                updated.completedSubtasksCount = updated.subtasks.filter(s => s.isCompleted).length;
-                return updated;
-            });
+            if (!signalr.isConnected()) {
+                setTask((prev) => {
+                    const updated = {
+                        ...prev,
+                        subtasks: [...(prev.subtasks || []), newSubtask]
+                    };
+                    updated.hasSubtasks = updated.subtasks.length > 0;
+                    updated.totalSubtasksCount = updated.subtasks.length;
+                    updated.completedSubtasksCount = updated.subtasks.filter(
+                        (s) => s.isCompleted
+                    ).length;
+                    return updated;
+                });
+            }
 
             setNewSubtaskTitle('');
         } catch (e) {
@@ -364,7 +503,9 @@ export default function TaskDetailsPage() {
         try {
             setActionError(null);
             const updated = await toggleTaskSubtask(code, taskId, subtask.id);
-            setTask(updated);
+            if (!signalr.isConnected()) {
+                setTask(updated);
+            }
         } catch (e) {
             console.error('❌ Ошибка toggle подзадачи:', e);
             setActionError(e.message);
@@ -387,10 +528,15 @@ export default function TaskDetailsPage() {
         try {
             setActionError(null);
             const updated = await updateTaskSubtask(code, taskId, subtaskId, title);
-            setTask(prev => ({
-                ...prev,
-                subtasks: prev.subtasks.map(s => s.id === subtaskId ? updated : s)
-            }));
+
+            if (!signalr.isConnected()) {
+                setTask((prev) => ({
+                    ...prev,
+                    subtasks: prev.subtasks.map((s) =>
+                        s.id === subtaskId ? updated : s
+                    )
+                }));
+            }
             setEditingSubtaskId(null);
             setEditingSubtaskTitle('');
         } catch (e) {
@@ -410,7 +556,9 @@ export default function TaskDetailsPage() {
         try {
             setActionError(null);
             const updated = await deleteTaskSubtask(code, taskId, subtask.id);
-            setTask(updated);
+            if (!signalr.isConnected()) {
+                setTask(updated);
+            }
         } catch (e) {
             console.error('❌ Ошибка удаления подзадачи:', e);
             setActionError(e.message);
@@ -425,9 +573,9 @@ export default function TaskDetailsPage() {
         if (isArchived) return;
         if (!task.canEdit) return;
 
-        const current = (task.tags || []).map(t => t.id);
+        const current = (task.tags || []).map((t) => t.id);
         const next = current.includes(tagId)
-            ? current.filter(id => id !== tagId)
+            ? current.filter((id) => id !== tagId)
             : [...current, tagId];
 
         if (next.length > 10) {
@@ -438,7 +586,9 @@ export default function TaskDetailsPage() {
         try {
             setActionError(null);
             const updated = await setTaskTags(code, taskId, next);
-            setTask(updated);
+            if (!signalr.isConnected()) {
+                setTask(updated);
+            }
         } catch (e) {
             console.error('❌ Ошибка установки тегов:', e);
             setActionError(e.message);
@@ -459,14 +609,16 @@ export default function TaskDetailsPage() {
                 color: newTagColor || null
             });
 
-            setAllTags(prev =>
+            setAllTags((prev) =>
                 [...prev, newTag].sort((a, b) => a.name.localeCompare(b.name))
             );
 
-            const current = (task.tags || []).map(t => t.id);
+            const current = (task.tags || []).map((t) => t.id);
             if (current.length < 10) {
                 const updated = await setTaskTags(code, taskId, [...current, newTag.id]);
-                setTask(updated);
+                if (!signalr.isConnected()) {
+                    setTask(updated);
+                }
             }
 
             setNewTagName('');
@@ -486,10 +638,10 @@ export default function TaskDetailsPage() {
         try {
             setActionError(null);
             await deleteTag(code, tag.id);
-            setAllTags(prev => prev.filter(t => t.id !== tag.id));
-            setTask(prev => ({
+            setAllTags((prev) => prev.filter((t) => t.id !== tag.id));
+            setTask((prev) => ({
                 ...prev,
-                tags: (prev.tags || []).filter(t => t.id !== tag.id)
+                tags: (prev.tags || []).filter((t) => t.id !== tag.id)
             }));
         } catch (e) {
             console.error('❌ Ошибка удаления тега:', e);
@@ -510,7 +662,7 @@ export default function TaskDetailsPage() {
     const taskTags = task.tags || [];
     const emailLower = (user?.email || '').toLowerCase();
     const isMine = assignees.some(
-        a => (a.email || '').toLowerCase() === emailLower
+        (a) => (a.email || '').toLowerCase() === emailLower
     );
     const isTaken = assignees.length > 0;
     const isOwnerUser = !!task.isOwner;
@@ -586,7 +738,6 @@ export default function TaskDetailsPage() {
                                 </button>
                             )}
 
-                            {/* 🆕 Кнопка «Комментировать» — прокручивает к секции комментариев */}
                             {canComment && (
                                 <button
                                     type="button"
@@ -704,7 +855,6 @@ export default function TaskDetailsPage() {
                                     {assignees.map(a => {
                                         const isSelf =
                                             (a.email || '').toLowerCase() === emailLower;
-
                                         const canRemove = !isArchived && (isOwnerUser || isSelf);
 
                                         return (
@@ -1121,7 +1271,6 @@ export default function TaskDetailsPage() {
                         </select>
                     </label>
 
-                    {/* ── Дата начала ── */}
                     <div className="form-group">
                         <label className="checkbox-label">
                             <input
@@ -1160,7 +1309,6 @@ export default function TaskDetailsPage() {
                         )}
                     </div>
 
-                    {/* ── Дедлайн ── */}
                     <div className="form-group">
                         <label className="checkbox-label">
                             <input

@@ -1,6 +1,6 @@
 // projecthub.client/src/components/tasks/TasksBoard.js
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
     Plus, Archive, X, AlertTriangle,
     Columns3, Rows3,
@@ -16,6 +16,7 @@ import {
     createTag,
     setTaskTags,
 } from '../../services/tasksApi';
+import { signalr } from '../../services/signalrService';
 import TaskColumn from './TaskColumn';
 import CreateTaskModal from './CreateTaskModal';
 import ColumnEditorModal from './ColumnEditorModal';
@@ -46,7 +47,7 @@ export default function TasksBoard({
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [actionError, setActionError] = useState(null);
 
-    // 🆕 Раскладка колонок: 'vertical' — столбцами, 'horizontal' — рядами
+    // 🆕 Раскладка колонок
     const [layout, setLayout] = useState('vertical');
 
     // 🆕 Состояние для управления колонками
@@ -54,11 +55,18 @@ export default function TasksBoard({
     const [editingColumn, setEditingColumn] = useState(null);
     const [deletingColumn, setDeletingColumn] = useState(null);
 
-    // ── Загрузка доски и прогресса ──
-    const loadBoard = async () => {
+    // 🆕 Ref — чтобы обработчики SignalR видели актуальные значения
+    const projectCodeRef = useRef(projectCode);
+    useEffect(() => { projectCodeRef.current = projectCode; }, [projectCode]);
+
+    // 🆕 Загрузка доски и прогресса
+    const loadBoard = useCallback(async (silent = false) => {
+        if (!projectCode) return;
         try {
-            setLoading(true);
-            setError(null);
+            if (!silent) {
+                setLoading(true);
+                setError(null);
+            }
             const [boardData, progressData] = await Promise.all([
                 getTasksBoard(projectCode),
                 getProjectProgress(projectCode),
@@ -67,29 +75,361 @@ export default function TasksBoard({
             setProgress(progressData);
         } catch (e) {
             console.error('❌ Ошибка загрузки задач:', e);
-            setError(e.message);
+            if (!silent) setError(e.message);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
-    };
+    }, [projectCode]);
+
+    // 🆕 Тихая перезагрузка прогресса (после событий SignalR)
+    const refreshProgress = useCallback(async () => {
+        if (!projectCodeRef.current) return;
+        try {
+            const progressData = await getProjectProgress(projectCodeRef.current);
+            setProgress(progressData);
+        } catch (e) {
+            console.warn('Не удалось обновить прогресс:', e);
+        }
+    }, []);
 
     // ── Загрузка тегов проекта ──
-    const loadTags = async () => {
+    const loadTags = useCallback(async () => {
+        if (!projectCode) return;
         try {
             const tags = await getProjectTags(projectCode);
             setAllTags(tags);
         } catch (e) {
             console.warn('Не удалось загрузить теги проекта:', e);
         }
-    };
+    }, [projectCode]);
 
+    // ── Первичная загрузка ──
     useEffect(() => {
         if (projectCode) {
             loadBoard();
             loadTags();
         }
+    }, [projectCode, loadBoard, loadTags]);
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR: только подписки на события.
+    //     JoinProject/LeaveProject делает ProjectDashboardPage.
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        if (!projectCode) return;
+
+        // ── Хелпер: удалить задачу из всех колонок ──
+        const removeTaskFromColumns = (cols, taskId) =>
+            cols.map((c) => ({
+                ...c,
+                tasks: c.tasks.filter((t) => t.id !== taskId),
+            }));
+
+        // ── Хелпер: положить задачу в нужную колонку ──
+        const upsertTaskInColumns = (cols, task, targetColumnId) => {
+            const taskColumnId = targetColumnId || task.columnId;
+
+            const without = removeTaskFromColumns(cols, task.id);
+
+            return without.map((c) => {
+                if (c.id !== taskColumnId) return c;
+                if (c.tasks.some((t) => t.id === task.id)) return c;
+                return {
+                    ...c,
+                    tasks: [...c.tasks, task],
+                };
+            });
+        };
+
+        // ── TaskCreated ──
+        const handleTaskCreated = (task) => {
+            if (!task?.id) return;
+            setColumns((prev) =>
+                upsertTaskInColumns(prev, task, task.columnId)
+            );
+            refreshProgress();
+        };
+
+        // ── TaskUpdated ──
+        const handleTaskUpdated = (task) => {
+            if (!task?.id) return;
+            setColumns((prev) =>
+                upsertTaskInColumns(prev, task, task.columnId)
+            );
+            refreshProgress();
+        };
+
+        // ── TaskMoved ──
+        const handleTaskMoved = (payload) => {
+            const task = payload?.task;
+            if (!task?.id) return;
+            setColumns((prev) =>
+                upsertTaskInColumns(prev, task, payload.newColumnId || task.columnId)
+            );
+            refreshProgress();
+        };
+
+        // ── TaskDeleted ──
+        const handleTaskDeleted = (payload) => {
+            const taskId = payload?.taskId;
+            if (!taskId) return;
+            setColumns((prev) => removeTaskFromColumns(prev, taskId));
+            refreshProgress();
+        };
+
+        // ── TaskTaken / TaskLeft ──
+        const handleTaskTakenOrLeft = (task) => {
+            if (!task?.id) return;
+            setColumns((prev) =>
+                upsertTaskInColumns(prev, task, task.columnId)
+            );
+        };
+
+        // ── AttachmentAdded / AttachmentDeleted ──
+        const handleAttachmentAdded = (payload) => {
+            const { taskId, attachment } = payload || {};
+            if (!taskId) return;
+
+            setColumns((prev) =>
+                prev.map((c) => ({
+                    ...c,
+                    tasks: c.tasks.map((t) => {
+                        if (t.id !== taskId) return t;
+                        return {
+                            ...t,
+                            attachmentsCount: (t.attachmentsCount || 0) + 1,
+                            attachments: [...(t.attachments || []), attachment],
+                        };
+                    }),
+                }))
+            );
+        };
+
+        const handleAttachmentDeleted = (payload) => {
+            const { taskId, attachmentId } = payload || {};
+            if (!taskId) return;
+
+            setColumns((prev) =>
+                prev.map((c) => ({
+                    ...c,
+                    tasks: c.tasks.map((t) => {
+                        if (t.id !== taskId) return t;
+                        return {
+                            ...t,
+                            attachmentsCount: Math.max(0, (t.attachmentsCount || 1) - 1),
+                            attachments: (t.attachments || []).filter(
+                                (a) => a.id !== attachmentId
+                            ),
+                        };
+                    }),
+                }))
+            );
+        };
+
+        // ── Subtask* ──
+        const handleSubtaskChanged = (payload) => {
+            const task = payload?.task;
+            if (task?.id) {
+                setColumns((prev) =>
+                    upsertTaskInColumns(prev, task, task.columnId)
+                );
+                refreshProgress();
+                return;
+            }
+
+            const { taskId, subtask } = payload || {};
+            if (!taskId || !subtask) return;
+
+            setColumns((prev) =>
+                prev.map((c) => ({
+                    ...c,
+                    tasks: c.tasks.map((t) => {
+                        if (t.id !== taskId) return t;
+                        const subtasks = (t.subtasks || []).map((s) =>
+                            s.id === subtask.id ? subtask : s
+                        );
+                        return {
+                            ...t,
+                            subtasks,
+                            totalSubtasksCount: subtasks.length,
+                            completedSubtasksCount: subtasks.filter((s) => s.isCompleted).length,
+                            hasSubtasks: subtasks.length > 0,
+                        };
+                    }),
+                }))
+            );
+        };
+
+        // ── Теги задачи ──
+        const handleTaskTagsUpdated = (task) => {
+            if (!task?.id) return;
+            setColumns((prev) =>
+                upsertTaskInColumns(prev, task, task.columnId)
+            );
+        };
+
+        // ── Теги проекта ──
+        const handleTaskTagCreated = (tag) => {
+            if (!tag?.id) return;
+            setAllTags((prev) => {
+                if (prev.some((t) => t.id === tag.id)) return prev;
+                return [...prev, tag].sort((a, b) => a.name.localeCompare(b.name));
+            });
+        };
+
+        const handleTaskTagDeleted = (payload) => {
+            const tagId = payload?.tagId;
+            if (!tagId) return;
+            setAllTags((prev) => prev.filter((t) => t.id !== tagId));
+            setColumns((prev) =>
+                prev.map((c) => ({
+                    ...c,
+                    tasks: c.tasks.map((t) => ({
+                        ...t,
+                        tags: (t.tags || []).filter((tag) => tag.id !== tagId),
+                    })),
+                }))
+            );
+        };
+
+        // ── Колонки ──
+        const handleColumnCreated = (column) => {
+            if (!column?.id) return;
+            setColumns((prev) => {
+                if (prev.some((c) => c.id === column.id)) return prev;
+                return [...prev, column].sort((a, b) => a.order - b.order);
+            });
+        };
+
+        const handleColumnUpdated = (column) => {
+            if (!column?.id) return;
+            setColumns((prev) =>
+                prev.map((c) =>
+                    c.id === column.id
+                        ? { ...c, ...column, tasks: c.tasks }
+                        : c
+                )
+            );
+        };
+
+        const handleColumnDeleted = (payload) => {
+            const columnId = payload?.columnId;
+            const moveToColumnId = payload?.moveToColumnId;
+            if (!columnId) return;
+
+            setColumns((prev) => {
+                const removed = prev.find((c) => c.id === columnId);
+                const without = prev.filter((c) => c.id !== columnId);
+
+                if (!removed || !moveToColumnId) return without;
+
+                return without.map((c) =>
+                    c.id === moveToColumnId
+                        ? {
+                            ...c,
+                            tasks: [...c.tasks, ...removed.tasks.map((t) => ({
+                                ...t,
+                                columnId: moveToColumnId,
+                            }))],
+                        }
+                        : c
+                );
+            });
+            refreshProgress();
+        };
+
+        // ── ColumnsReordered ──
+        const handleColumnsReordered = (lightBoard) => {
+            if (!Array.isArray(lightBoard)) return;
+            setColumns((prev) => {
+                const byId = new Map(prev.map((c) => [c.id, c]));
+                const result = lightBoard.map((lc) => {
+                    const existing = byId.get(lc.id);
+                    if (existing) {
+                        return {
+                            ...existing,
+                            name: lc.name,
+                            order: lc.order,
+                            systemKey: lc.systemKey,
+                            isDefault: lc.isDefault,
+                            progressWeight: lc.progressWeight,
+                            tasksCount: lc.tasksCount,
+                        };
+                    }
+                    return {
+                        id: lc.id,
+                        name: lc.name,
+                        order: lc.order,
+                        systemKey: lc.systemKey,
+                        isDefault: lc.isDefault,
+                        progressWeight: lc.progressWeight,
+                        tasksCount: lc.tasksCount,
+                        tasks: [],
+                    };
+                });
+                return result.sort((a, b) => a.order - b.order);
+            });
+        };
+
+        // ── Reconnect — перезагружаем доску целиком ──
+        //    JoinProject делает ProjectDashboardPage при своём reconnect.
+        const handleReconnected = () => {
+            console.log('🔄 SignalR reconnected, refreshing board…');
+            loadBoard(true);
+            loadTags();
+        };
+
+        // Регистрация
+        signalr.on('TaskCreated', handleTaskCreated);
+        signalr.on('TaskUpdated', handleTaskUpdated);
+        signalr.on('TaskMoved', handleTaskMoved);
+        signalr.on('TaskDeleted', handleTaskDeleted);
+        signalr.on('TaskTaken', handleTaskTakenOrLeft);
+        signalr.on('TaskLeft', handleTaskTakenOrLeft);
+        signalr.on('AttachmentAdded', handleAttachmentAdded);
+        signalr.on('AttachmentDeleted', handleAttachmentDeleted);
+        signalr.on('SubtaskAdded', handleSubtaskChanged);
+        signalr.on('SubtaskUpdated', handleSubtaskChanged);
+        signalr.on('SubtaskDeleted', handleSubtaskChanged);
+        signalr.on('TaskTagsUpdated', handleTaskTagsUpdated);
+        signalr.on('TaskTagCreated', handleTaskTagCreated);
+        signalr.on('TaskTagDeleted', handleTaskTagDeleted);
+        signalr.on('ColumnCreated', handleColumnCreated);
+        signalr.on('ColumnUpdated', handleColumnUpdated);
+        signalr.on('ColumnDeleted', handleColumnDeleted);
+        signalr.on('ColumnsReordered', handleColumnsReordered);
+        signalr.on('_reconnected', handleReconnected);
+
+        // Ленивый connect — на случай если родитель ещё не успел
+        signalr.connect().catch((err) => {
+            console.warn('SignalR connect from TasksBoard failed:', err);
+        });
+
+        return () => {
+            signalr.off('TaskCreated', handleTaskCreated);
+            signalr.off('TaskUpdated', handleTaskUpdated);
+            signalr.off('TaskMoved', handleTaskMoved);
+            signalr.off('TaskDeleted', handleTaskDeleted);
+            signalr.off('TaskTaken', handleTaskTakenOrLeft);
+            signalr.off('TaskLeft', handleTaskTakenOrLeft);
+            signalr.off('AttachmentAdded', handleAttachmentAdded);
+            signalr.off('AttachmentDeleted', handleAttachmentDeleted);
+            signalr.off('SubtaskAdded', handleSubtaskChanged);
+            signalr.off('SubtaskUpdated', handleSubtaskChanged);
+            signalr.off('SubtaskDeleted', handleSubtaskChanged);
+            signalr.off('TaskTagsUpdated', handleTaskTagsUpdated);
+            signalr.off('TaskTagCreated', handleTaskTagCreated);
+            signalr.off('TaskTagDeleted', handleTaskTagDeleted);
+            signalr.off('ColumnCreated', handleColumnCreated);
+            signalr.off('ColumnUpdated', handleColumnUpdated);
+            signalr.off('ColumnDeleted', handleColumnDeleted);
+            signalr.off('ColumnsReordered', handleColumnsReordered);
+            signalr.off('_reconnected', handleReconnected);
+
+            // LeaveProject НЕ вызываем — это делает ProjectDashboardPage
+        };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [projectCode]);
+    }, [projectCode, loadBoard, loadTags, refreshProgress]);
 
     // ── Проверка: задача "активная"? ──
     const isTaskActive = (t) => {
@@ -146,8 +486,16 @@ export default function TasksBoard({
         if (isArchived) return;
         try {
             setActionError(null);
-            await takeTask(projectCode, taskId);
-            await loadBoard();
+            const updated = await takeTask(projectCode, taskId);
+
+            if (!signalr.isConnected()) {
+                setColumns((prev) =>
+                    prev.map((c) => ({
+                        ...c,
+                        tasks: c.tasks.map((t) => (t.id === updated.id ? updated : t)),
+                    }))
+                );
+            }
         } catch (e) {
             console.error('❌ Ошибка взятия задачи:', e);
             setActionError(e.message);
@@ -159,8 +507,24 @@ export default function TasksBoard({
         if (isArchived) return;
         try {
             setActionError(null);
-            await uploadTaskAttachment(projectCode, taskId, file);
-            await loadBoard();
+            const att = await uploadTaskAttachment(projectCode, taskId, file);
+
+            if (!signalr.isConnected()) {
+                setColumns((prev) =>
+                    prev.map((c) => ({
+                        ...c,
+                        tasks: c.tasks.map((t) =>
+                            t.id === taskId
+                                ? {
+                                    ...t,
+                                    attachmentsCount: (t.attachmentsCount || 0) + 1,
+                                    attachments: [...(t.attachments || []), att],
+                                }
+                                : t
+                        ),
+                    }))
+                );
+            }
         } catch (e) {
             console.error('❌ Ошибка загрузки файла:', e);
             setActionError(e.message);
@@ -181,7 +545,10 @@ export default function TasksBoard({
             }
 
             setIsModalOpen(false);
-            await loadBoard();
+
+            if (!signalr.isConnected()) {
+                await loadBoard();
+            }
             await loadTags();
         } catch (e) {
             console.error('❌ Ошибка создания задачи:', e);
@@ -189,7 +556,7 @@ export default function TasksBoard({
         }
     };
 
-    // ── Создать тег проекта (для модалки создания задачи) ──
+    // ── Создать тег проекта ──
     const handleCreateTag = async (dto) => {
         const newTag = await createTag(projectCode, dto);
         setAllTags((prev) =>
@@ -203,9 +570,10 @@ export default function TasksBoard({
         if (isArchived) return;
         try {
             setActionError(null);
+
             setColumns((prev) => moveTaskLocally(prev, taskId, columnId));
+
             await moveTask(projectCode, taskId, columnId);
-            await loadBoard();
         } catch (e) {
             console.error('❌ Ошибка перемещения задачи:', e);
             setActionError(e.message);
@@ -214,7 +582,7 @@ export default function TasksBoard({
     };
 
     // ═══════════════════════════════════════════════════════════
-    //  🆕 УПРАВЛЕНИЕ КОЛОНКАМИ
+    //  УПРАВЛЕНИЕ КОЛОНКАМИ
     // ═══════════════════════════════════════════════════════════
 
     const handleOpenCreateColumn = () => {
@@ -224,27 +592,29 @@ export default function TasksBoard({
 
     const handleOpenEditColumn = (column) => {
         if (isArchived) return;
-        if (!column) return;
-        if (column.isDefault) return;
+        if (!column || column.isDefault) return;
         setEditingColumn(column);
     };
 
     const handleOpenDeleteColumn = (column) => {
         if (isArchived) return;
-        if (!column) return;
-        if (column.isDefault) return;
+        if (!column || column.isDefault) return;
         setDeletingColumn(column);
     };
 
     const handleColumnSaved = async () => {
         setIsCreatingColumn(false);
         setEditingColumn(null);
-        await loadBoard();
+        if (!signalr.isConnected()) {
+            await loadBoard();
+        }
     };
 
     const handleColumnDeleted = async () => {
         setDeletingColumn(null);
-        await loadBoard();
+        if (!signalr.isConnected()) {
+            await loadBoard();
+        }
     };
 
     // 🆕 Переключение раскладки
@@ -257,12 +627,11 @@ export default function TasksBoard({
 
     return (
         <div className="tasks-board-wrapper">
-            {/* ── Верхняя панель доски: заголовок + кнопка создания ── */}
+            {/* ── Верхняя панель доски ── */}
             <div className="tasks-board-header">
                 <h2>Задачи</h2>
 
                 <div className="tasks-board-actions">
-                    {/* 🆕 Переключатель раскладки колонок */}
                     <button
                         type="button"
                         className="btn btn--secondary btn--sm tasks-layout-toggle"
@@ -299,7 +668,6 @@ export default function TasksBoard({
                 </div>
             </div>
 
-            {/* 📌 Плашка «Проект в архиве» */}
             {isArchived && (
                 <div className="tasks-archive-banner">
                     <Archive size={16} />
@@ -307,7 +675,6 @@ export default function TasksBoard({
                 </div>
             )}
 
-            {/* ── Прогресс проекта ── */}
             {progress && (
                 <div className="tasks-progress">
                     <div className="tasks-progress-header">
@@ -367,7 +734,6 @@ export default function TasksBoard({
                     />
                 ))}
 
-                {/* 🆕 Кнопка «+ Колонка» — только владелец и не в архиве */}
                 {!isArchived && isOwner && (
                     <div className="tasks-column-add">
                         <button
@@ -396,7 +762,6 @@ export default function TasksBoard({
                 />
             )}
 
-            {/* 🆕 Модалки управления колонками */}
             {isCreatingColumn && (
                 <ColumnEditorModal
                     projectCode={projectCode}

@@ -1,9 +1,11 @@
 // projecthub.client/src/components/ChatsListPage.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { MessageCircle, Loader2, X } from 'lucide-react';
 import { getChats } from '../services/chatsApi';
+import { signalr } from '../services/signalrService';
+import { useAuth } from '../context/AuthContext';
 import UserAvatar from './UserAvatar';
 import ChatCover from './ChatCover';
 import '../styles/components/ChatsListPage.css';
@@ -11,27 +13,122 @@ import '../styles/components/ChatCover.css';
 
 const ChatsListPage = () => {
     const navigate = useNavigate();
+    const { user } = useAuth();
+
     const [chats, setChats] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    useEffect(() => {
-        loadChats();
-    }, []);
+    // 🆕 Ref, чтобы обработчики SignalR видели актуальный email без пересоздания подписок
+    const userEmailRef = useRef(user?.email);
+    useEffect(() => { userEmailRef.current = user?.email; }, [user?.email]);
 
-    const loadChats = async () => {
-        setLoading(true);
-        setError(null);
+    // ── Загрузка чатов ──
+    const loadChats = useCallback(async (silent = false) => {
+        if (!silent) {
+            setLoading(true);
+            setError(null);
+        }
         try {
             const data = await getChats();
             setChats(data || []);
         } catch (err) {
             console.error('Ошибка загрузки чатов:', err);
-            setError(err.message || 'Ошибка загрузки чатов');
+            if (!silent) setError(err.message || 'Ошибка загрузки чатов');
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
-    };
+    }, []);
+
+    useEffect(() => {
+        loadChats();
+    }, [loadChats]);
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR: подписки на события
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        // ── Новое сообщение ──
+        const handleReceiveMessage = (message) => {
+            if (!message) return;
+
+            setChats((prev) => {
+                const idx = prev.findIndex((c) => c.id === message.chatId);
+
+                // Чат, которого нет в списке (например, новый личный чат) —
+                // подгружаем список целиком.
+                if (idx === -1) {
+                    loadChats(true);
+                    return prev;
+                }
+
+                const updated = [...prev];
+                const chat = updated[idx];
+
+                // Обновляем последнее сообщение и время
+                chat.lastMessage = message;
+                chat.lastMessageAt = message.createdAt;
+
+                // Счётчик непрочитанных приходит отдельным событием UnreadCountChanged,
+                // здесь не трогаем — иначе будет двойной инкремент.
+                // Но поднимем чат вверх списка, чтобы UX был как в Telegram.
+                updated.splice(idx, 1);
+                updated.unshift(chat);
+
+                return updated;
+            });
+        };
+
+        // ── Счётчик непрочитанных изменился ──
+        const handleUnreadCountChanged = (chatId, unreadCount) => {
+            setChats((prev) =>
+                prev.map((c) =>
+                    c.id === chatId
+                        ? { ...c, unreadCount }
+                        : c
+                )
+            );
+        };
+
+        // ── Пользователь зашёл в сеть ──
+        // (userId — Guid строкой. В ChatListDto у нас есть только email собеседника,
+        //  поэтому точное сопоставление невозможно без доп. поля. На всякий случай
+        //  перезапрашиваем список, чтобы подтянуть актуальный isOnline.)
+        const handleUserOnline = () => {
+            loadChats(true);
+        };
+
+        // ── Пользователь ушёл в оффлайн ──
+        const handleUserOffline = () => {
+            loadChats(true);
+        };
+
+        // ── Reconnect ──
+        const handleReconnected = () => {
+            console.log('🔄 SignalR reconnected, refreshing chats…');
+            loadChats(true);
+        };
+
+        signalr.on('ReceiveMessage', handleReceiveMessage);
+        signalr.on('UnreadCountChanged', handleUnreadCountChanged);
+        signalr.on('UserOnline', handleUserOnline);
+        signalr.on('UserOffline', handleUserOffline);
+        signalr.on('_reconnected', handleReconnected);
+
+        // На случай, если SignalR ещё не подключён — инициируем
+        signalr.connect().catch((err) => {
+            console.warn('SignalR connect from ChatsListPage failed:', err);
+        });
+
+        return () => {
+            signalr.off('ReceiveMessage', handleReceiveMessage);
+            signalr.off('UnreadCountChanged', handleUnreadCountChanged);
+            signalr.off('UserOnline', handleUserOnline);
+            signalr.off('UserOffline', handleUserOffline);
+            signalr.off('_reconnected', handleReconnected);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     const formatTime = (dateString) => {
         if (!dateString) return '';
@@ -68,9 +165,24 @@ const ChatsListPage = () => {
         return chat.name || 'Чат';
     };
 
-    // 🆕 Открыть чат.
-    //    Полагаемся на то, что ProjectsPage уже сохранил activeTab='chats'
-    //    в sessionStorage — при возврате через navigate(-1) таб восстановится сам.
+    // Превью последнего сообщения
+    const getLastMessagePreview = (chat) => {
+        if (!chat.lastMessage) return 'Нет сообщений';
+
+        const isOwn =
+            chat.lastMessage.senderEmail?.toLowerCase() ===
+            userEmailRef.current?.toLowerCase();
+
+        // Если это вложение и нет текста — показываем имя файла
+        let text = chat.lastMessage.text;
+        if (!text && chat.lastMessage.attachmentFileName) {
+            text = `📎 ${chat.lastMessage.attachmentFileName}`;
+        }
+        if (!text) text = 'Вложение';
+
+        return isOwn ? `Вы: ${text}` : text;
+    };
+
     const openChat = (chatId) => {
         navigate(`/chats/${chatId}`);
     };
@@ -166,11 +278,7 @@ const ChatsListPage = () => {
                                         </div>
                                         <div className="chat-item-footer">
                                             <span className="chat-item-last-message">
-                                                {chat.lastMessage
-                                                    ? (chat.lastMessage.senderEmail === chat.otherUser?.email
-                                                        ? ''
-                                                        : 'Вы: ') + chat.lastMessage.text
-                                                    : 'Нет сообщений'}
+                                                {getLastMessagePreview(chat)}
                                             </span>
                                             {chat.unreadCount > 0 && (
                                                 <span className="chat-item-badge">

@@ -18,6 +18,7 @@ import {
 import { useAuth } from '../context/AuthContext';
 import { getProjectVotings, deleteVoting } from '../services/votingsApi';
 import { searchMyProjectByCode } from '../services/projectsApi';
+import { signalr } from '../services/signalrService';
 import '../styles/components/VotingsListPage.css';
 
 const VotingsListPage = ({
@@ -36,12 +37,13 @@ const VotingsListPage = ({
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
-    // 📌 id удаляемого голосования (для спиннера на кнопке)
     const [deletingId, setDeletingId] = useState(null);
 
-    const loadData = useCallback(async () => {
-        setLoading(true);
-        setError(null);
+    const loadData = useCallback(async (silent = false) => {
+        if (!silent) {
+            setLoading(true);
+            setError(null);
+        }
         try {
             const [projectData, votingsData] = await Promise.all([
                 searchMyProjectByCode(code),
@@ -49,7 +51,7 @@ const VotingsListPage = ({
             ]);
 
             if (!projectData) {
-                setError('Проект не найден или у вас нет доступа');
+                if (!silent) setError('Проект не найден или у вас нет доступа');
                 return;
             }
 
@@ -57,9 +59,9 @@ const VotingsListPage = ({
             setVotings(votingsData || []);
         } catch (err) {
             console.error('Ошибка загрузки голосований:', err);
-            setError(err.message || 'Не удалось загрузить голосования');
+            if (!silent) setError(err.message || 'Не удалось загрузить голосования');
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [code]);
 
@@ -70,10 +72,80 @@ const VotingsListPage = ({
     // 📌 Принудительное обновление по refreshKey
     useEffect(() => {
         if (refreshKey > 0) {
-            loadData();
+            loadData(true);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [refreshKey]);
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR: только подписки на события голосований.
+    //     JoinProject/LeaveProject делает ProjectDashboardPage —
+    //     это устраняет race condition при переключении табов.
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        if (!code) return;
+
+        // ── Новое голосование ──
+        const handleVotingCreated = (voting) => {
+            if (!voting?.id) return;
+            setVotings((prev) => {
+                if (prev.some((v) => v.id === voting.id)) return prev;
+                return [voting, ...prev];
+            });
+        };
+
+        // ── Кто-то проголосовал — обновляем голосование в списке ──
+        const handleVoteCast = (voting) => {
+            if (!voting?.id) return;
+            setVotings((prev) =>
+                prev.map((v) => (v.id === voting.id ? voting : v))
+            );
+        };
+
+        // ── Голосование закрыто ──
+        const handleVotingClosed = (voting) => {
+            if (!voting?.id) return;
+            setVotings((prev) =>
+                prev.map((v) => (v.id === voting.id ? voting : v))
+            );
+        };
+
+        // ── Голосование удалено ──
+        const handleVotingDeleted = (payload) => {
+            const votingId = payload?.votingId;
+            if (!votingId) return;
+            setVotings((prev) => prev.filter((v) => v.id !== votingId));
+        };
+
+        // ── Reconnect — перезагружаем список целиком ──
+        const handleReconnected = () => {
+            console.log('🔄 SignalR reconnected, refreshing votings list…');
+            loadData(true);
+        };
+
+        signalr.on('VotingCreated', handleVotingCreated);
+        signalr.on('VoteCast', handleVoteCast);
+        signalr.on('VotingClosed', handleVotingClosed);
+        signalr.on('VotingDeleted', handleVotingDeleted);
+        signalr.on('_reconnected', handleReconnected);
+
+        // На случай, если соединение ещё не поднято
+        // (JoinProject уже сделал ProjectDashboardPage, но connect() ленивый)
+        signalr.connect().catch((err) => {
+            console.warn('SignalR connect from VotingsListPage failed:', err);
+        });
+
+        return () => {
+            signalr.off('VotingCreated', handleVotingCreated);
+            signalr.off('VoteCast', handleVoteCast);
+            signalr.off('VotingClosed', handleVotingClosed);
+            signalr.off('VotingDeleted', handleVotingDeleted);
+            signalr.off('_reconnected', handleReconnected);
+
+            // LeaveProject НЕ вызываем — это делает ProjectDashboardPage
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [code, loadData]);
 
     const getVotingStatus = (v) => {
         if (v.isClosed) return { label: 'Закрыто', className: 'closed' };
@@ -94,8 +166,6 @@ const VotingsListPage = ({
         }
     };
 
-    // 📌 Может ли текущий пользователь управлять голосованием
-    // 📦 В архиве — никто не может удалять
     const canManageVoting = (v) => {
         if (isArchived) return false;
         if (!v || !user) return false;
@@ -107,11 +177,10 @@ const VotingsListPage = ({
         return isAuthor || isProjectOwner || isProjectAdmin;
     };
 
-    // 📌 Удалить голосование
     const handleDelete = async (e, voting) => {
         e.stopPropagation();
 
-        if (isArchived) return;   // 📦 архив — не удаляем
+        if (isArchived) return;
 
         if (!window.confirm(`Удалить голосование «${voting.title}»? Это действие необратимо.`)) {
             return;
@@ -120,7 +189,12 @@ const VotingsListPage = ({
         setDeletingId(voting.id);
         try {
             await deleteVoting(voting.id);
-            setVotings(prev => prev.filter(v => v.id !== voting.id));
+
+            // Если SignalR не подключён — обновляем локально.
+            // Если подключён — придёт VotingDeleted и всё сделает сам.
+            if (!signalr.isConnected()) {
+                setVotings((prev) => prev.filter((v) => v.id !== voting.id));
+            }
         } catch (err) {
             console.error('Ошибка удаления голосования:', err);
             setError(err.message || 'Не удалось удалить голосование');
@@ -130,9 +204,6 @@ const VotingsListPage = ({
         }
     };
 
-    // 📌 Открыть голосование
-    //   — если передан onOpenVoting, вызываем его (обычно открывает модалку),
-    //   — иначе fallback — переход на отдельную страницу.
     const handleOpenVoting = (votingId) => {
         if (onOpenVoting) {
             onOpenVoting(votingId);
@@ -143,8 +214,6 @@ const VotingsListPage = ({
         });
     };
 
-    // 📌 Создать голосование
-    // 📦 В архиве — запрещено
     const handleCreateVoting = () => {
         if (isArchived) return;
         if (onCreateVoting) {
@@ -191,7 +260,6 @@ const VotingsListPage = ({
 
     return (
         <div className={embedded ? 'votings-page votings-page--embedded' : 'votings-page'}>
-            {/* ── Шапка (только в standalone-режиме) ── */}
             {!embedded && (
                 <header className="votings-page-header">
                     <button

@@ -1,6 +1,6 @@
 // projecthub.client/src/context/AuthContext.js
 
-import React, { createContext, useState, useContext, useEffect } from 'react';
+import React, { createContext, useState, useContext, useEffect, useRef } from 'react';
 import {
     login as apiLogin,
     register as apiRegister,
@@ -9,6 +9,7 @@ import {
     isAuthenticated,
     getUserFromStorage,
 } from '../api/authApi';
+import { signalr } from '../services/signalrService';
 
 const AuthContext = createContext();
 
@@ -17,10 +18,21 @@ export const AuthProvider = ({ children }) => {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
+    // 🆕 Ref, чтобы обработчики useEffect видели актуальное значение user
+    const userRef = useRef(null);
+    useEffect(() => { userRef.current = user; }, [user]);
+
     // 📌 Загружаем пользователя при старте
     useEffect(() => {
         loadUser();
         // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // 🆕 При размонтировании провайдера — отключаем SignalR
+    useEffect(() => {
+        return () => {
+            signalr.disconnect().catch(() => { });
+        };
     }, []);
 
     const loadUser = async () => {
@@ -30,7 +42,8 @@ export const AuthProvider = ({ children }) => {
                 const userData = await getCurrentUser();
                 if (userData) {
                     setUserState(userData);
-                    persistUser(userData);   // 🆕 синхронизируем localStorage
+                    persistUser(userData);
+                    connectSignalR();   // 🆕
                 } else {
                     setUserState(null);
                 }
@@ -42,6 +55,7 @@ export const AuthProvider = ({ children }) => {
                         const next = refreshedUser || storedUser;
                         setUserState(next);
                         persistUser(next);
+                        connectSignalR();   // 🆕
                     } catch {
                         setUserState(storedUser);
                     }
@@ -55,17 +69,23 @@ export const AuthProvider = ({ children }) => {
         }
     };
 
+    // 🆕 Подключение SignalR без блокировки UI.
+    // Ошибка подключения не критична — REST всё ещё работает.
+    const connectSignalR = async () => {
+        try {
+            await signalr.connect();
+        } catch (err) {
+            console.warn('⚠️ SignalR initial connect failed:', err?.message);
+        }
+    };
+
     // 🆕 ── Публичный сеттер пользователя ──
-    // Используется в ProfilePage / других местах, где обновился профиль
-    // (например, после загрузки аватара).
-    // Синхронизирует и React-state, и localStorage.
     const setUser = (nextUser) => {
         setUserState(nextUser);
         persistUser(nextUser);
     };
 
-    // 🆕 Хелпер: пишем пользователя в localStorage,
-    // чтобы после перезагрузки страницы данные не «слетали».
+    // 🆕 Хелпер: пишем пользователя в localStorage
     const persistUser = (nextUser) => {
         try {
             if (nextUser) {
@@ -83,7 +103,11 @@ export const AuthProvider = ({ children }) => {
         setError(null);
         try {
             const userData = await apiLogin(email, password);
-            setUser(userData);   // через наш сеттер — сохранит в localStorage
+            setUser(userData);
+
+            // 🆕 После успешного логина — подключаем SignalR
+            connectSignalR();
+
             return userData;
         } catch (err) {
             setError(err.message);
@@ -97,6 +121,10 @@ export const AuthProvider = ({ children }) => {
         try {
             const data = await apiRegister(userData);
             setUser(data);
+
+            // 🆕 После успешной регистрации — подключаем SignalR
+            connectSignalR();
+
             return data;
         } catch (err) {
             setError(err.message);
@@ -106,12 +134,19 @@ export const AuthProvider = ({ children }) => {
 
     // 📌 Выход
     const handleLogout = async () => {
+        // 🆕 Сначала отключаем SignalR, потом чистим токен
+        try {
+            await signalr.disconnect();
+        } catch (err) {
+            console.warn('SignalR disconnect error:', err);
+        }
+
         try {
             await apiLogout();
         } catch (err) {
             console.error('Logout error:', err);
         } finally {
-            setUser(null);   // через сеттер — заодно чистит localStorage
+            setUser(null);
         }
     };
 
@@ -123,7 +158,7 @@ export const AuthProvider = ({ children }) => {
         register: handleRegister,
         logout: handleLogout,
         isAuthenticated: !!user && isAuthenticated(),
-        setUser,             // 🆕 публичный сеттер с автосохранением
+        setUser,
     };
 
     return (

@@ -43,7 +43,6 @@ public class ApplicationService
             .FirstOrDefaultAsync(p => p.Id == projectId)
             ?? throw new KeyNotFoundException("Проект не найден");
 
-        // 📌 Архив — блокируем подачу заявок
         EnsureProjectNotArchived(project);
 
         var user = await _dbContext.Users
@@ -79,7 +78,8 @@ public class ApplicationService
 
         _dbContext.Applications.Add(application);
 
-        await _activity.LogAsync(
+        // 🆕 Сохраняем activity, чтобы эмитить после SaveChanges
+        var activity = await _activity.LogAsync(
             project.Id,
             userId,
             ActivityType.ApplicationSubmitted,
@@ -89,6 +89,9 @@ public class ApplicationService
         );
 
         await _dbContext.SaveChangesAsync();
+
+        // 🆕 ── SignalR: событие истории ──
+        await _activity.EmitActivityAsync(activity, project.PublicCode);
 
         _logger.LogInformation($"✅ Заявка {application.Id} создана");
 
@@ -127,7 +130,6 @@ public class ApplicationService
             _logger.LogError($"❌ Ошибка при отправке уведомлений: {ex.Message}");
         }
 
-        // 📌 Подгружаем навигацию, чтобы маппер заполнил данные пользователя и проекта
         application.User = user;
         application.Project = project;
 
@@ -149,7 +151,6 @@ public class ApplicationService
         if (application.Status != ApplicationStatus.Pending)
             throw new InvalidOperationException($"Заявка уже обработана. Статус: {application.Status}");
 
-        // Проверяем права
         var isOwner = application.Project.OwnerId == processedBy;
         var isAdmin = await _dbContext.ProjectMembers
             .AnyAsync(pm => pm.ProjectId == application.ProjectId
@@ -162,7 +163,6 @@ public class ApplicationService
 
         if (approve)
         {
-            // 📌 Одобрение заявки в архивный проект блокируем
             if (application.Project.IsArchived)
                 throw new InvalidOperationException(
                     "Проект находится в архиве, одобрить заявку нельзя");
@@ -183,7 +183,8 @@ public class ApplicationService
 
             _dbContext.ProjectMembers.Add(member);
 
-            await _activity.LogAsync(
+            // 🆕 Сохраняем activity
+            var activity = await _activity.LogAsync(
                 application.ProjectId,
                 processedBy,
                 ActivityType.ApplicationApproved,
@@ -194,10 +195,12 @@ public class ApplicationService
 
             await _dbContext.SaveChangesAsync();
 
+            // 🆕 ── SignalR ──
+            await _activity.EmitActivityAsync(activity, application.Project.PublicCode);
+
             _logger.LogInformation(
                 $"✅ Пользователь {application.UserId} добавлен в участники проекта {application.ProjectId}");
 
-            // Уведомление новому участнику
             await _notificationService.CreateNotificationAsync(
                 application.UserId,
                 "✅ Ваша заявка одобрена!",
@@ -207,7 +210,6 @@ public class ApplicationService
                 application.ProjectId
             );
 
-            // Уведомление всем участникам
             var projectMembers = await _dbContext.ProjectMembers
                 .Where(pm => pm.ProjectId == application.ProjectId)
                 .Include(pm => pm.User)
@@ -234,7 +236,6 @@ public class ApplicationService
         }
         else
         {
-            // ❌ Отклоняем — удаляем заявку
             var projectName = application.Project?.Name ?? "проект";
 
             await _notificationService.CreateNotificationAsync(
@@ -248,7 +249,8 @@ public class ApplicationService
 
             await _notificationService.DeleteNotificationsByRelatedIdAsync(applicationId);
 
-            await _activity.LogAsync(
+            // 🆕 Сохраняем activity
+            var activity = await _activity.LogAsync(
                 application.ProjectId,
                 processedBy,
                 ActivityType.ApplicationRejected,
@@ -259,6 +261,9 @@ public class ApplicationService
 
             _dbContext.Applications.Remove(application);
             await _dbContext.SaveChangesAsync();
+
+            // 🆕 ── SignalR ──
+            await _activity.EmitActivityAsync(activity, application.Project.PublicCode);
 
             _logger.LogInformation($"🗑️ Заявка {applicationId} отклонена и удалена из БД");
         }
@@ -285,7 +290,6 @@ public class ApplicationService
         return applications.Select(MapToResponse).ToList();
     }
 
-    // 📌 Заявки пользователя
     public async Task<List<ApplicationResponseDto>> GetApplicationsForUserAsync(Guid userId)
     {
         var applications = await _dbContext.Applications
@@ -298,7 +302,6 @@ public class ApplicationService
         return applications.Select(MapToResponse).ToList();
     }
 
-    // 📌 Заявки проекта по коду
     public async Task<List<ApplicationResponseDto>> GetApplicationsByCodeAsync(
         string code, ApplicationStatus? status = null)
     {
@@ -321,7 +324,6 @@ public class ApplicationService
         return applications.Select(MapToResponse).ToList();
     }
 
-    // 📌 Очистить уведомления по коду проекта
     public async Task CleanupNotificationsByCodeAsync(string code)
     {
         var project = await _dbContext.Projects
@@ -332,7 +334,6 @@ public class ApplicationService
         await _notificationService.CleanupNotificationsForProjectAsync(project.Id);
     }
 
-    // 📌 Проверки
     public async Task<bool> IsUserProjectOwner(Guid projectId, Guid userId)
     {
         var project = await _dbContext.Projects
@@ -349,10 +350,6 @@ public class ApplicationService
                             && pm.Role == ProjectMemberRole.Admin);
     }
 
-    // ═══════════════════════════════════════════════════════════
-    //  ВСПОМОГАТЕЛЬНЫЕ
-    // ═══════════════════════════════════════════════════════════
-
     private static void EnsureProjectNotArchived(Project project)
     {
         if (project.IsArchived)
@@ -360,7 +357,6 @@ public class ApplicationService
                 "Проект находится в архиве, действие недоступно");
     }
 
-    // 📌 Маппер
     private ApplicationResponseDto MapToResponse(Application application)
     {
         return new ApplicationResponseDto
@@ -373,7 +369,7 @@ public class ApplicationService
             UserName = application.User?.Name ?? string.Empty,
             UserEmail = application.User?.Email ?? string.Empty,
             UserSpecialization = application.User?.Specialization.ToString(),
-            UserAvatarUrl = application.User?.AvatarUrl,        // 🆕
+            UserAvatarUrl = application.User?.AvatarUrl,
             Status = application.Status.ToString(),
             Message = application.Message,
             CreatedAt = application.CreatedAt,

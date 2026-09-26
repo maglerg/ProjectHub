@@ -27,14 +27,12 @@ public class InvitationService
         _activity = activity;
     }
 
-    // 📌 Получить проект по публичному коду
     public async Task<Project?> GetProjectByCodeAsync(string code)
     {
         return await _dbContext.Projects
             .FirstOrDefaultAsync(p => p.PublicCode == code);
     }
 
-    // 📌 Получить статус приглашения
     public async Task<InvitationStatusDto> GetInvitationStatusAsync(
         Guid userId, string projectCode)
     {
@@ -61,7 +59,7 @@ public class InvitationService
         return new InvitationStatusDto { Status = "None" };
     }
 
-    // 📌 Создать приглашение (только Owner/Admin)
+    // 📌 Создать приглашение
     public async Task<InvitationResponseDto> CreateInvitationAsync(
         Guid projectId, Guid inviterId, string inviteeEmail, string? message = null)
     {
@@ -72,7 +70,6 @@ public class InvitationService
             .FirstOrDefaultAsync(p => p.Id == projectId)
             ?? throw new KeyNotFoundException("Проект не найден");
 
-        // 📌 Архив — блокируем приглашения
         EnsureProjectNotArchived(project);
 
         var isOwner = project.OwnerId == inviterId;
@@ -119,7 +116,8 @@ public class InvitationService
 
         _dbContext.Invitations.Add(invitation);
 
-        await _activity.LogAsync(
+        // 🆕 Сохраняем activity
+        var activity = await _activity.LogAsync(
             project.Id,
             inviterId,
             ActivityType.InvitationSent,
@@ -130,9 +128,11 @@ public class InvitationService
 
         await _dbContext.SaveChangesAsync();
 
+        // 🆕 ── SignalR ──
+        await _activity.EmitActivityAsync(activity, project.PublicCode);
+
         _logger.LogInformation($"Приглашение {invitation.Id} создано");
 
-        // 📨 Уведомление приглашённому
         var inviter = await _dbContext.Users.FindAsync(inviterId);
         await _notificationService.CreateNotificationAsync(
             invitee.Id,
@@ -143,7 +143,6 @@ public class InvitationService
             invitation.Id
         );
 
-        // 📌 Подгружаем навигации, чтобы MapToResponse заполнил AvatarUrl
         invitation.Project = project;
         invitation.Inviter = inviter;
         invitation.Invitee = invitee;
@@ -165,29 +164,26 @@ public class InvitationService
         if (invitation.Status != InvitationStatus.Pending)
             throw new InvalidOperationException("Приглашение уже обработано");
 
-        // Сохраняем данные для уведомлений и ответа (до удаления)
         var projectId = invitation.ProjectId;
         var projectName = invitation.Project?.Name ?? "проект";
         var projectCode = invitation.Project?.PublicCode ?? "";
         var inviterId = invitation.InviterId;
         var inviterName = invitation.Inviter?.Name ?? "Пользователь";
         var inviterEmail = invitation.Inviter?.Email ?? "";
-        var inviterAvatarUrl = invitation.Inviter?.AvatarUrl;     // 🆕
+        var inviterAvatarUrl = invitation.Inviter?.AvatarUrl;
         var inviteeId = invitation.InviteeId;
         var inviteeName = invitation.Invitee?.Name ?? "Пользователь";
         var inviteeEmail = invitation.Invitee?.Email ?? "";
-        var inviteeAvatarUrl = invitation.Invitee?.AvatarUrl;     // 🆕
+        var inviteeAvatarUrl = invitation.Invitee?.AvatarUrl;
         var message = invitation.Message;
         var createdAt = invitation.CreatedAt;
 
         if (accept)
         {
-            // 📌 Принятие приглашения в архивный проект блокируем
             if (invitation.Project?.IsArchived == true)
                 throw new InvalidOperationException(
                     "Проект находится в архиве, присоединиться нельзя");
 
-            // ✅ Принимаем
             var member = new ProjectMember
             {
                 Id = Guid.NewGuid(),
@@ -199,7 +195,8 @@ public class InvitationService
 
             _dbContext.ProjectMembers.Add(member);
 
-            await _activity.LogAsync(
+            // 🆕 Сохраняем activity
+            var activity = await _activity.LogAsync(
                 projectId,
                 inviteeId,
                 ActivityType.InvitationAccepted,
@@ -210,10 +207,12 @@ public class InvitationService
 
             await _dbContext.SaveChangesAsync();
 
+            // 🆕 ── SignalR ──
+            await _activity.EmitActivityAsync(activity, projectCode);
+
             _logger.LogInformation(
                 $"Пользователь {inviteeId} принял приглашение и добавлен в проект");
 
-            // 📨 Пригласившему
             await _notificationService.CreateNotificationAsync(
                 inviterId,
                 "✅ Приглашение принято",
@@ -223,7 +222,6 @@ public class InvitationService
                 projectId
             );
 
-            // 📨 Всем участникам проекта
             var projectMembers = await _dbContext.ProjectMembers
                 .Where(pm => pm.ProjectId == projectId)
                 .Include(pm => pm.User)
@@ -248,7 +246,6 @@ public class InvitationService
         }
         else
         {
-            // ❌ Отклоняем
             await _notificationService.CreateNotificationAsync(
                 inviterId,
                 "❌ Приглашение отклонено",
@@ -258,7 +255,8 @@ public class InvitationService
                 projectId
             );
 
-            await _activity.LogAsync(
+            // 🆕 Сохраняем activity
+            var activity = await _activity.LogAsync(
                 projectId,
                 inviteeId,
                 ActivityType.InvitationDeclined,
@@ -268,12 +266,43 @@ public class InvitationService
             );
 
             _logger.LogInformation($"Приглашение {invitationId} отклонено");
+
+            // 🆕 Эмитим ДО удаления приглашения, но после удаления уведомлений
+            // (activity уже добавлен в контекст, сохранится вместе с удалением ниже)
+            await _notificationService.DeleteNotificationsByRelatedIdAsync(invitationId);
+
+            _dbContext.Invitations.Remove(invitation);
+            await _dbContext.SaveChangesAsync();
+
+            // 🆕 ── SignalR ──
+            await _activity.EmitActivityAsync(activity, projectCode);
+
+            _logger.LogInformation($"🗑️ Приглашение {invitationId} обработано и удалено");
+
+            return new InvitationResponseDto
+            {
+                Id = invitationId,
+                ProjectId = projectId,
+                ProjectName = projectName,
+                ProjectCode = projectCode,
+                InviterId = inviterId,
+                InviterName = inviterName,
+                InviterEmail = inviterEmail,
+                InviterAvatarUrl = inviterAvatarUrl,
+                InviteeId = inviteeId,
+                InviteeName = inviteeName,
+                InviteeEmail = inviteeEmail,
+                InviteeAvatarUrl = inviteeAvatarUrl,
+                Status = "Rejected",
+                Message = message,
+                CreatedAt = createdAt,
+                ProcessedAt = DateTime.UtcNow
+            };
         }
 
-        // Удаляем уведомления по приглашению
+        // ── Принятие: удаляем приглашение и возвращаем ответ ──
         await _notificationService.DeleteNotificationsByRelatedIdAsync(invitationId);
 
-        // Удаляем само приглашение
         _dbContext.Invitations.Remove(invitation);
         await _dbContext.SaveChangesAsync();
 
@@ -288,11 +317,11 @@ public class InvitationService
             InviterId = inviterId,
             InviterName = inviterName,
             InviterEmail = inviterEmail,
-            InviterAvatarUrl = inviterAvatarUrl,       // 🆕
+            InviterAvatarUrl = inviterAvatarUrl,
             InviteeId = inviteeId,
             InviteeName = inviteeName,
             InviteeEmail = inviteeEmail,
-            InviteeAvatarUrl = inviteeAvatarUrl,       // 🆕
+            InviteeAvatarUrl = inviteeAvatarUrl,
             Status = accept ? "Accepted" : "Rejected",
             Message = message,
             CreatedAt = createdAt,
@@ -300,7 +329,6 @@ public class InvitationService
         };
     }
 
-    // 📌 Получить все приглашения для пользователя
     public async Task<List<InvitationResponseDto>> GetUserInvitationsAsync(Guid userId)
     {
         var invitations = await _dbContext.Invitations
@@ -313,10 +341,6 @@ public class InvitationService
 
         return invitations.Select(MapToResponse).ToList();
     }
-
-    // ═══════════════════════════════════════════════════════════
-    //  ВСПОМОГАТЕЛЬНЫЕ
-    // ═══════════════════════════════════════════════════════════
 
     private static void EnsureProjectNotArchived(Project project)
     {
@@ -336,11 +360,11 @@ public class InvitationService
             InviterId = invitation.InviterId,
             InviterName = invitation.Inviter?.Name ?? string.Empty,
             InviterEmail = invitation.Inviter?.Email ?? string.Empty,
-            InviterAvatarUrl = invitation.Inviter?.AvatarUrl,      // 🆕
+            InviterAvatarUrl = invitation.Inviter?.AvatarUrl,
             InviteeId = invitation.InviteeId,
             InviteeName = invitation.Invitee?.Name ?? string.Empty,
             InviteeEmail = invitation.Invitee?.Email ?? string.Empty,
-            InviteeAvatarUrl = invitation.Invitee?.AvatarUrl,      // 🆕
+            InviteeAvatarUrl = invitation.Invitee?.AvatarUrl,
             Status = invitation.Status.ToString(),
             Message = invitation.Message,
             CreatedAt = invitation.CreatedAt,

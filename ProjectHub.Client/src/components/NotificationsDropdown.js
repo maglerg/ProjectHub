@@ -1,6 +1,6 @@
 // projecthub.client/src/components/NotificationsDropdown.js
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Bell,
@@ -16,6 +16,7 @@ import {
     Circle,
 } from 'lucide-react';
 import { getNotifications, getUnreadCount, markAsRead } from '../services/notificationsApi';
+import { signalr } from '../services/signalrService';
 import '../styles/components/NotificationsDropdown.css';
 
 const NotificationsDropdown = () => {
@@ -26,12 +27,16 @@ const NotificationsDropdown = () => {
     const dropdownRef = useRef(null);
     const navigate = useNavigate();
 
+    // 🆕 Храним isOpen в ref — чтобы обработчик SignalR не пересоздавался
+    const isOpenRef = useRef(isOpen);
+    useEffect(() => { isOpenRef.current = isOpen; }, [isOpen]);
+
+    // ── Первичная загрузка счётчика ──
     useEffect(() => {
         loadUnreadCount();
-        const interval = setInterval(loadUnreadCount, 30000);
-        return () => clearInterval(interval);
     }, []);
 
+    // ── Закрытие по клику вне ──
     useEffect(() => {
         const handleClickOutside = (event) => {
             if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -42,6 +47,59 @@ const NotificationsDropdown = () => {
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
 
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR: мгновенное обновление счётчика и списка
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        // При любом событии, которое может привести к появлению/изменению
+        // уведомлений, перезапрашиваем счётчик. Если открыт дропдаун —
+        // перезапрашиваем и список (тихо, без спиннера).
+        const refreshAll = () => {
+            loadUnreadCount();
+            if (isOpenRef.current) {
+                loadNotificationsSilent();
+            }
+        };
+
+        // ── Чат ──
+        const handleReceiveMessage = () => refreshAll();
+        const handleUnreadCountChanged = () => refreshAll();
+
+        // ── Уведомления (новые события из NotificationService) ──
+        const handleNotificationReceived = () => refreshAll();
+        const handleNotificationRead = () => refreshAll();
+        const handleAllNotificationsRead = () => refreshAll();
+        const handleNotificationDeleted = () => refreshAll();
+
+        // ── Reconnect ──
+        const handleReconnected = () => refreshAll();
+
+        signalr.on('ReceiveMessage', handleReceiveMessage);
+        signalr.on('UnreadCountChanged', handleUnreadCountChanged);
+        signalr.on('NotificationReceived', handleNotificationReceived);
+        signalr.on('NotificationRead', handleNotificationRead);
+        signalr.on('AllNotificationsRead', handleAllNotificationsRead);
+        signalr.on('NotificationDeleted', handleNotificationDeleted);
+        signalr.on('_reconnected', handleReconnected);
+
+        // На случай, если SignalR ещё не подключён
+        signalr.connect().catch((err) => {
+            console.warn('SignalR connect from NotificationsDropdown failed:', err);
+        });
+
+        return () => {
+            signalr.off('ReceiveMessage', handleReceiveMessage);
+            signalr.off('UnreadCountChanged', handleUnreadCountChanged);
+            signalr.off('NotificationReceived', handleNotificationReceived);
+            signalr.off('NotificationRead', handleNotificationRead);
+            signalr.off('AllNotificationsRead', handleAllNotificationsRead);
+            signalr.off('NotificationDeleted', handleNotificationDeleted);
+            signalr.off('_reconnected', handleReconnected);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // ── Загрузка счётчика ──
     const loadUnreadCount = async () => {
         try {
             const count = await getUnreadCount();
@@ -51,6 +109,7 @@ const NotificationsDropdown = () => {
         }
     };
 
+    // ── Загрузка списка (с спиннером) ──
     const loadNotifications = async () => {
         setLoading(true);
         try {
@@ -66,6 +125,19 @@ const NotificationsDropdown = () => {
             setNotifications([]);
         } finally {
             setLoading(false);
+        }
+    };
+
+    // 🆕 Тихая загрузка — без спиннера, без открытия дропдауна.
+    // Используется из SignalR-обработчиков, чтобы не мигало.
+    const loadNotificationsSilent = async () => {
+        try {
+            const data = await getNotifications();
+            if (Array.isArray(data)) {
+                setNotifications(data);
+            }
+        } catch (error) {
+            console.warn('Ошибка тихой загрузки уведомлений:', error);
         }
     };
 
@@ -105,14 +177,12 @@ const NotificationsDropdown = () => {
             handleMarkAsRead(notification.id);
         }
 
-        // 📌 Проверяем тип уведомления и переходим по ссылке
         if (notification.link) {
             navigate(notification.link);
             setIsOpen(false);
             return;
         }
 
-        // 📌 Заявки в друзья
         if (notification.type === 'FriendRequest' ||
             notification.type === 'FriendRequestReceived' ||
             notification.type === 'FriendRequestAccepted' ||
@@ -122,7 +192,6 @@ const NotificationsDropdown = () => {
             return;
         }
 
-        // 📌 Приглашения в проект
         if (notification.type === 'ProjectInvitation' ||
             notification.type === 'InvitationAccepted' ||
             notification.type === 'InvitationRejected') {
@@ -131,7 +200,6 @@ const NotificationsDropdown = () => {
             return;
         }
         if (notification.type === 'NewMessage') {
-            // Переходим в чат по ссылке
             navigate(notification.link || '/chats');
             setIsOpen(false);
             return;
@@ -158,7 +226,6 @@ const NotificationsDropdown = () => {
         }
     };
 
-    // 📌 Получить Lucide-компонент для типа уведомления
     const getNotificationIcon = (type) => {
         switch (type) {
             case 'FriendRequest':

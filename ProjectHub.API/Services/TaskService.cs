@@ -1,8 +1,10 @@
 ﻿// Services/TaskService.cs
 
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ProjectHub.API.Data;
 using ProjectHub.API.DTOs.TaskDtos;
+using ProjectHub.API.Hubs;
 using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
 
@@ -16,8 +18,8 @@ namespace ProjectHub.API.Services
         private readonly FileStorageService _fileStorage;
         private readonly IConfiguration _configuration;
         private readonly ActivityService _activity;
+        private readonly IHubContext<ChatHub> _hubContext;
 
-        // Системные ключи колонок
         public const string KeyNotStarted = "NotStarted";
         public const string KeyInProgress = "InProgress";
         public const string KeyCompleted = "Completed";
@@ -40,7 +42,8 @@ namespace ProjectHub.API.Services
             NotificationService notificationService,
             FileStorageService fileStorage,
             IConfiguration configuration,
-            ActivityService activity)
+            ActivityService activity,
+            IHubContext<ChatHub> hubContext)
         {
             _db = db;
             _logger = logger;
@@ -48,6 +51,7 @@ namespace ProjectHub.API.Services
             _fileStorage = fileStorage;
             _configuration = configuration;
             _activity = activity;
+            _hubContext = hubContext;
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -170,7 +174,7 @@ namespace ProjectHub.API.Services
 
             _db.ProjectTasks.Add(task);
 
-            await _activity.LogAsync(
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.TaskCreated,
@@ -181,7 +185,15 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
-            return await BuildTaskDtoAsync(task.Id, userId);
+            // 🆕 ── SignalR: ActivityAdded (история) ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
+            var resultDto = await BuildTaskDtoAsync(task.Id, userId);
+
+            // ── SignalR: TaskCreated (доска) ──
+            await EmitToProjectAsync(project.PublicCode, "TaskCreated", resultDto);
+
+            return resultDto;
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -199,6 +211,9 @@ namespace ProjectHub.API.Services
                 .FirstOrDefaultAsync(t => t.Id == taskId && t.ProjectId == project.Id)
                 ?? throw new KeyNotFoundException("Задача не найдена");
 
+            var didChange = false;
+            ProjectActivity? activity = null;
+
             if (!task.Assignees.Any(a => a.UserId == userId))
             {
                 _db.TaskAssignees.Add(new TaskAssignee
@@ -211,7 +226,7 @@ namespace ProjectHub.API.Services
 
                 task.UpdatedAt = DateTime.UtcNow;
 
-                await _activity.LogAsync(
+                activity = await _activity.LogAsync(
                     project.Id,
                     userId,
                     ActivityType.TaskTaken,
@@ -221,9 +236,21 @@ namespace ProjectHub.API.Services
                 );
 
                 await _db.SaveChangesAsync();
+                didChange = true;
+
+                // 🆕 ── SignalR: ActivityAdded ──
+                await _activity.EmitActivityAsync(activity, project.PublicCode);
             }
 
-            return await BuildTaskDtoAsync(task.Id, userId);
+            var resultDto = await BuildTaskDtoAsync(task.Id, userId);
+
+            // ── SignalR: TaskTaken (доска) ──
+            if (didChange)
+            {
+                await EmitToProjectAsync(project.PublicCode, "TaskTaken", resultDto);
+            }
+
+            return resultDto;
         }
 
         public async Task<TaskDto> LeaveTaskAsync(string projectCode, Guid taskId, Guid userId, RemoveAssigneeDto dto)
@@ -259,15 +286,18 @@ namespace ProjectHub.API.Services
             }
 
             var assignee = task.Assignees.FirstOrDefault(a => a.UserId == targetUserId);
+
             if (assignee == null)
+            {
                 return await BuildTaskDtoAsync(task.Id, userId);
+            }
 
             var removedUser = assignee.User?.Name ?? dto?.Email ?? "пользователь";
 
             _db.TaskAssignees.Remove(assignee);
             task.UpdatedAt = DateTime.UtcNow;
 
-            await _activity.LogAsync(
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.TaskLeft,
@@ -278,7 +308,15 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
-            return await BuildTaskDtoAsync(task.Id, userId);
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
+            var resultDto = await BuildTaskDtoAsync(task.Id, userId);
+
+            // ── SignalR: TaskLeft (доска) ──
+            await EmitToProjectAsync(project.PublicCode, "TaskLeft", resultDto);
+
+            return resultDto;
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -308,7 +346,6 @@ namespace ProjectHub.API.Services
                 .FirstOrDefaultAsync(c => c.Id == dto.ColumnId && c.ProjectId == project.Id)
                 ?? throw new InvalidOperationException("Колонка не найдена в этом проекте");
 
-            // ── Проверки для задач с подзадачами ──
             if (task.Subtasks.Any())
             {
                 var anyCompleted = task.Subtasks.Any(s => s.IsCompleted);
@@ -324,20 +361,27 @@ namespace ProjectHub.API.Services
                         "Нельзя завершить задачу: не все подзадачи выполнены.");
             }
 
+            var oldColumnId = task.ColumnId;
             var oldColumn = await _db.TaskColumns
-                .FirstOrDefaultAsync(c => c.Id == task.ColumnId);
+                .FirstOrDefaultAsync(c => c.Id == oldColumnId);
             var oldColumnName = oldColumn?.Name ?? "—";
+
+            if (oldColumnId == targetColumn.Id)
+            {
+                return await BuildTaskDtoAsync(task.Id, userId);
+            }
 
             task.ColumnId = targetColumn.Id;
             task.UpdatedAt = DateTime.UtcNow;
 
             var isCompleted = IsKey(targetColumn, KeyCompleted);
+            ProjectActivity? activity;
 
             if (isCompleted)
             {
                 task.CompletedAt = DateTime.UtcNow;
 
-                await _activity.LogAsync(
+                activity = await _activity.LogAsync(
                     project.Id,
                     userId,
                     ActivityType.TaskCompleted,
@@ -350,7 +394,7 @@ namespace ProjectHub.API.Services
             {
                 task.CompletedAt = null;
 
-                await _activity.LogAsync(
+                activity = await _activity.LogAsync(
                     project.Id,
                     userId,
                     ActivityType.TaskMoved,
@@ -362,7 +406,20 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
-            return await BuildTaskDtoAsync(task.Id, userId);
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
+            var resultDto = await BuildTaskDtoAsync(task.Id, userId);
+
+            // ── SignalR: TaskMoved (доска) ──
+            await EmitToProjectAsync(project.PublicCode, "TaskMoved", new
+            {
+                Task = resultDto,
+                OldColumnId = oldColumnId,
+                NewColumnId = targetColumn.Id,
+            });
+
+            return resultDto;
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -384,10 +441,11 @@ namespace ProjectHub.API.Services
                 ?? throw new KeyNotFoundException("Задача не найдена");
 
             var title = task.Title;
+            var columnId = task.ColumnId;
 
             _db.ProjectTasks.Remove(task);
 
-            await _activity.LogAsync(
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.TaskDeleted,
@@ -397,8 +455,18 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
             _logger.LogInformation(
                 $"Задача {taskId} удалена из проекта {projectCode} пользователем {userId}");
+
+            // ── SignalR: TaskDeleted (доска) ──
+            await EmitToProjectAsync(project.PublicCode, "TaskDeleted", new
+            {
+                TaskId = taskId,
+                ColumnId = columnId,
+            });
         }
 
         public async Task<TaskDto> UpdateTaskAsync(string projectCode, Guid taskId, Guid userId, UpdateTaskDto dto)
@@ -428,8 +496,10 @@ namespace ProjectHub.API.Services
 
             var oldPriority = task.Priority;
             var oldDue = task.DueDate;
+            var oldColumnId = task.ColumnId;
 
             var movedToCompleted = false;
+            var columnChanged = false;
 
             if (dto.ColumnId != Guid.Empty && dto.ColumnId != task.ColumnId)
             {
@@ -437,7 +507,6 @@ namespace ProjectHub.API.Services
                     .FirstOrDefaultAsync(c => c.Id == dto.ColumnId && c.ProjectId == project.Id)
                     ?? throw new InvalidOperationException("Колонка не найдена в этом проекте");
 
-                // ── Проверки для задач с подзадачами ──
                 if (task.Subtasks.Any())
                 {
                     var anyCompleted = task.Subtasks.Any(s => s.IsCompleted);
@@ -453,6 +522,7 @@ namespace ProjectHub.API.Services
                 }
 
                 task.ColumnId = column.Id;
+                columnChanged = true;
 
                 if (IsKey(column, KeyCompleted))
                 {
@@ -472,10 +542,12 @@ namespace ProjectHub.API.Services
             task.DueDate = dto.DueDate;
             task.UpdatedAt = DateTime.UtcNow;
 
-            // Логируем: завершение, смену приоритета, смену дедлайна или общее обновление
+            // 🆕 Собираем все activities
+            var activities = new List<ProjectActivity?>();
+
             if (movedToCompleted)
             {
-                await _activity.LogAsync(
+                var a = await _activity.LogAsync(
                     project.Id,
                     userId,
                     ActivityType.TaskCompleted,
@@ -483,12 +555,13 @@ namespace ProjectHub.API.Services
                     link: $"/projects/{project.PublicCode}/tasks/{task.Id}",
                     relatedEntityId: task.Id
                 );
+                activities.Add(a);
             }
             else
             {
                 if (oldPriority != dto.Priority)
                 {
-                    await _activity.LogAsync(
+                    var a = await _activity.LogAsync(
                         project.Id,
                         userId,
                         ActivityType.TaskPriorityChanged,
@@ -496,11 +569,12 @@ namespace ProjectHub.API.Services
                         link: $"/projects/{project.PublicCode}/tasks/{task.Id}",
                         relatedEntityId: task.Id
                     );
+                    activities.Add(a);
                 }
 
                 if (oldDue != dto.DueDate)
                 {
-                    await _activity.LogAsync(
+                    var a = await _activity.LogAsync(
                         project.Id,
                         userId,
                         ActivityType.TaskDueDateChanged,
@@ -508,9 +582,10 @@ namespace ProjectHub.API.Services
                         link: $"/projects/{project.PublicCode}/tasks/{task.Id}",
                         relatedEntityId: task.Id
                     );
+                    activities.Add(a);
                 }
 
-                await _activity.LogAsync(
+                var generalActivity = await _activity.LogAsync(
                     project.Id,
                     userId,
                     ActivityType.TaskUpdated,
@@ -518,18 +593,41 @@ namespace ProjectHub.API.Services
                     link: $"/projects/{project.PublicCode}/tasks/{task.Id}",
                     relatedEntityId: task.Id
                 );
+                activities.Add(generalActivity);
             }
 
             await _db.SaveChangesAsync();
 
-            return await BuildTaskDtoAsync(task.Id, userId);
+            // 🆕 ── SignalR: эмитим все activities ──
+            foreach (var a in activities)
+            {
+                await _activity.EmitActivityAsync(a, project.PublicCode);
+            }
+
+            var resultDto = await BuildTaskDtoAsync(task.Id, userId);
+
+            // ── SignalR: TaskMoved или TaskUpdated (доска) ──
+            if (columnChanged)
+            {
+                await EmitToProjectAsync(project.PublicCode, "TaskMoved", new
+                {
+                    Task = resultDto,
+                    OldColumnId = oldColumnId,
+                    NewColumnId = task.ColumnId,
+                });
+            }
+            else
+            {
+                await EmitToProjectAsync(project.PublicCode, "TaskUpdated", resultDto);
+            }
+
+            return resultDto;
         }
 
         // ═══════════════════════════════════════════════════════════
         //  УПРАВЛЕНИЕ КОЛОНКАМИ
         // ═══════════════════════════════════════════════════════════
 
-        /// <summary>Создать кастомную колонку. Только владелец.</summary>
         public async Task<TaskColumnDto> CreateColumnAsync(
             string projectCode, Guid userId, CreateColumnDto dto)
         {
@@ -603,7 +701,7 @@ namespace ProjectHub.API.Services
 
             _db.TaskColumns.Add(column);
 
-            await _activity.LogAsync(
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.ColumnCreated,
@@ -614,25 +712,36 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
             await NormalizeColumnOrderAsync(project.Id);
 
             _logger.LogInformation(
                 $"Создана колонка {column.Id} «{column.Name}» в проекте {projectCode}");
 
-            return new TaskColumnDto
+            var savedColumn = await _db.TaskColumns
+                .FirstAsync(c => c.Id == column.Id);
+
+            var columnDto = new TaskColumnDto
             {
-                Id = column.Id,
-                Name = column.Name,
-                Order = column.Order,
-                SystemKey = column.SystemKey,
-                IsDefault = column.IsDefault,
-                ProgressWeight = column.ProgressWeight,
+                Id = savedColumn.Id,
+                Name = savedColumn.Name,
+                Order = savedColumn.Order,
+                SystemKey = savedColumn.SystemKey,
+                IsDefault = savedColumn.IsDefault,
+                ProgressWeight = savedColumn.ProgressWeight,
                 Tasks = new List<TaskDto>(),
                 TasksCount = 0
             };
+
+            // ── SignalR: ColumnCreated + ColumnsReordered (доска) ──
+            await EmitToProjectAsync(project.PublicCode, "ColumnCreated", columnDto);
+            await EmitBoardReorderedAsync(project.PublicCode);
+
+            return columnDto;
         }
 
-        /// <summary>Обновить кастомную колонку. Только владелец.</summary>
         public async Task<TaskColumnDto> UpdateColumnAsync(
             string projectCode, Guid columnId, Guid userId, UpdateColumnDto dto)
         {
@@ -675,7 +784,7 @@ namespace ProjectHub.API.Services
             column.Name = name;
             column.ProgressWeight = Math.Clamp(dto.ProgressWeight, 0.0, 1.0);
 
-            await _activity.LogAsync(
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.ColumnUpdated,
@@ -686,11 +795,14 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
             _logger.LogInformation(
                 $"Обновлена колонка {columnId}: имя «{oldName}» → «{column.Name}», " +
                 $"вес {oldWeight} → {column.ProgressWeight}");
 
-            return new TaskColumnDto
+            var columnDto = new TaskColumnDto
             {
                 Id = column.Id,
                 Name = column.Name,
@@ -701,9 +813,13 @@ namespace ProjectHub.API.Services
                 Tasks = new List<TaskDto>(),
                 TasksCount = await _db.ProjectTasks.CountAsync(t => t.ColumnId == column.Id)
             };
+
+            // ── SignalR: ColumnUpdated (доска) ──
+            await EmitToProjectAsync(project.PublicCode, "ColumnUpdated", columnDto);
+
+            return columnDto;
         }
 
-        /// <summary>Удалить кастомную колонку с обязательным переносом задач.</summary>
         public async Task DeleteColumnAsync(
             string projectCode, Guid columnId, Guid userId, DeleteColumnDto dto)
         {
@@ -725,7 +841,8 @@ namespace ProjectHub.API.Services
                     "Системные колонки нельзя удалять");
 
             var tasksCount = column.Tasks.Count;
-            var targetColumn = (TaskColumn?)null;
+            TaskColumn? targetColumn = null;
+            ProjectActivity? activity;
 
             if (tasksCount > 0)
             {
@@ -760,7 +877,7 @@ namespace ProjectHub.API.Services
                     }
                 }
 
-                await _activity.LogAsync(
+                activity = await _activity.LogAsync(
                     project.Id,
                     userId,
                     ActivityType.ColumnDeleted,
@@ -772,7 +889,7 @@ namespace ProjectHub.API.Services
             }
             else
             {
-                await _activity.LogAsync(
+                activity = await _activity.LogAsync(
                     project.Id,
                     userId,
                     ActivityType.ColumnDeleted,
@@ -786,15 +903,26 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
             await NormalizeColumnOrderAsync(project.Id);
 
             _logger.LogInformation(
                 $"Удалена колонка {columnId} «{column.Name}» в проекте {projectCode}. " +
                 $"Задач перенесено: {tasksCount}" +
                 (targetColumn != null ? $" в колонку {targetColumn.Id}" : ""));
+
+            // ── SignalR: ColumnDeleted + ColumnsReordered (доска) ──
+            await EmitToProjectAsync(project.PublicCode, "ColumnDeleted", new
+            {
+                ColumnId = columnId,
+                MoveToColumnId = targetColumn?.Id,
+            });
+
+            await EmitBoardReorderedAsync(project.PublicCode);
         }
 
-        /// <summary>Массовое изменение порядка колонок. Только владелец.</summary>
         public async Task<List<TaskColumnDto>> ReorderColumnsAsync(
             string projectCode, Guid userId, ReorderColumnsDto dto)
         {
@@ -852,7 +980,7 @@ namespace ProjectHub.API.Services
                 col.Order = item.Order;
             }
 
-            await _activity.LogAsync(
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.ColumnReordered,
@@ -862,13 +990,30 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
             await NormalizeColumnOrderAsync(project.Id);
 
             var board = await GetBoardByCodeAsync(projectCode, userId);
+
+            var lightBoard = board.Select(c => new
+            {
+                Id = c.Id,
+                Name = c.Name,
+                Order = c.Order,
+                SystemKey = c.SystemKey,
+                IsDefault = c.IsDefault,
+                ProgressWeight = c.ProgressWeight,
+                TasksCount = c.TasksCount,
+            }).ToList();
+
+            // ── SignalR: ColumnsReordered (доска) ──
+            await EmitToProjectAsync(project.PublicCode, "ColumnsReordered", lightBoard);
+
             return board;
         }
 
-        /// <summary>Пересобирает Order колонок подряд: 0, 1, 2, ...</summary>
         private async Task NormalizeColumnOrderAsync(Guid projectId)
         {
             var columns = await _db.TaskColumns
@@ -936,7 +1081,7 @@ namespace ProjectHub.API.Services
         }
 
         // ═══════════════════════════════════════════════════════════
-        //  КОММЕНТАРИИ (с поддержкой ответов)
+        //  КОММЕНТАРИИ
         // ═══════════════════════════════════════════════════════════
 
         public async Task<List<TaskCommentDto>> GetCommentsAsync(
@@ -951,20 +1096,17 @@ namespace ProjectHub.API.Services
             if (!taskExists)
                 throw new KeyNotFoundException("Задача не найдена");
 
-            // Загружаем ВСЕ комментарии задачи с авторами
             var comments = await _db.TaskComments
                 .Where(c => c.TaskId == taskId)
                 .Include(c => c.Author)
                 .OrderBy(c => c.CreatedAt)
                 .ToListAsync();
 
-            // Строим словарь id → DTO
             var dtos = comments.ToDictionary(
                 c => c.Id,
                 c => MapComment(c)
             );
 
-            // Раскладываем ответы в Replies родителя
             var roots = new List<TaskCommentDto>();
 
             foreach (var c in comments)
@@ -974,8 +1116,6 @@ namespace ProjectHub.API.Services
                 if (c.ParentCommentId.HasValue
                     && dtos.TryGetValue(c.ParentCommentId.Value, out var parent))
                 {
-                    // Заполняем ReplyTo — автор того комментария,
-                    // на который отвечают
                     dto.ReplyToUserId = parent.AuthorId;
                     dto.ReplyToUserName = parent.AuthorName;
 
@@ -987,7 +1127,6 @@ namespace ProjectHub.API.Services
                 }
             }
 
-            // Сортируем ответы внутри каждого корневого по времени (старые сверху)
             foreach (var root in roots)
             {
                 root.Replies = root.Replies
@@ -995,7 +1134,6 @@ namespace ProjectHub.API.Services
                     .ToList();
             }
 
-            // Корневые — новые сверху
             return roots.OrderByDescending(r => r.CreatedAt).ToList();
         }
 
@@ -1021,7 +1159,6 @@ namespace ProjectHub.API.Services
             var author = await _db.Users.FindAsync(userId)
                 ?? throw new KeyNotFoundException("Пользователь не найден");
 
-            // 🆕 Определяем родительский комментарий
             Guid? parentId = null;
             TaskComment? parentComment = null;
 
@@ -1033,8 +1170,6 @@ namespace ProjectHub.API.Services
                                                && c.TaskId == taskId)
                     ?? throw new KeyNotFoundException("Родительский комментарий не найден");
 
-                // Если родитель — сам ответ, «поднимаем» до корня,
-                // чтобы не было больше 1 уровня вложенности
                 parentId = parentComment.ParentCommentId ?? parentComment.Id;
             }
 
@@ -1050,7 +1185,7 @@ namespace ProjectHub.API.Services
 
             _db.TaskComments.Add(comment);
 
-            await _activity.LogAsync(
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.CommentAdded,
@@ -1063,15 +1198,13 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
             var preview = text.Length > 60 ? text.Substring(0, 60) + "…" : text;
 
-            // 🆕 Кому отправляем уведомления:
-            //    1. Автору родительского комментария (если это ответ)
-            //    2. Всем, кто уже отвечал в этой ветке
-            //    3. Исполнителям задачи (как раньше)
             var notifiedUserIds = new HashSet<Guid> { userId };
 
-            // Автор родительского комментария
             if (parentComment != null && parentComment.AuthorId != userId)
             {
                 notifiedUserIds.Add(parentComment.AuthorId);
@@ -1086,8 +1219,6 @@ namespace ProjectHub.API.Services
                 );
             }
 
-            // Все, кто уже отвечал в этой ветке (кроме автора родителя,
-            // ему уже отправили, и кроме самого текущего)
             if (parentId.HasValue)
             {
                 var threadRepliers = await _db.TaskComments
@@ -1115,7 +1246,6 @@ namespace ProjectHub.API.Services
                 }
             }
 
-            // Исполнители задачи
             foreach (var assignee in task.Assignees)
             {
                 if (notifiedUserIds.Contains(assignee.UserId)) continue;
@@ -1133,7 +1263,16 @@ namespace ProjectHub.API.Services
             }
 
             comment.Author = author;
-            return MapComment(comment);
+            var commentDto = MapComment(comment);
+
+            // ── SignalR: CommentAdded (детали задачи) ──
+            await EmitToProjectAsync(project.PublicCode, "CommentAdded", new
+            {
+                TaskId = taskId,
+                Comment = commentDto,
+            });
+
+            return commentDto;
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -1199,7 +1338,7 @@ namespace ProjectHub.API.Services
             _db.TaskAttachments.Add(attachment);
             task.UpdatedAt = DateTime.UtcNow;
 
-            await _activity.LogAsync(
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.AttachmentAdded,
@@ -1210,10 +1349,22 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
             var uploader = await _db.Users.FindAsync(userId);
             attachment.UploadedBy = uploader!;
 
-            return MapAttachment(attachment, canDelete: true);
+            var attachmentDto = MapAttachment(attachment, canDelete: true);
+
+            // ── SignalR: AttachmentAdded (детали задачи) ──
+            await EmitToProjectAsync(project.PublicCode, "AttachmentAdded", new
+            {
+                TaskId = taskId,
+                Attachment = attachmentDto,
+            });
+
+            return attachmentDto;
         }
 
         public async Task<List<TaskAttachmentDto>> GetAttachmentsAsync(
@@ -1289,7 +1440,7 @@ namespace ProjectHub.API.Services
 
             _db.TaskAttachments.Remove(attachment);
 
-            await _activity.LogAsync(
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.AttachmentDeleted,
@@ -1300,15 +1451,25 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
             try { _fileStorage.Delete(storedFileName); }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Не удалось удалить файл с диска {File}", storedFileName);
             }
+
+            // ── SignalR: AttachmentDeleted (детали задачи) ──
+            await EmitToProjectAsync(project.PublicCode, "AttachmentDeleted", new
+            {
+                TaskId = taskId,
+                AttachmentId = attachmentId,
+            });
         }
 
         // ═══════════════════════════════════════════════════════════
-        //  ПОДЗАДАЧИ (чек-лист)
+        //  ПОДЗАДАЧИ
         // ═══════════════════════════════════════════════════════════
 
         public async Task<TaskSubtaskDto> AddSubtaskAsync(
@@ -1366,7 +1527,7 @@ namespace ProjectHub.API.Services
                 }
             }
 
-            await _activity.LogAsync(
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.SubtaskAdded,
@@ -1377,7 +1538,21 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
-            return MapSubtask(subtask);
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
+            var subtaskDto = MapSubtask(subtask);
+            var taskDto = await BuildTaskDtoAsync(task.Id, userId);
+
+            // ── SignalR: SubtaskAdded (детали задачи) ──
+            await EmitToProjectAsync(project.PublicCode, "SubtaskAdded", new
+            {
+                TaskId = taskId,
+                Subtask = subtaskDto,
+                Task = taskDto,
+            });
+
+            return subtaskDto;
         }
 
         public async Task<TaskSubtaskDto> UpdateSubtaskAsync(
@@ -1405,7 +1580,16 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
-            return MapSubtask(subtask);
+            var subtaskDto = MapSubtask(subtask);
+
+            // ── SignalR: SubtaskUpdated (детали задачи) ──
+            await EmitToProjectAsync(project.PublicCode, "SubtaskUpdated", new
+            {
+                TaskId = taskId,
+                Subtask = subtaskDto,
+            });
+
+            return subtaskDto;
         }
 
         public async Task<TaskDto> ToggleSubtaskAsync(
@@ -1460,7 +1644,7 @@ namespace ProjectHub.API.Services
                 }
             }
 
-            await _activity.LogAsync(
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 subtask.IsCompleted
@@ -1475,7 +1659,15 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
-            return await BuildTaskDtoAsync(task.Id, userId);
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
+            var taskDto = await BuildTaskDtoAsync(task.Id, userId);
+
+            // ── SignalR: TaskUpdated (доска) ──
+            await EmitToProjectAsync(project.PublicCode, "TaskUpdated", taskDto);
+
+            return taskDto;
         }
 
         public async Task<TaskDto> DeleteSubtaskAsync(
@@ -1501,7 +1693,7 @@ namespace ProjectHub.API.Services
             _db.TaskSubtasks.Remove(subtask);
             task.UpdatedAt = DateTime.UtcNow;
 
-            await _activity.LogAsync(
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.SubtaskDeleted,
@@ -1512,7 +1704,20 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
-            return await BuildTaskDtoAsync(task.Id, userId);
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
+            var taskDto = await BuildTaskDtoAsync(task.Id, userId);
+
+            // ── SignalR: SubtaskDeleted (детали задачи) ──
+            await EmitToProjectAsync(project.PublicCode, "SubtaskDeleted", new
+            {
+                TaskId = taskId,
+                SubtaskId = subtaskId,
+                Task = taskDto,
+            });
+
+            return taskDto;
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -1566,7 +1771,7 @@ namespace ProjectHub.API.Services
 
             _db.TaskTags.Add(tag);
 
-            await _activity.LogAsync(
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.TagCreated,
@@ -1577,7 +1782,15 @@ namespace ProjectHub.API.Services
 
             await _db.SaveChangesAsync();
 
-            return MapTag(tag);
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
+            var tagDto = MapTag(tag);
+
+            // ── SignalR: TaskTagCreated (доска) ──
+            await EmitToProjectAsync(project.PublicCode, "TaskTagCreated", tagDto);
+
+            return tagDto;
         }
 
         public async Task DeleteTagAsync(
@@ -1599,7 +1812,7 @@ namespace ProjectHub.API.Services
 
             _db.TaskTags.Remove(tag);
 
-            await _activity.LogAsync(
+            var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
                 ActivityType.TagDeleted,
@@ -1609,6 +1822,15 @@ namespace ProjectHub.API.Services
             );
 
             await _db.SaveChangesAsync();
+
+            // 🆕 ── SignalR: ActivityAdded ──
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
+            // ── SignalR: TaskTagDeleted (доска) ──
+            await EmitToProjectAsync(project.PublicCode, "TaskTagDeleted", new
+            {
+                TagId = tagId,
+            });
         }
 
         public async Task<TaskDto> SetTaskTagsAsync(
@@ -1657,6 +1879,8 @@ namespace ProjectHub.API.Services
             var addedIds = newIds.Except(oldIds).ToList();
             var removedIds = oldIds.Except(newIds).ToList();
 
+            ProjectActivity? activity = null;
+
             if (addedIds.Any() || removedIds.Any())
             {
                 var addedNames = addedIds.Any()
@@ -1679,7 +1903,7 @@ namespace ProjectHub.API.Services
                 if (removedNames.Any())
                     parts.Add($"сняты: {string.Join(", ", removedNames)}");
 
-                await _activity.LogAsync(
+                activity = await _activity.LogAsync(
                     project.Id,
                     userId,
                     addedIds.Any() ? ActivityType.TagAdded : ActivityType.TagRemoved,
@@ -1705,7 +1929,18 @@ namespace ProjectHub.API.Services
             task.UpdatedAt = DateTime.UtcNow;
             await _db.SaveChangesAsync();
 
-            return await BuildTaskDtoAsync(task.Id, userId);
+            // 🆕 ── SignalR: ActivityAdded (если что-то поменялось) ──
+            if (activity != null)
+            {
+                await _activity.EmitActivityAsync(activity, project.PublicCode);
+            }
+
+            var taskDto = await BuildTaskDtoAsync(task.Id, userId);
+
+            // ── SignalR: TaskTagsUpdated (детали задачи) ──
+            await EmitToProjectAsync(project.PublicCode, "TaskTagsUpdated", taskDto);
+
+            return taskDto;
         }
 
         public async Task<List<TaskDto>> SearchTasksByTagsAsync(
@@ -2015,5 +2250,68 @@ namespace ProjectHub.API.Services
         private static bool IsKey(TaskColumn? column, string key)
             => column != null &&
                string.Equals(column.SystemKey, key, StringComparison.OrdinalIgnoreCase);
+
+        // ═══════════════════════════════════════════════════════════
+        //  🆕 SIGNALR — ХЕЛПЕРЫ ЭМИТА
+        // ═══════════════════════════════════════════════════════════
+
+        private async Task EmitToProjectAsync(
+            string projectCode, string eventName, object payload)
+        {
+            if (string.IsNullOrWhiteSpace(projectCode)) return;
+
+            try
+            {
+                await _hubContext.Clients
+                    .Group($"project:{projectCode}")
+                    .SendAsync(eventName, payload);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "SignalR: не удалось отправить {EventName} в project:{ProjectCode}",
+                    eventName, projectCode);
+            }
+        }
+
+        private async Task EmitBoardReorderedAsync(string projectCode)
+        {
+            if (string.IsNullOrWhiteSpace(projectCode)) return;
+
+            try
+            {
+                var projectId = await _db.Projects
+                    .Where(p => p.PublicCode == projectCode)
+                    .Select(p => p.Id)
+                    .FirstOrDefaultAsync();
+
+                if (projectId == Guid.Empty) return;
+
+                var columns = await _db.TaskColumns
+                    .Where(c => c.ProjectId == projectId)
+                    .OrderBy(c => c.Order)
+                    .Select(c => new
+                    {
+                        Id = c.Id,
+                        Name = c.Name,
+                        Order = c.Order,
+                        SystemKey = c.SystemKey,
+                        IsDefault = c.IsDefault,
+                        ProgressWeight = c.ProgressWeight,
+                        TasksCount = c.Tasks.Count
+                    })
+                    .ToListAsync();
+
+                await _hubContext.Clients
+                    .Group($"project:{projectCode}")
+                    .SendAsync("ColumnsReordered", columns);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "SignalR: не удалось отправить ColumnsReordered в project:{ProjectCode}",
+                    projectCode);
+            }
+        }
     }
 }

@@ -24,6 +24,7 @@ import {
     sendChatFile,
     downloadChatFile,
 } from '../services/chatsApi';
+import { signalr } from '../services/signalrService';
 import { toAbsoluteUrl } from '../utils/urls';
 import { formatBytes } from '../utils/formatBytes';
 import UserAvatar from './UserAvatar';
@@ -65,6 +66,17 @@ const ChatPage = ({
     const messageRefs = useRef(new Map());
     const fileInputRef = useRef(null);
     const textareaRef = useRef(null);
+
+    // 🆕 Храним chatId в ref — чтобы обработчики SignalR всегда видели актуальное
+    const chatIdRef = useRef(chatId);
+    useEffect(() => { chatIdRef.current = chatId; }, [chatId]);
+
+    // 🆕 Текущее имя пользователя — чтобы сравнивать senderEmail без пересоздания подписок
+    const userEmailRef = useRef(user?.email);
+    useEffect(() => { userEmailRef.current = user?.email; }, [user?.email]);
+
+    // 🆕 Таймер для дебаунса отметки «прочитано»
+    const markReadTimerRef = useRef(null);
 
     const scrollToBottom = () => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -110,43 +122,196 @@ const ChatPage = ({
         }
     }, [chatId]);
 
+    // 🆕 Тихая перезагрузка — для reconnect (без сброса scroll и unread-маркера)
+    const refreshMessages = useCallback(async () => {
+        if (!chatId) return;
+        try {
+            const messagesData = await getChatMessages(chatId);
+            setMessages(messagesData);
+        } catch (err) {
+            console.warn('Не удалось обновить сообщения:', err);
+        }
+    }, [chatId]);
+
+    // 🆕 Тихая отметка чата прочитанным.
+    //    Запрашиваем только 1 последнее сообщение (минимум трафика).
+    //    Побочные эффекты на бэке:
+    //      • все непрочитанные помечаются ChatMessageRead
+    //      • LastReadAt участника обновляется
+    //      • в chat:{chatId} эмитится MessagesRead → у отправителя загораются ✓✓
+    //      • в user:{userId} эмитится UnreadCountChanged(chatId, 0) → badge сбрасывается
+    //
+    //    Дебаунс 400мс — если в течение этого окна придёт ещё сообщение,
+    //    таймер сбросится, и мы сделаем только один запрос.
+    const markCurrentChatAsRead = useCallback(() => {
+        if (markReadTimerRef.current) {
+            clearTimeout(markReadTimerRef.current);
+        }
+        markReadTimerRef.current = setTimeout(async () => {
+            markReadTimerRef.current = null;
+            try {
+                await getChatMessages(chatIdRef.current, 0, 1);
+            } catch (err) {
+                // не критично — тихо игнорируем
+                console.warn('Не удалось отметить чат прочитанным:', err);
+            }
+        }, 400);
+    }, []);
+
     useEffect(() => {
         loadChat();
     }, [loadChat, refreshKey]);
 
-    // ── Периодическое обновление ──
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR: JoinChat / LeaveChat + подписки на события
+    // ═══════════════════════════════════════════════════════════
     useEffect(() => {
         if (!chatId) return;
 
-        const interval = setInterval(async () => {
-            try {
-                const messagesData = await getChatMessages(chatId);
-                setMessages((prev) => {
-                    const changed =
-                        messagesData.length !== prev.length ||
-                        messagesData.some(
-                            (m, i) =>
-                                m.id !== prev[i]?.id ||
-                                m.isRead !== prev[i]?.isRead ||
-                                m.isReadByAll !== prev[i]?.isReadByAll
-                        );
+        let cancelled = false;
 
-                    if (changed) {
-                        setTimeout(scrollToBottom, 100);
-                        return messagesData;
-                    }
-                    return prev;
-                });
-            } catch (err) {
-                console.warn('Не удалось обновить сообщения:', err);
+        // ── Новое сообщение (включая свои — отправителю SignalR тоже эмитит) ──
+        const handleReceiveMessage = (message) => {
+            if (!message || message.chatId !== chatIdRef.current) return;
+
+            setMessages((prev) => {
+                // Защита от дублей
+                if (prev.some((m) => m.id === message.id)) return prev;
+                return [...prev, message];
+            });
+
+            setTimeout(scrollToBottom, 100);
+
+            // 🆕 Если чат реально открыт (вкладка видима) —
+            //    сразу помечаем прочитанным. Иначе непрочитанные будут копиться,
+            //    и у отправителя не загорятся ✓✓.
+            //    Если окно свёрнуто — не отмечаем, чтобы сохранить счётчик непрочитанных.
+            if (!isArchived && document.visibilityState === 'visible') {
+                markCurrentChatAsRead();
             }
-        }, 5000);
+        };
 
-        return () => clearInterval(interval);
-    }, [chatId]);
+        // ── Кто-то прочитал чат ──
+        const handleMessagesRead = (readChatId, readUserId) => {
+            if (readChatId !== chatIdRef.current) return;
+
+            setMessages((prev) =>
+                prev.map((m) => {
+                    // Обновляем только свои сообщения (не те, что написал readUserId)
+                    if (m.senderId === readUserId) return m;
+
+                    const newReadCount = Math.min(
+                        (m.readCount || 0) + 1,
+                        m.totalParticipants || 1
+                    );
+
+                    return {
+                        ...m,
+                        readCount: newReadCount,
+                        isReadByAll: newReadCount >= (m.totalParticipants || 1),
+                        isRead: true,
+                    };
+                })
+            );
+        };
+
+        // ── Собеседник зашёл в сеть ──
+        const handleUserOnline = () => {
+            // Обновляем чат через REST (чтобы подтянуть свежий isOnline у собеседника)
+            if (chatIdRef.current) {
+                getChatById(chatIdRef.current)
+                    .then((data) => setChat(data))
+                    .catch(() => { });
+            }
+        };
+
+        // ── Собеседник ушёл в оффлайн ──
+        const handleUserOffline = () => {
+            if (chatIdRef.current) {
+                getChatById(chatIdRef.current)
+                    .then((data) => setChat(data))
+                    .catch(() => { });
+            }
+        };
+
+        // ── Reconnect ──
+        const handleReconnected = () => {
+            console.log('🔄 SignalR reconnected, refreshing chat…');
+            signalr.invoke('JoinChat', chatIdRef.current).catch(() => { });
+            refreshMessages();
+            // После reconnect — сразу отмечаем прочитанным (могли накопиться сообщения)
+            if (!isArchived && document.visibilityState === 'visible') {
+                markCurrentChatAsRead();
+            }
+        };
+
+        signalr.on('ReceiveMessage', handleReceiveMessage);
+        signalr.on('MessagesRead', handleMessagesRead);
+        signalr.on('UserOnline', handleUserOnline);
+        signalr.on('UserOffline', handleUserOffline);
+        signalr.on('_reconnected', handleReconnected);
+
+        // Войти в комнату чата
+        (async () => {
+            try {
+                await signalr.connect();
+                if (cancelled) return;
+                await signalr.invoke('JoinChat', chatId);
+            } catch (err) {
+                console.warn('Не удалось присоединиться к SignalR-чату:', err);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+
+            // 🆕 Очищаем таймер дебаунса
+            if (markReadTimerRef.current) {
+                clearTimeout(markReadTimerRef.current);
+                markReadTimerRef.current = null;
+            }
+
+            signalr.off('ReceiveMessage', handleReceiveMessage);
+            signalr.off('MessagesRead', handleMessagesRead);
+            signalr.off('UserOnline', handleUserOnline);
+            signalr.off('UserOffline', handleUserOffline);
+            signalr.off('_reconnected', handleReconnected);
+
+            // Выйти из комнаты
+            signalr.invoke('LeaveChat', chatId).catch(() => { });
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [chatId, isArchived, markCurrentChatAsRead, refreshMessages]);
 
     // ═══════════════════════════════════════════════════════════
-    //  АВТОФОКУС: пользователь печатает — фокус в поле ввода
+    //  🆕 ВОЗВРАТ НА ВКЛАДКУ / ФОКУС ОКНА — отметка прочтения
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        if (!chatId || isArchived) return;
+
+        // Возврат на вкладку (переключился с другой вкладки браузера)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+                markCurrentChatAsRead();
+            }
+        };
+
+        // Возврат фокуса в окно (переключился с другого приложения)
+        const handleFocus = () => {
+            markCurrentChatAsRead();
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('focus', handleFocus);
+
+        return () => {
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('focus', handleFocus);
+        };
+    }, [chatId, isArchived, markCurrentChatAsRead]);
+
+    // ═══════════════════════════════════════════════════════════
+    //  АВТОФОКУС
     // ═══════════════════════════════════════════════════════════
     useEffect(() => {
         if (isArchived) return;
@@ -226,10 +391,19 @@ const ChatPage = ({
 
         try {
             const sentMessage = await sendMessage(chatId, textToSend);
-            setMessages((prev) => [...prev, sentMessage]);
+
+            // Если SignalR подключён — сообщение придёт через 'ReceiveMessage'.
+            // Если нет — добавляем вручную, чтобы не терять.
+            if (!signalr.isConnected()) {
+                setMessages((prev) =>
+                    prev.some((m) => m.id === sentMessage.id)
+                        ? prev
+                        : [...prev, sentMessage]
+                );
+                setTimeout(scrollToBottom, 100);
+            }
 
             setFirstUnreadId(null);
-            setTimeout(scrollToBottom, 100);
         } catch (err) {
             console.error('Ошибка отправки:', err);
             setError(err.message || 'Не удалось отправить сообщение');
@@ -269,13 +443,20 @@ const ChatPage = ({
         try {
             const sentMessage = await sendChatFile(chatId, fileToSend, caption);
 
-            setMessages((prev) => [...prev, sentMessage]);
+            if (!signalr.isConnected()) {
+                setMessages((prev) =>
+                    prev.some((m) => m.id === sentMessage.id)
+                        ? prev
+                        : [...prev, sentMessage]
+                );
+                setTimeout(scrollToBottom, 100);
+            }
+
             setAttachedFile(null);
             setNewMessage('');
             if (fileInputRef.current) fileInputRef.current.value = '';
 
             setFirstUnreadId(null);
-            setTimeout(scrollToBottom, 100);
         } catch (err) {
             console.error('Ошибка отправки файла:', err);
             setError(err.message || 'Не удалось отправить файл');
@@ -363,7 +544,8 @@ const ChatPage = ({
         }
     };
 
-    const isOwnMessage = (message) => message.senderEmail === user?.email;
+    const isOwnMessage = (message) =>
+        message.senderEmail?.toLowerCase() === user?.email?.toLowerCase();
 
     const getRoleName = (role) => {
         switch (role) {
@@ -388,9 +570,6 @@ const ChatPage = ({
         navigate(`/users/${encodedEmail}`);
     };
 
-    // 🆕 Назад к списку чатов.
-    //    Просто navigate(-1) — ProjectsPage сам восстановит таб из sessionStorage.
-    //    Если истории нет (прямой заход) — идём на /projects.
     const goBackToChats = () => {
         if (window.history.length > 1) {
             navigate(-1);

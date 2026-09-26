@@ -1,6 +1,6 @@
 // projecthub.client/src/components/VotingPage.js
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
     Vote,
     X,
@@ -18,6 +18,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getVotingById, vote, closeVoting, deleteVoting } from '../services/votingsApi';
+import { signalr } from '../services/signalrService';
 import '../styles/components/VotingPage.css';
 
 export default function VotingPage({
@@ -34,10 +35,15 @@ export default function VotingPage({
     const [selectedIds, setSelectedIds] = useState([]);
     const [submitting, setSubmitting] = useState(false);
 
-    // 📌 Показать, кто голосовал
     const [showVoters, setShowVoters] = useState(false);
 
-    // 📌 Загрузка голосования
+    // 🆕 Refs — чтобы обработчики SignalR видели актуальные значения
+    const votingIdRef = useRef(votingId);
+    useEffect(() => { votingIdRef.current = votingId; }, [votingId]);
+
+    // 🆕 Храним projectCode для JoinProject
+    const projectCodeRef = useRef(null);
+
     const loadVoting = useCallback(async () => {
         if (!votingId) {
             setLoading(false);
@@ -50,6 +56,7 @@ export default function VotingPage({
             const data = await getVotingById(votingId);
             setVoting(data);
             setSelectedIds(data.selectedOptionIds || []);
+            projectCodeRef.current = data.projectCode;
         } catch (err) {
             console.error('Ошибка загрузки голосования:', err);
             setError(err.message || 'Не удалось загрузить голосование');
@@ -75,6 +82,76 @@ export default function VotingPage({
         document.addEventListener('keydown', handleKey);
         return () => document.removeEventListener('keydown', handleKey);
     }, [onClose]);
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR: подписки на события голосования
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        const projectCode = projectCodeRef.current;
+        if (!projectCode || !votingId) return;
+
+        let cancelled = false;
+
+        // ── Обновление голосования (VoteCast, VotingClosed) ──
+        const handleVotingUpdated = (updated) => {
+            if (!updated?.id || updated.id !== votingIdRef.current) return;
+
+            setVoting(updated);
+            setSelectedIds(updated.selectedOptionIds || []);
+
+            // Внешний колбэк — обновить список голосований на дашборде
+            if (onChanged) onChanged();
+        };
+
+        // ── Голосование удалено ──
+        const handleVotingDeleted = (payload) => {
+            if (payload?.votingId !== votingIdRef.current) return;
+
+            setError('Голосование удалено');
+            if (onChanged) onChanged();
+
+            setTimeout(() => {
+                if (onClose) onClose();
+            }, 1500);
+        };
+
+        // ── Reconnect ──
+        const handleReconnected = () => {
+            if (projectCodeRef.current) {
+                signalr.invoke('JoinProject', projectCodeRef.current).catch(() => { });
+            }
+            loadVoting();
+        };
+
+        signalr.on('VoteCast', handleVotingUpdated);
+        signalr.on('VotingClosed', handleVotingUpdated);
+        signalr.on('VotingDeleted', handleVotingDeleted);
+        signalr.on('_reconnected', handleReconnected);
+
+        (async () => {
+            try {
+                await signalr.connect();
+                if (cancelled) return;
+                await signalr.invoke('JoinProject', projectCode);
+            } catch (err) {
+                console.warn('SignalR: не удалось присоединиться к проекту:', err);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+
+            signalr.off('VoteCast', handleVotingUpdated);
+            signalr.off('VotingClosed', handleVotingUpdated);
+            signalr.off('VotingDeleted', handleVotingDeleted);
+            signalr.off('_reconnected', handleReconnected);
+
+            if (projectCodeRef.current) {
+                signalr.invoke('LeaveProject', projectCodeRef.current).catch(() => { });
+            }
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [votingId, voting?.projectCode]);   // ← зависим от projectCode, когда он станет известен
 
     const isActive = voting && !voting.isClosed && !voting.isExpired;
     const canSeeResults = voting && (
@@ -102,8 +179,13 @@ export default function VotingPage({
         setError(null);
         try {
             const updated = await vote(voting.id, selectedIds);
-            setVoting(updated);
-            setSelectedIds(updated.selectedOptionIds || []);
+
+            // Если SignalR не подключён — обновляем локально.
+            // Если подключён — придёт VoteCast и всё сделает сам.
+            if (!signalr.isConnected()) {
+                setVoting(updated);
+                setSelectedIds(updated.selectedOptionIds || []);
+            }
             if (onChanged) onChanged();
         } catch (err) {
             setError(err.message || 'Не удалось проголосовать');
@@ -118,7 +200,9 @@ export default function VotingPage({
         setSubmitting(true);
         try {
             const updated = await closeVoting(voting.id);
-            setVoting(updated);
+            if (!signalr.isConnected()) {
+                setVoting(updated);
+            }
             if (onChanged) onChanged();
         } catch (err) {
             setError(err.message || 'Не удалось закрыть');
@@ -143,14 +227,11 @@ export default function VotingPage({
     };
 
     const canManage = voting && (
-        // Автор — по email
         voting.createdByEmail === user?.email ||
-        // Владелец или админ проекта
         projectUserStatus === 'Owner' ||
         projectUserStatus === 'Admin'
     );
 
-    // 📌 Инициал имени для аватарки
     const getInitial = (name) => {
         if (!name) return null;
         return name.trim().charAt(0).toUpperCase();
@@ -246,7 +327,6 @@ export default function VotingPage({
                                         key={option.id}
                                         className={`voting-option ${isSelected ? 'selected' : ''} ${!canSelect ? 'disabled' : ''}`}
                                     >
-                                        {/* Клик по верхней части — выбор варианта */}
                                         <div
                                             className="option-control"
                                             onClick={() => canSelect && handleToggleOption(option.id)}
@@ -257,7 +337,6 @@ export default function VotingPage({
                                             <span className="option-text">{option.text}</span>
                                         </div>
 
-                                        {/* Результаты */}
                                         {canSeeResults && (
                                             <div className="option-results">
                                                 <div className="results-bar">
@@ -273,7 +352,6 @@ export default function VotingPage({
                                             </div>
                                         )}
 
-                                        {/* Кто голосовал */}
                                         {showVoters && canSeeResults && !voting.isAnonymous && voters.length > 0 && (
                                             <div className="option-voters">
                                                 {voters.map(voter => {
@@ -317,7 +395,6 @@ export default function VotingPage({
                             </div>
                         )}
 
-                        {/* 📌 Кнопка «Кто голосовал» */}
                         {canSeeResults && !voting.isAnonymous && (
                             <button
                                 type="button"

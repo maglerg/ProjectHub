@@ -1,8 +1,10 @@
 ﻿// Services/ChatService.cs
 
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ProjectHub.API.Data;
 using ProjectHub.API.DTOs.ChatDtos;
+using ProjectHub.API.Hubs;
 using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
 using ProjectHub.Models;
@@ -15,20 +17,23 @@ public class ChatService
     private readonly ILogger<ChatService> _logger;
     private readonly NotificationService _notificationService;
     private readonly ActivityService _activity;
-    private readonly FileStorageService _fileStorage;   // 🆕
+    private readonly FileStorageService _fileStorage;
+    private readonly IHubContext<ChatHub> _hubContext;   // 🆕
 
     public ChatService(
         AppDbContext dbContext,
         ILogger<ChatService> logger,
         NotificationService notificationService,
         ActivityService activity,
-        FileStorageService fileStorage)                 // 🆕
+        FileStorageService fileStorage,
+        IHubContext<ChatHub> hubContext)                 // 🆕
     {
         _dbContext = dbContext;
         _logger = logger;
         _notificationService = notificationService;
         _activity = activity;
-        _fileStorage = fileStorage;                     // 🆕
+        _fileStorage = fileStorage;
+        _hubContext = hubContext;                        // 🆕
     }
 
     // 📌 Получить все чаты пользователя
@@ -38,7 +43,7 @@ public class ChatService
             .Where(c => c.Participants.Any(p => p.UserId == userId))
             .Include(c => c.Participants).ThenInclude(p => p.User)
             .Include(c => c.Messages).ThenInclude(m => m.Sender)
-            .Include(c => c.Project)             // 🆕 нужен для обложки
+            .Include(c => c.Project)
             .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
             .ToListAsync();
 
@@ -79,7 +84,6 @@ public class ChatService
                 UnreadCount = unreadCount,
                 LastMessageAt = chat.LastMessageAt,
 
-                // 🆕 обложка из проекта
                 CoverImageUrl = chat.Type == ChatType.Project
                     ? chat.Project?.CoverImageUrl
                     : null,
@@ -186,7 +190,7 @@ public class ChatService
             .Where(c => c.Type == ChatType.Project && c.ProjectId == project.Id)
             .Include(c => c.Participants).ThenInclude(p => p.User)
             .Include(c => c.Messages).ThenInclude(m => m.Sender)
-            .Include(c => c.Project)             // 🆕
+            .Include(c => c.Project)
             .FirstOrDefaultAsync();
 
         if (existingChat != null)
@@ -224,7 +228,7 @@ public class ChatService
         var createdChat = await _dbContext.Chats
             .Include(c => c.Participants).ThenInclude(p => p.User)
             .Include(c => c.Messages).ThenInclude(m => m.Sender)
-            .Include(c => c.Project)             // 🆕
+            .Include(c => c.Project)
             .FirstAsync(c => c.Id == chat.Id);
 
         return await MapChatToDtoAsync(createdChat, userId);
@@ -236,7 +240,7 @@ public class ChatService
         var chat = await _dbContext.Chats
             .Include(c => c.Participants).ThenInclude(p => p.User)
             .Include(c => c.Messages).ThenInclude(m => m.Sender)
-            .Include(c => c.Project)             // 🆕
+            .Include(c => c.Project)
             .FirstOrDefaultAsync(c => c.Id == chatId)
             ?? throw new KeyNotFoundException("Чат не найден");
 
@@ -312,6 +316,19 @@ public class ChatService
             participant.LastReadAt = DateTime.UtcNow;
 
         await _dbContext.SaveChangesAsync();
+
+        // 🆕 ── SignalR: кто-то прочитал чат ──
+        if (unreadMessages.Any())
+        {
+            await _hubContext.Clients
+                .Group($"chat:{chatId}")
+                .SendAsync("MessagesRead", chatId, userId);
+
+            // Сбрасываем badge у этого пользователя
+            await _hubContext.Clients
+                .Group($"user:{userId}")
+                .SendAsync("UnreadCountChanged", chatId, 0);
+        }
 
         await _notificationService.DeleteChatMessageNotificationsAsync(userId, chatId);
 
@@ -414,11 +431,14 @@ public class ChatService
 
         _logger.LogInformation($"Сообщение отправлено в чат {chatId} от {senderId}");
 
-        // Уведомления активным участникам
+        // Уведомления активным участникам + сбор данных для SignalR
         var activeThreshold = DateTime.UtcNow.AddSeconds(-10);
         var preview = message.Text?.Length > 50
             ? message.Text.Substring(0, 50) + "..."
             : message.Text;
+
+        // 🆕 Словарь unreadCount'ов для переиспользования в SignalR-эмите
+        var unreadCounts = new Dictionary<Guid, int>();
 
         foreach (var participant in chat.Participants.Where(p => p.UserId != senderId))
         {
@@ -430,7 +450,17 @@ public class ChatService
                             || m.CreatedAt > participant.LastReadAt)
                 .CountAsync();
 
-            if (unreadCount == 0) continue;   // 🆕 не создаём уведомление, если нет непрочитанных
+            unreadCounts[participant.UserId] = unreadCount;
+
+            if (unreadCount == 0) continue;
+
+            // 🆕 Не создаём уведомление, если пользователь только что был активен в чате
+            //    (LastReadAt обновляется при получении сообщений, даже если он не писал)
+            if (participant.LastReadAt.HasValue
+                && participant.LastReadAt.Value >= activeThreshold)
+            {
+                continue;
+            }
 
             await _notificationService.UpsertChatNotificationAsync(
                 participant.UserId,
@@ -444,7 +474,22 @@ public class ChatService
         var senderRoles = await GetSenderRolesForChatAsync(chat);
         var totalParticipants = chat.Participants.Count;
 
-        return MapMessageToDto(message, senderRoles, totalParticipants);
+        var messageDto = MapMessageToDto(message, senderRoles, totalParticipants);
+
+        // 🆕 ── SignalR: новое сообщение всем в чате ──
+        await _hubContext.Clients
+            .Group($"chat:{chatId}")
+            .SendAsync("ReceiveMessage", messageDto);
+
+        // 🆕 ── SignalR: обновление счётчика непрочитанных ──
+        foreach (var (participantId, count) in unreadCounts)
+        {
+            await _hubContext.Clients
+                .Group($"user:{participantId}")
+                .SendAsync("UnreadCountChanged", chatId, count);
+        }
+
+        return messageDto;
     }
 
     // ═══════════════════════════════════════════════════════════
@@ -489,7 +534,6 @@ public class ChatService
             Type = message.Type.ToString(),
             Text = message.Text,
 
-            // 🆕 Вложение
             AttachmentUrl = message.AttachmentUrl,
             AttachmentFileName = message.AttachmentFileName,
             AttachmentContentType = message.AttachmentContentType,
@@ -544,7 +588,6 @@ public class ChatService
                 .Count(m => m.SenderId != currentUserId && !m.IsDeleted);
         }
 
-        // 🆕 Обложка проекта и его публичный код
         string? coverImageUrl = null;
         string? projectPublicCode = null;
 
@@ -575,7 +618,6 @@ public class ChatService
             UnreadCount = unreadCount,
             ParticipantsCount = chat.Participants.Count,
 
-            // 🆕
             CoverImageUrl = coverImageUrl,
             ProjectPublicCode = projectPublicCode,
         };
@@ -605,16 +647,17 @@ public class ChatService
 
         return roles;
     }
+
     private static readonly string[] AllowedFileExtensions =
-{
-    // Изображения
-    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg",
-    // Документы
-    ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
-    ".txt", ".md", ".csv", ".json", ".xml", ".yaml", ".yml",
-    // Архивы
-    ".zip", ".rar", ".7z"
-};
+    {
+        // Изображения
+        ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg",
+        // Документы
+        ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
+        ".txt", ".md", ".csv", ".json", ".xml", ".yaml", ".yml",
+        // Архивы
+        ".zip", ".rar", ".7z"
+    };
 
     private const long MaxChatFileSizeBytes = 20 * 1024 * 1024; // 20 МБ
 
@@ -651,7 +694,7 @@ public class ChatService
                     "Чат проекта находится в архиве, отправка файлов недоступна");
         }
 
-        // Проверка приватности для личных чатов — та же логика, что и в SendMessageAsync
+        // Проверка приватности для личных чатов
         if (chat.Type == ChatType.Personal)
         {
             var otherParticipant = chat.Participants.FirstOrDefault(p => p.UserId != senderId);
@@ -732,8 +775,23 @@ public class ChatService
             ? message.Text.Substring(0, 50) + "..."
             : message.AttachmentFileName;
 
+        // 🆕 Словарь unreadCount'ов для SignalR
+        var unreadCounts = new Dictionary<Guid, int>();
+
         foreach (var participant in chat.Participants.Where(p => p.UserId != senderId))
         {
+            // Считаем unreadCount всегда — нужно и для сигнала, и для уведомления
+            var unreadCount = await _dbContext.ChatMessages
+                .Where(m => m.ChatId == chatId
+                            && m.SenderId != participant.UserId
+                            && !m.IsDeleted)
+                .Where(m => participant.LastReadAt == null
+                            || m.CreatedAt > participant.LastReadAt)
+                .CountAsync();
+
+            unreadCounts[participant.UserId] = unreadCount;
+
+            // Уведомление создаём только если пользователь не сидит в чате сейчас
             if (participant.LastReadAt.HasValue
                 && participant.LastReadAt.Value >= activeThreshold)
             {
@@ -753,7 +811,22 @@ public class ChatService
         var senderRoles = await GetSenderRolesForChatAsync(chat);
         var totalParticipants = chat.Participants.Count;
 
-        return MapMessageToDto(message, senderRoles, totalParticipants);
+        var messageDto = MapMessageToDto(message, senderRoles, totalParticipants);
+
+        // 🆕 ── SignalR: новое сообщение с файлом всем в чате ──
+        await _hubContext.Clients
+            .Group($"chat:{chatId}")
+            .SendAsync("ReceiveMessage", messageDto);
+
+        // 🆕 ── SignalR: обновление счётчика непрочитанных ──
+        foreach (var (participantId, count) in unreadCounts)
+        {
+            await _hubContext.Clients
+                .Group($"user:{participantId}")
+                .SendAsync("UnreadCountChanged", chatId, count);
+        }
+
+        return messageDto;
     }
 
     // ═══════════════════════════════════════════════════════════

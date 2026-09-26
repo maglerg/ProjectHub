@@ -58,6 +58,7 @@ import {
     processFriendRequest,
 } from '../services/friendRequestsApi';
 import { getFriends, removeFriend } from '../services/friendsApi';
+import { signalr } from '../services/signalrService';   // 🆕
 
 import TasksBoard from './tasks/TasksBoard';
 import TaskTimeline from './tasks/TaskTimeline';
@@ -344,6 +345,67 @@ const ProjectDashboardPage = () => {
     useEffect(() => {
         loadProjectDetails();
     }, [loadProjectDetails]);
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR: ЕДИНАЯ точка JoinProject/LeaveProject
+    //     Дочерние компоненты (TasksBoard, VotingsListPage, ...)
+    //     только подписываются на события, не трогая группу.
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        const projectCode = project?.publicCode;
+        if (!projectCode) return;
+
+        let cancelled = false;
+
+        // ── Обновление badge голосований при любом изменении ──
+        const refreshVotingsBadge = () => {
+            loadVotingsBadge(projectCode);
+        };
+
+        const handleVotingCreated = () => refreshVotingsBadge();
+        const handleVoteCast = () => refreshVotingsBadge();
+        const handleVotingClosed = () => refreshVotingsBadge();
+        const handleVotingDeleted = () => refreshVotingsBadge();
+
+        // ── Reconnect ──
+        const handleReconnected = () => {
+            console.log('🔄 SignalR reconnected, re-joining project…');
+            signalr.invoke('JoinProject', projectCode).catch(() => { });
+            refreshVotingsBadge();
+        };
+
+        signalr.on('VotingCreated', handleVotingCreated);
+        signalr.on('VoteCast', handleVoteCast);
+        signalr.on('VotingClosed', handleVotingClosed);
+        signalr.on('VotingDeleted', handleVotingDeleted);
+        signalr.on('_reconnected', handleReconnected);
+
+        // JoinProject — единственный раз на всю страницу проекта
+        (async () => {
+            try {
+                await signalr.connect();
+                if (cancelled) return;
+                await signalr.invoke('JoinProject', projectCode);
+                console.log(`✅ ProjectDashboard joined project:${projectCode}`);
+            } catch (err) {
+                console.warn('SignalR: не удалось присоединиться к проекту:', err);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+
+            signalr.off('VotingCreated', handleVotingCreated);
+            signalr.off('VoteCast', handleVoteCast);
+            signalr.off('VotingClosed', handleVotingClosed);
+            signalr.off('VotingDeleted', handleVotingDeleted);
+            signalr.off('_reconnected', handleReconnected);
+
+            signalr.invoke('LeaveProject', projectCode).catch(() => { });
+            console.log(`👋 ProjectDashboard left project:${projectCode}`);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [project?.publicCode]);
 
     // ── Архивация ──
     const handleArchive = async () => {

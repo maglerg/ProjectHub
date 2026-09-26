@@ -1,8 +1,10 @@
 ﻿// Services/NotificationService.cs
 
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ProjectHub.API.Data;
 using ProjectHub.API.DTOs.NotificationDtos;
+using ProjectHub.API.Hubs;
 using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
 
@@ -12,11 +14,16 @@ public class NotificationService
 {
     private readonly AppDbContext _dbContext;
     private readonly ILogger<NotificationService> _logger;
+    private readonly IHubContext<ChatHub> _hubContext;   // 🆕
 
-    public NotificationService(AppDbContext dbContext, ILogger<NotificationService> logger)
+    public NotificationService(
+        AppDbContext dbContext,
+        ILogger<NotificationService> logger,
+        IHubContext<ChatHub> hubContext)                 // 🆕
     {
         _dbContext = dbContext;
         _logger = logger;
+        _hubContext = hubContext;                        // 🆕
     }
 
     // 📌 Создать уведомление
@@ -46,16 +53,23 @@ public class NotificationService
 
         _logger.LogInformation($"Уведомление создано для пользователя {userId}: {title}");
 
-        return MapToDto(notification);
+        var dto = MapToDto(notification);
+
+        // 🆕 ── SignalR: мгновенно доставляем уведомление получателю ──
+        await EmitNotificationReceivedAsync(userId, dto);
+
+        return dto;
     }
+
+    // 📌 Upsert уведомления о непрочитанных сообщениях в чате
     public async Task<NotificationDto> UpsertChatNotificationAsync(
-    Guid userId,
-    Guid chatId,
-    string senderName,
-    int unreadCount,
-    string link)
+        Guid userId,
+        Guid chatId,
+        string senderName,
+        int unreadCount,
+        string link)
     {
-        // Ищем существующее непрочитанное уведомление по этому чату
+        // Ищем существующее уведомление по этому чату
         var existing = await _dbContext.Notifications
             .FirstOrDefaultAsync(n => n.UserId == userId
                                        && n.RelatedId == chatId
@@ -81,7 +95,12 @@ public class NotificationService
                 $"Обновлено уведомление о чате {chatId} у пользователя {userId}: " +
                 $"{unreadCount} непрочитанных");
 
-            return MapToDto(existing);
+            var dtoExisting = MapToDto(existing);
+
+            // 🆕 ── SignalR: уведомление обновилось ──
+            await EmitNotificationReceivedAsync(userId, dtoExisting);
+
+            return dtoExisting;
         }
 
         // 🆕 Создаём новое
@@ -105,8 +124,14 @@ public class NotificationService
             $"Создано уведомление о чате {chatId} у пользователя {userId}: " +
             $"{unreadCount} непрочитанных");
 
-        return MapToDto(notification);
+        var dtoNew = MapToDto(notification);
+
+        // 🆕 ── SignalR ──
+        await EmitNotificationReceivedAsync(userId, dtoNew);
+
+        return dtoNew;
     }
+
     // 📌 Получить все уведомления пользователя
     public async Task<List<NotificationDto>> GetUserNotificationsAsync(Guid userId)
     {
@@ -148,6 +173,9 @@ public class NotificationService
             {
                 notification.IsRead = true;
                 await _dbContext.SaveChangesAsync();
+
+                // 🆕 ── SignalR: уведомление прочитано ──
+                await EmitNotificationReadAsync(userId, notificationId.Value);
             }
         }
         else
@@ -162,8 +190,12 @@ public class NotificationService
             }
 
             await _dbContext.SaveChangesAsync();
+
+            // 🆕 ── SignalR: все прочитаны ──
+            await EmitAllNotificationsReadAsync(userId);
         }
     }
+
     // 📌 Удалить уведомления о новых сообщениях для конкретного чата и пользователя
     public async Task DeleteChatMessageNotificationsAsync(Guid userId, Guid chatId)
     {
@@ -177,10 +209,15 @@ public class NotificationService
         {
             _dbContext.Notifications.RemoveRange(notifications);
             await _dbContext.SaveChangesAsync();
+
             _logger.LogInformation(
                 $"🗑️ Удалено {notifications.Count} уведомлений о сообщениях для чата {chatId} у пользователя {userId}");
+
+            // 🆕 ── SignalR: уведомление удалено ──
+            await EmitNotificationDeletedAsync(userId, chatId);
         }
     }
+
     // 📌 Удалить уведомления о комментариях к конкретной задаче у пользователя
     public async Task DeleteTaskCommentNotificationsAsync(Guid userId, Guid taskId)
     {
@@ -194,10 +231,15 @@ public class NotificationService
         {
             _dbContext.Notifications.RemoveRange(notifications);
             await _dbContext.SaveChangesAsync();
+
             _logger.LogInformation(
                 $"🗑️ Удалено {notifications.Count} уведомлений о комментариях к задаче {taskId} у пользователя {userId}");
+
+            // 🆕 ── SignalR ──
+            await EmitNotificationDeletedAsync(userId, taskId);
         }
     }
+
     // 📌 Удалить уведомление о новом голосовании для конкретного пользователя
     public async Task DeleteVotingNotificationAsync(Guid userId, Guid votingId)
     {
@@ -211,11 +253,16 @@ public class NotificationService
         {
             _dbContext.Notifications.RemoveRange(notifications);
             await _dbContext.SaveChangesAsync();
+
             _logger.LogInformation(
                 $"🗑️ Удалено {notifications.Count} уведомлений о голосовании {votingId} у пользователя {userId}");
+
+            // 🆕 ── SignalR ──
+            await EmitNotificationDeletedAsync(userId, votingId);
         }
     }
-    // 📌 Удалить уведомления по RelatedId (уже есть, но проверим)
+
+    // 📌 Удалить уведомления по RelatedId (для всех пользователей)
     public async Task DeleteNotificationsByRelatedIdAsync(Guid relatedId)
     {
         var notifications = await _dbContext.Notifications
@@ -224,9 +271,22 @@ public class NotificationService
 
         if (notifications.Any())
         {
+            // 🆕 Собираем userId'ы ДО удаления, чтобы потом эмитить каждому
+            var affectedUserIds = notifications
+                .Select(n => n.UserId)
+                .Distinct()
+                .ToList();
+
             _dbContext.Notifications.RemoveRange(notifications);
             await _dbContext.SaveChangesAsync();
+
             _logger.LogInformation($"🗑️ Удалено {notifications.Count} уведомлений с RelatedId={relatedId}");
+
+            // 🆕 ── SignalR: каждому пользователю ──
+            foreach (var uid in affectedUserIds)
+            {
+                await EmitNotificationDeletedAsync(uid, relatedId);
+            }
         }
     }
 
@@ -249,11 +309,96 @@ public class NotificationService
 
         if (notificationsToDelete.Any())
         {
+            // 🆕 Собираем userId'ы ДО удаления
+            var affectedUserIds = notificationsToDelete
+                .Select(n => n.UserId)
+                .Distinct()
+                .ToList();
+
             _dbContext.Notifications.RemoveRange(notificationsToDelete);
             await _dbContext.SaveChangesAsync();
-            _logger.LogInformation($"🗑️ Удалено {notificationsToDelete.Count} уведомлений для обработанных заявок в проекте {projectId}");
+
+            _logger.LogInformation(
+                $"🗑️ Удалено {notificationsToDelete.Count} уведомлений для обработанных заявок в проекте {projectId}");
+
+            // 🆕 ── SignalR ──
+            foreach (var uid in affectedUserIds)
+            {
+                await EmitNotificationDeletedAsync(uid, projectId);
+            }
         }
     }
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR — ХЕЛПЕРЫ ЭМИТА
+    // ═══════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Эмитит NotificationReceived конкретному пользователю.
+    /// Обёрнуто в try/catch — если SignalR недоступен, не ломаем основной поток.
+    /// </summary>
+    private async Task EmitNotificationReceivedAsync(Guid userId, NotificationDto dto)
+    {
+        try
+        {
+            await _hubContext.Clients
+                .Group($"user:{userId}")
+                .SendAsync("NotificationReceived", dto);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SignalR: не удалось отправить NotificationReceived");
+        }
+    }
+
+    /// <summary>Эмитит NotificationRead — уведомление прочитано.</summary>
+    private async Task EmitNotificationReadAsync(Guid userId, Guid notificationId)
+    {
+        try
+        {
+            await _hubContext.Clients
+                .Group($"user:{userId}")
+                .SendAsync("NotificationRead", notificationId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SignalR: не удалось отправить NotificationRead");
+        }
+    }
+
+    /// <summary>Эмитит AllNotificationsRead — все уведомления прочитаны.</summary>
+    private async Task EmitAllNotificationsReadAsync(Guid userId)
+    {
+        try
+        {
+            await _hubContext.Clients
+                .Group($"user:{userId}")
+                .SendAsync("AllNotificationsRead");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SignalR: не удалось отправить AllNotificationsRead");
+        }
+    }
+
+    /// <summary>
+    /// Эмитит NotificationDeleted — уведомление удалено.
+    /// Фронт может по этому событию обновить список/бейдж.
+    /// </summary>
+    private async Task EmitNotificationDeletedAsync(Guid userId, Guid relatedId)
+    {
+        try
+        {
+            await _hubContext.Clients
+                .Group($"user:{userId}")
+                .SendAsync("NotificationDeleted", relatedId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "SignalR: не удалось отправить NotificationDeleted");
+        }
+    }
+
     private NotificationDto MapToDto(Notification notification)
     {
         return new NotificationDto

@@ -1,5 +1,6 @@
 // Program.cs
-
+using Microsoft.AspNetCore.SignalR;
+using ProjectHub.API.Hubs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -100,7 +101,15 @@ builder.Services.AddScoped<ActivityService>();
 builder.Services.AddScoped<ProjectHistoryService>();
 builder.Services.AddScoped<NoteService>();
 builder.Services.AddScoped<ProjectTagsService>();
+builder.Services.AddSignalR(options =>
+{
+    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+});
 
+// Singleton — трекер онлайн-присутствия
+builder.Services.AddSingleton<PresenceTracker>();
 // JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "your-super-secret-key-min-32-characters-long!";
 var key = Encoding.ASCII.GetBytes(jwtSecret);
@@ -122,6 +131,23 @@ builder.Services.AddAuthentication(x =>
         ValidateAudience = false,
         ValidateLifetime = true,
         ClockSkew = TimeSpan.Zero
+    };
+
+    // 🆕 Читаем токен из query string для SignalR-хаба
+    x.Events = new JwtBearerEvents
+    {
+        OnMessageReceived = context =>
+        {
+            var accessToken = context.Request.Query["access_token"];
+            var path = context.HttpContext.Request.Path;
+
+            if (!string.IsNullOrEmpty(accessToken)
+                && path.StartsWithSegments("/hubs/chat"))
+            {
+                context.Token = accessToken;
+            }
+            return Task.CompletedTask;
+        }
     };
 });
 
@@ -174,6 +200,7 @@ app.UseStaticFiles();
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
+app.MapHub<ChatHub>("/hubs/chat");
 
 Log.Information("Сервер запущен на https://localhost:7000");
 Log.Information("Swagger: https://localhost:7000/swagger");
