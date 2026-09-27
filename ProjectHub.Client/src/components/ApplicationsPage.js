@@ -15,6 +15,7 @@ import {
     Check,
     X,
     Folder,
+    Archive,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { searchProjectByCode } from '../services/projectsApi';
@@ -125,7 +126,8 @@ const ApplicationsPage = () => {
     }, [loadData]);
 
     // ═══════════════════════════════════════════════════════════
-    //  🆕 SIGNALR: JoinProject + подписки на события заявок.
+    //  🆕 SIGNALR: JoinProject + подписки на события заявок
+    //     и архивацию проекта.
     //     Страница /projects/:code/applications — отдельный маршрут,
     //     поэтому JoinProject делает сама.
     // ═══════════════════════════════════════════════════════════
@@ -163,6 +165,42 @@ const ApplicationsPage = () => {
             );
         };
 
+        // 🆕 ── Заявка отменена (архивация проекта и т.п.) ──
+        const handleApplicationCanceled = (payload) => {
+            const applicationId = payload?.applicationId;
+            if (!applicationId) return;
+
+            setApplications((prev) =>
+                prev.filter((a) => a.id !== applicationId)
+            );
+        };
+
+        // 🆕 ── Проект архивирован ──
+        const handleProjectArchived = (payload) => {
+            if (!payload?.publicCode) return;
+            if (payload.publicCode !== code) return;
+
+            // Обновляем проект — UI переключится в read-only
+            setProject((prev) => prev ? { ...prev, isArchived: true } : prev);
+
+            // Заявки отменены на бэке — очищаем список
+            setApplications([]);
+
+            setSuccess('📦 Проект в архиве — заявки отменены');
+            setTimeout(() => setSuccess(null), 4000);
+        };
+
+        // 🆕 ── Проект восстановлен ──
+        const handleProjectUnarchived = (payload) => {
+            if (!payload?.publicCode) return;
+            if (payload.publicCode !== code) return;
+
+            setProject((prev) => prev ? { ...prev, isArchived: false } : prev);
+
+            setSuccess('↩️ Проект восстановлен из архива');
+            setTimeout(() => setSuccess(null), 3000);
+        };
+
         // ── Reconnect — перезагружаем всё ──
         const handleReconnected = () => {
             console.log('🔄 SignalR reconnected, refreshing applications…');
@@ -172,6 +210,9 @@ const ApplicationsPage = () => {
 
         signalr.on('ApplicationCreated', handleApplicationCreated);
         signalr.on('ApplicationProcessed', handleApplicationProcessed);
+        signalr.on('ApplicationCanceled', handleApplicationCanceled);
+        signalr.on('ProjectArchived', handleProjectArchived);
+        signalr.on('ProjectUnarchived', handleProjectUnarchived);
         signalr.on('_reconnected', handleReconnected);
 
         // JoinProject — страница отдельная, делаем сами
@@ -191,6 +232,9 @@ const ApplicationsPage = () => {
 
             signalr.off('ApplicationCreated', handleApplicationCreated);
             signalr.off('ApplicationProcessed', handleApplicationProcessed);
+            signalr.off('ApplicationCanceled', handleApplicationCanceled);
+            signalr.off('ProjectArchived', handleProjectArchived);
+            signalr.off('ProjectUnarchived', handleProjectUnarchived);
             signalr.off('_reconnected', handleReconnected);
 
             signalr.invoke('LeaveProject', code).catch(() => { });
@@ -215,11 +259,15 @@ const ApplicationsPage = () => {
             setSuccess(approve ? '✅ Заявка одобрена!' : '❌ Заявка отклонена');
 
             // Если SignalR не подключён — обновляем вручную.
-            // Если подключён — придёт ApplicationProcessed и уберёт из списка,
-            // но всё равно перезагружаем для актуальности.
+            // Если подключён — придёт ApplicationProcessed и уберёт из списка.
             if (!signalr.isConnected()) {
                 await loadApplications(code);
-                await loadData();
+                await loadData(true);
+            } else {
+                // Мгновенный локальный отклик — убираем карточку
+                setApplications((prev) =>
+                    prev.filter((a) => a.id !== applicationId)
+                );
             }
         } catch (err) {
             console.error('❌ Ошибка обработки:', err);
@@ -274,6 +322,7 @@ const ApplicationsPage = () => {
     };
 
     const safeApplications = Array.isArray(applications) ? applications : [];
+    const isArchived = !!project?.isArchived;
 
     const filteredApplications = safeApplications.filter(app => {
         if (filter === 'pending') return app.status === 'Pending';
@@ -349,6 +398,14 @@ const ApplicationsPage = () => {
                 </h1>
                 <span className="project-name">{project.name || 'Без названия'}</span>
             </header>
+
+            {/* 🆕 Плашка «архив» */}
+            {isArchived && (
+                <div className="archive-banner">
+                    <Archive size={16} />
+                    Проект в архиве — заявки отменены, действия недоступны.
+                </div>
+            )}
 
             <div className="applications-content">
                 <div className="project-info-bar">
@@ -467,7 +524,7 @@ const ApplicationsPage = () => {
                                     )}
                                 </div>
 
-                                {app.status === 'Pending' && (
+                                {app.status === 'Pending' && !isArchived && (
                                     <div className="application-actions">
                                         <button
                                             type="button"

@@ -1,10 +1,8 @@
 ﻿// Services/ApplicationService.cs
 
-using Microsoft.AspNetCore.SignalR;                     // 🆕
 using Microsoft.EntityFrameworkCore;
 using ProjectHub.API.Data;
 using ProjectHub.API.DTOs.ApplicationDtos;
-using ProjectHub.API.Hubs;                              // 🆕
 using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
 
@@ -16,20 +14,17 @@ public class ApplicationService
     private readonly ILogger<ApplicationService> _logger;
     private readonly NotificationService _notificationService;
     private readonly ActivityService _activity;
-    private readonly IHubContext<ChatHub> _hubContext;   // 🆕
 
     public ApplicationService(
         AppDbContext dbContext,
         ILogger<ApplicationService> logger,
         NotificationService notificationService,
-        ActivityService activity,
-        IHubContext<ChatHub> hubContext)                 // 🆕
+        ActivityService activity)
     {
         _dbContext = dbContext;
         _logger = logger;
         _notificationService = notificationService;
         _activity = activity;
-        _hubContext = hubContext;                        // 🆕
     }
 
     public async Task<Project?> GetProjectByCodeAsync(string code)
@@ -83,7 +78,7 @@ public class ApplicationService
 
         _dbContext.Applications.Add(application);
 
-        // 🆕 Сохраняем activity
+        // 🆕 Сохраняем activity, чтобы эмитить после SaveChanges
         var activity = await _activity.LogAsync(
             project.Id,
             userId,
@@ -99,16 +94,6 @@ public class ApplicationService
         await _activity.EmitActivityAsync(activity, project.PublicCode);
 
         _logger.LogInformation($"✅ Заявка {application.Id} создана");
-
-        // ── SignalR: новая заявка (для владельца/админов) ──
-        application.User = user;
-        application.Project = project;
-        var applicationDto = MapToResponse(application);
-
-        await EmitToProjectAsync(
-            project.PublicCode,
-            "ApplicationCreated",
-            applicationDto);
 
         // 📌 Уведомления владельцу и админам
         try
@@ -145,7 +130,10 @@ public class ApplicationService
             _logger.LogError($"❌ Ошибка при отправке уведомлений: {ex.Message}");
         }
 
-        return applicationDto;
+        application.User = user;
+        application.Project = project;
+
+        return MapToResponse(application);
     }
 
     // 📌 Принять или отклонить заявку
@@ -210,14 +198,20 @@ public class ApplicationService
             // 🆕 ── SignalR: событие истории ──
             await _activity.EmitActivityAsync(activity, application.Project.PublicCode);
 
-            // ── SignalR: заявка обработана ──
-            await EmitToProjectAsync(
+            // 🆕 ── SignalR: UI-событие — новый участник ──
+            await _activity.EmitToProjectAsync(
                 application.Project.PublicCode,
-                "ApplicationProcessed",
+                "MemberAdded",
                 new
                 {
-                    ApplicationId = application.Id,
-                    Status = "Approved",
+                    UserId = application.UserId,
+                    Name = application.User?.Name ?? "Пользователь",
+                    Email = application.User?.Email ?? string.Empty,
+                    Specialization = application.User?.Specialization.ToString(),
+                    Role = ProjectMemberRole.Member.ToString(),
+                    JoinedAt = member.JoinedAt,
+                    AvatarUrl = application.User?.AvatarUrl,
+                    IsOnline = application.User?.IsOnline ?? false
                 });
 
             _logger.LogInformation(
@@ -286,16 +280,6 @@ public class ApplicationService
 
             // 🆕 ── SignalR: событие истории ──
             await _activity.EmitActivityAsync(activity, application.Project.PublicCode);
-
-            // ── SignalR: заявка обработана ──
-            await EmitToProjectAsync(
-                application.Project.PublicCode,
-                "ApplicationProcessed",
-                new
-                {
-                    ApplicationId = applicationId,
-                    Status = "Rejected",
-                });
 
             _logger.LogInformation($"🗑️ Заявка {applicationId} отклонена и удалена из БД");
         }
@@ -407,32 +391,5 @@ public class ApplicationService
             CreatedAt = application.CreatedAt,
             ProcessedAt = application.ProcessedAt
         };
-    }
-
-    // ═══════════════════════════════════════════════════════════
-    //  🆕 SIGNALR — ХЕЛПЕР ЭМИТА
-    // ═══════════════════════════════════════════════════════════
-
-    /// <summary>
-    /// Отправляет событие в группу project:{projectCode}.
-    /// Обёрнуто в try/catch — SignalR не должен ломать основной поток.
-    /// </summary>
-    private async Task EmitToProjectAsync(
-        string projectCode, string eventName, object payload)
-    {
-        if (string.IsNullOrWhiteSpace(projectCode)) return;
-
-        try
-        {
-            await _hubContext.Clients
-                .Group($"project:{projectCode}")
-                .SendAsync(eventName, payload);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex,
-                "SignalR: не удалось отправить {EventName} в project:{ProjectCode}",
-                eventName, projectCode);
-        }
     }
 }

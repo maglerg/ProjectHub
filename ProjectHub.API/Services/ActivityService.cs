@@ -1,10 +1,10 @@
 ﻿// Services/ActivityService.cs
 
-using Microsoft.AspNetCore.SignalR;                       // 🆕
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ProjectHub.API.Data;
-using ProjectHub.API.DTOs.ProjectDtos;                    // 🆕
-using ProjectHub.API.Hubs;                                // 🆕
+using ProjectHub.API.DTOs.ProjectDtos;
+using ProjectHub.API.Hubs;
 using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
 
@@ -14,25 +14,22 @@ namespace ProjectHub.API.Services
     {
         private readonly AppDbContext _db;
         private readonly ILogger<ActivityService> _logger;
-        private readonly IHubContext<ChatHub> _hubContext;   // 🆕
+        private readonly IHubContext<ChatHub> _hubContext;
 
         public ActivityService(
             AppDbContext db,
             ILogger<ActivityService> logger,
-            IHubContext<ChatHub> hubContext)                 // 🆕
+            IHubContext<ChatHub> hubContext)
         {
             _db = db;
             _logger = logger;
-            _hubContext = hubContext;                        // 🆕
+            _hubContext = hubContext;
         }
 
         /// <summary>
         /// Записать событие в историю проекта.
         /// НЕ вызывает SaveChangesAsync — используем тот же контекст,
         /// чтобы событие сохранилось вместе с основным действием.
-        ///
-        /// ВАЖНО: возвращает созданный ProjectActivity, чтобы вызывающий
-        /// сервис мог заэмитить его в SignalR ПОСЛЕ SaveChangesAsync.
         /// </summary>
         public Task<ProjectActivity?> LogAsync(
             Guid projectId,
@@ -68,7 +65,7 @@ namespace ProjectHub.API.Services
         }
 
         // ═══════════════════════════════════════════════════════════
-        //  🆕 SIGNALR: эмит события в группу project:{publicCode}
+        //  SIGNALR: события истории
         // ═══════════════════════════════════════════════════════════
 
         /// <summary>
@@ -84,7 +81,6 @@ namespace ProjectHub.API.Services
 
             try
             {
-                // Догружаем User'а для DTO
                 var user = await _db.Users
                     .Where(u => u.Id == activity.UserId)
                     .Select(u => new
@@ -117,6 +113,62 @@ namespace ProjectHub.API.Services
                 _logger.LogWarning(ex,
                     "ActivityService: не удалось эмитить событие {ActivityId} в project:{ProjectCode}",
                     activity.Id, projectCode);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  SIGNALR: произвольное событие в группу проекта
+        // ═══════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Отправляет произвольное событие в группу project:{projectCode}.
+        /// </summary>
+        public async Task EmitToProjectAsync(
+            string projectCode, string eventName, object payload)
+        {
+            if (string.IsNullOrWhiteSpace(projectCode)) return;
+            if (string.IsNullOrWhiteSpace(eventName)) return;
+
+            try
+            {
+                await _hubContext.Clients
+                    .Group($"project:{projectCode}")
+                    .SendAsync(eventName, payload);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "ActivityService: не удалось отправить {EventName} в project:{ProjectCode}",
+                    eventName, projectCode);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════
+        //  🆕 SIGNALR: произвольное событие конкретному пользователю
+        // ═══════════════════════════════════════════════════════════
+
+        /// <summary>
+        /// Отправляет произвольное событие в группу user:{userId}.
+        /// Используется для событий, адресованных конкретному пользователю
+        /// (например, отмена приглашения при архивации проекта).
+        /// </summary>
+        public async Task EmitToUserAsync(
+            Guid userId, string eventName, object payload)
+        {
+            if (userId == Guid.Empty) return;
+            if (string.IsNullOrWhiteSpace(eventName)) return;
+
+            try
+            {
+                await _hubContext.Clients
+                    .Group($"user:{userId}")
+                    .SendAsync(eventName, payload);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "ActivityService: не удалось отправить {EventName} в user:{UserId}",
+                    eventName, userId);
             }
         }
 

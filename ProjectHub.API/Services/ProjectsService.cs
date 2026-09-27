@@ -166,8 +166,31 @@ namespace ProjectHub.API.Services
 
             await _dbContext.SaveChangesAsync();
 
-            // 🆕 ── SignalR ──
+            // 🆕 ── SignalR: событие истории ──
             await _activity.EmitActivityAsync(activity, project.PublicCode);
+
+            // 🆕 ── SignalR: UI-событие — новый участник ──
+            var joinedUser = await _dbContext.Users
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (joinedUser != null)
+            {
+                await _activity.EmitToProjectAsync(
+                    project.PublicCode,
+                    "MemberAdded",
+                    new
+                    {
+                        UserId = joinedUser.Id,
+                        Name = joinedUser.Name,
+                        Email = joinedUser.Email,
+                        Specialization = joinedUser.Specialization.ToString(),
+                        Role = ProjectMemberRole.Member.ToString(),
+                        JoinedAt = member.JoinedAt,
+                        AvatarUrl = joinedUser.AvatarUrl,
+                        IsOnline = joinedUser.IsOnline
+                    });
+            }
 
             _logger.LogInformation($"Пользователь {userId} успешно присоединился к проекту {publicCode}");
             return true;
@@ -474,8 +497,20 @@ namespace ProjectHub.API.Services
 
             await _dbContext.SaveChangesAsync();
 
-            // 🆕 ── SignalR ──
+            // 🆕 ── SignalR: событие истории ──
             await _activity.EmitActivityAsync(activity, project.PublicCode);
+
+            // 🆕 ── SignalR: UI-событие — смена роли ──
+            await _activity.EmitToProjectAsync(
+                project.PublicCode,
+                "MemberRoleChanged",
+                new
+                {
+                    UserId = memberUser.Id,
+                    Email = memberUser.Email,
+                    OldRole = oldRole.ToString(),
+                    NewRole = role.ToString()
+                });
 
             _logger.LogInformation($"Роль участника {memberEmail} изменена на {role} в проекте {projectCode}");
 
@@ -764,8 +799,19 @@ namespace ProjectHub.API.Services
 
             await _dbContext.SaveChangesAsync();
 
-            // 🆕 ── SignalR ──
+            // 🆕 ── SignalR: событие истории ──
             await _activity.EmitActivityAsync(activity, project.PublicCode);
+
+            // 🆕 ── SignalR: главное событие — проект восстановлен ──
+            // Все, кто на дашборде, снимают read-only.
+            await _activity.EmitToProjectAsync(
+                project.PublicCode,
+                "ProjectUnarchived",
+                new
+                {
+                    PublicCode = project.PublicCode,
+                    Name = project.Name,
+                });
 
             _logger.LogInformation(
                 $"Проект {code} восстановлен из архива пользователем {userId}");
@@ -841,8 +887,19 @@ namespace ProjectHub.API.Services
 
             await _dbContext.SaveChangesAsync();
 
-            // 🆕 ── SignalR ──
+            // 🆕 ── SignalR: событие истории ──
             await _activity.EmitActivityAsync(activity, project.PublicCode);
+
+            // 🆕 ── SignalR: UI-событие — участник удалён ──
+            await _activity.EmitToProjectAsync(
+                project.PublicCode,
+                "MemberRemoved",
+                new
+                {
+                    UserId = removedUserId,
+                    Name = removedUserName,
+                    Email = memberEmail
+                });
 
             _logger.LogInformation($"Пользователь {memberEmail} удален из проекта {projectCode} пользователем {userId}");
 
@@ -1072,7 +1129,8 @@ namespace ProjectHub.API.Services
                     Specialization = m.User.Specialization.ToString(),
                     Role = m.Role.ToString(),
                     JoinedAt = m.JoinedAt,
-                    AvatarUrl = m.User.AvatarUrl
+                    AvatarUrl = m.User.AvatarUrl,
+                    IsOnline = m.User.IsOnline    // 🆕
                 }).ToList(),
 
                 Tags = entity.TagLinks?

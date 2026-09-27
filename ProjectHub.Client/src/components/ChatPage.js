@@ -67,6 +67,18 @@ const ChatPage = ({
     const fileInputRef = useRef(null);
     const textareaRef = useRef(null);
 
+    // 🆕 Локальный флаг «архив». Если родитель передал isArchived=true —
+    // используем его. Иначе подписываемся на ProjectArchived/Unarchived
+    // (когда чат открыт как отдельная страница /chats/:chatId).
+    const [localArchived, setLocalArchived] = useState(isArchived);
+
+    useEffect(() => {
+        setLocalArchived(isArchived);
+    }, [isArchived]);
+
+    // 🆕 Public code проекта — для фильтрации SignalR-событий
+    const projectCodeRef = useRef(null);
+
     // 🆕 Храним chatId в ref — чтобы обработчики SignalR всегда видели актуальное
     const chatIdRef = useRef(chatId);
     useEffect(() => { chatIdRef.current = chatId; }, [chatId]);
@@ -102,6 +114,11 @@ const ChatPage = ({
             const chatData = await getChatById(chatId);
             setChat(chatData);
 
+            // 🆕 Запоминаем publicCode проекта — для фильтрации SignalR-событий
+            if (chatData?.type === 'Project' && chatData.projectPublicCode) {
+                projectCodeRef.current = chatData.projectPublicCode;
+            }
+
             const messagesData = await getChatMessages(chatId);
             setMessages(messagesData);
 
@@ -134,15 +151,6 @@ const ChatPage = ({
     }, [chatId]);
 
     // 🆕 Тихая отметка чата прочитанным.
-    //    Запрашиваем только 1 последнее сообщение (минимум трафика).
-    //    Побочные эффекты на бэке:
-    //      • все непрочитанные помечаются ChatMessageRead
-    //      • LastReadAt участника обновляется
-    //      • в chat:{chatId} эмитится MessagesRead → у отправителя загораются ✓✓
-    //      • в user:{userId} эмитится UnreadCountChanged(chatId, 0) → badge сбрасывается
-    //
-    //    Дебаунс 400мс — если в течение этого окна придёт ещё сообщение,
-    //    таймер сбросится, и мы сделаем только один запрос.
     const markCurrentChatAsRead = useCallback(() => {
         if (markReadTimerRef.current) {
             clearTimeout(markReadTimerRef.current);
@@ -152,7 +160,6 @@ const ChatPage = ({
             try {
                 await getChatMessages(chatIdRef.current, 0, 1);
             } catch (err) {
-                // не критично — тихо игнорируем
                 console.warn('Не удалось отметить чат прочитанным:', err);
             }
         }, 400);
@@ -175,18 +182,13 @@ const ChatPage = ({
             if (!message || message.chatId !== chatIdRef.current) return;
 
             setMessages((prev) => {
-                // Защита от дублей
                 if (prev.some((m) => m.id === message.id)) return prev;
                 return [...prev, message];
             });
 
             setTimeout(scrollToBottom, 100);
 
-            // 🆕 Если чат реально открыт (вкладка видима) —
-            //    сразу помечаем прочитанным. Иначе непрочитанные будут копиться,
-            //    и у отправителя не загорятся ✓✓.
-            //    Если окно свёрнуто — не отмечаем, чтобы сохранить счётчик непрочитанных.
-            if (!isArchived && document.visibilityState === 'visible') {
+            if (!localArchived && document.visibilityState === 'visible') {
                 markCurrentChatAsRead();
             }
         };
@@ -197,7 +199,6 @@ const ChatPage = ({
 
             setMessages((prev) =>
                 prev.map((m) => {
-                    // Обновляем только свои сообщения (не те, что написал readUserId)
                     if (m.senderId === readUserId) return m;
 
                     const newReadCount = Math.min(
@@ -217,7 +218,6 @@ const ChatPage = ({
 
         // ── Собеседник зашёл в сеть ──
         const handleUserOnline = () => {
-            // Обновляем чат через REST (чтобы подтянуть свежий isOnline у собеседника)
             if (chatIdRef.current) {
                 getChatById(chatIdRef.current)
                     .then((data) => setChat(data))
@@ -234,13 +234,32 @@ const ChatPage = ({
             }
         };
 
+        // 🆕 ── Проект архивирован ──
+        const handleProjectArchived = (payload) => {
+            if (!payload?.publicCode) return;
+            if (chat?.type !== 'Project') return;
+            if (payload.publicCode !== projectCodeRef.current) return;
+
+            setLocalArchived(true);
+            setError('Проект переведён в архив — отправка сообщений недоступна');
+            setTimeout(() => setError(null), 4000);
+        };
+
+        // 🆕 ── Проект восстановлен ──
+        const handleProjectUnarchived = (payload) => {
+            if (!payload?.publicCode) return;
+            if (chat?.type !== 'Project') return;
+            if (payload.publicCode !== projectCodeRef.current) return;
+
+            setLocalArchived(false);
+        };
+
         // ── Reconnect ──
         const handleReconnected = () => {
             console.log('🔄 SignalR reconnected, refreshing chat…');
             signalr.invoke('JoinChat', chatIdRef.current).catch(() => { });
             refreshMessages();
-            // После reconnect — сразу отмечаем прочитанным (могли накопиться сообщения)
-            if (!isArchived && document.visibilityState === 'visible') {
+            if (!localArchived && document.visibilityState === 'visible') {
                 markCurrentChatAsRead();
             }
         };
@@ -249,6 +268,8 @@ const ChatPage = ({
         signalr.on('MessagesRead', handleMessagesRead);
         signalr.on('UserOnline', handleUserOnline);
         signalr.on('UserOffline', handleUserOffline);
+        signalr.on('ProjectArchived', handleProjectArchived);
+        signalr.on('ProjectUnarchived', handleProjectUnarchived);
         signalr.on('_reconnected', handleReconnected);
 
         // Войти в комнату чата
@@ -265,7 +286,6 @@ const ChatPage = ({
         return () => {
             cancelled = true;
 
-            // 🆕 Очищаем таймер дебаунса
             if (markReadTimerRef.current) {
                 clearTimeout(markReadTimerRef.current);
                 markReadTimerRef.current = null;
@@ -275,28 +295,27 @@ const ChatPage = ({
             signalr.off('MessagesRead', handleMessagesRead);
             signalr.off('UserOnline', handleUserOnline);
             signalr.off('UserOffline', handleUserOffline);
+            signalr.off('ProjectArchived', handleProjectArchived);
+            signalr.off('ProjectUnarchived', handleProjectUnarchived);
             signalr.off('_reconnected', handleReconnected);
 
-            // Выйти из комнаты
             signalr.invoke('LeaveChat', chatId).catch(() => { });
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [chatId, isArchived, markCurrentChatAsRead, refreshMessages]);
+    }, [chatId, localArchived, markCurrentChatAsRead, refreshMessages, chat?.type]);
 
     // ═══════════════════════════════════════════════════════════
     //  🆕 ВОЗВРАТ НА ВКЛАДКУ / ФОКУС ОКНА — отметка прочтения
     // ═══════════════════════════════════════════════════════════
     useEffect(() => {
-        if (!chatId || isArchived) return;
+        if (!chatId || localArchived) return;
 
-        // Возврат на вкладку (переключился с другой вкладки браузера)
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
                 markCurrentChatAsRead();
             }
         };
 
-        // Возврат фокуса в окно (переключился с другого приложения)
         const handleFocus = () => {
             markCurrentChatAsRead();
         };
@@ -308,13 +327,13 @@ const ChatPage = ({
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('focus', handleFocus);
         };
-    }, [chatId, isArchived, markCurrentChatAsRead]);
+    }, [chatId, localArchived, markCurrentChatAsRead]);
 
     // ═══════════════════════════════════════════════════════════
     //  АВТОФОКУС
     // ═══════════════════════════════════════════════════════════
     useEffect(() => {
-        if (isArchived) return;
+        if (localArchived) return;
         if (!chatId) return;
 
         const handleGlobalKeyDown = (e) => {
@@ -368,13 +387,13 @@ const ChatPage = ({
         return () => {
             document.removeEventListener('keydown', handleGlobalKeyDown);
         };
-    }, [chatId, isArchived]);
+    }, [chatId, localArchived]);
 
     // ── Отправка текста или файла ──
     const handleSendMessage = async (e) => {
         if (e) e.preventDefault();
 
-        if (isArchived) return;
+        if (localArchived) return;
         if (sending || uploadingFile) return;
 
         if (attachedFile) {
@@ -392,8 +411,6 @@ const ChatPage = ({
         try {
             const sentMessage = await sendMessage(chatId, textToSend);
 
-            // Если SignalR подключён — сообщение придёт через 'ReceiveMessage'.
-            // Если нет — добавляем вручную, чтобы не терять.
             if (!signalr.isConnected()) {
                 setMessages((prev) =>
                     prev.some((m) => m.id === sentMessage.id)
@@ -432,7 +449,7 @@ const ChatPage = ({
     // ── Отправка файла ──
     const handleSendFile = async () => {
         if (!attachedFile || uploadingFile) return;
-        if (isArchived) return;
+        if (localArchived) return;
 
         setUploadingFile(true);
         setError(null);
@@ -499,7 +516,7 @@ const ChatPage = ({
 
     // ── Enter — отправить, Shift+Enter — новая строка ──
     const handleKeyDown = (e) => {
-        if (isArchived) return;
+        if (localArchived) return;
 
         if (e.key === 'Enter' && !e.shiftKey) {
             e.preventDefault();
@@ -667,7 +684,7 @@ const ChatPage = ({
                         <div className="chat-header-info">
                             <div className="chat-header-name">
                                 {getChatTitle()}
-                                {isArchived && (
+                                {localArchived && (
                                     <span className="chat-archived-badge">
                                         <Archive size={12} />
                                         Архив
@@ -862,7 +879,7 @@ const ChatPage = ({
             </div>
 
             {/* 📌 Поле ввода или плашка «архив» */}
-            {isArchived ? (
+            {localArchived ? (
                 <div className="chat-archived-notice">
                     <Archive size={16} />
                     Проект в архиве — отправка сообщений недоступна

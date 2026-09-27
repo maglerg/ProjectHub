@@ -33,10 +33,6 @@ const InvitationsPage = () => {
     // без пересоздания подписок.
     const userIdRef = useRef(null);
     useEffect(() => {
-        // В localStorage user.id может не быть (в проекте используется Guid).
-        // Реальный id приходит с бэка, но нам для фильтрации достаточно
-        // знать, что это «моя» страница — а здесь всегда «мои» приглашения.
-        // Дополнительно проверяем по email — тоже надёжно.
         userIdRef.current = user?.id || user?.userId || null;
     }, [user]);
 
@@ -66,7 +62,8 @@ const InvitationsPage = () => {
     }, [loadInvitations]);
 
     // ═══════════════════════════════════════════════════════════
-    //  🆕 SIGNALR: подписки на InvitationCreated / InvitationProcessed
+    //  🆕 SIGNALR: подписки на InvitationCreated / InvitationProcessed /
+    //     InvitationCanceled
     // ═══════════════════════════════════════════════════════════
     useEffect(() => {
         // ── Новое приглашение пришло мне ──
@@ -100,10 +97,20 @@ const InvitationsPage = () => {
             const invitationId = payload?.invitationId;
             if (!invitationId) return;
 
-            // Просто убираем карточку из списка.
-            // Для отправителя (inviter) на этой странице ничего нет — у него
-            // свои приглашения в других местах (если появятся — добавим).
             setInvitations((prev) => prev.filter((i) => i.id !== invitationId));
+        };
+
+        // 🆕 ── Приглашение отменено (проект архивирован и т.п.) ──
+        const handleInvitationCanceled = (payload) => {
+            const invitationId = payload?.invitationId;
+            if (!invitationId) return;
+
+            setInvitations((prev) => prev.filter((i) => i.id !== invitationId));
+
+            if (payload.projectName) {
+                setSuccess(`📦 Приглашение в «${payload.projectName}» отменено — проект архивирован`);
+                setTimeout(() => setSuccess(null), 4000);
+            }
         };
 
         // ── Реконнект: тихо перезагружаем список ──
@@ -114,6 +121,7 @@ const InvitationsPage = () => {
 
         signalr.on('InvitationCreated', handleInvitationCreated);
         signalr.on('InvitationProcessed', handleInvitationProcessed);
+        signalr.on('InvitationCanceled', handleInvitationCanceled);
         signalr.on('_reconnected', handleReconnected);
 
         // На случай, если соединение ещё не поднято
@@ -124,6 +132,7 @@ const InvitationsPage = () => {
         return () => {
             signalr.off('InvitationCreated', handleInvitationCreated);
             signalr.off('InvitationProcessed', handleInvitationProcessed);
+            signalr.off('InvitationCanceled', handleInvitationCanceled);
             signalr.off('_reconnected', handleReconnected);
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -147,19 +156,12 @@ const InvitationsPage = () => {
 
             setSuccess(accept ? '✅ Приглашение принято!' : '❌ Приглашение отклонено');
 
-            // Если SignalR подключён — карточка уйдёт из списка сама
-            // через InvitationProcessed. Если нет — убираем локально.
-            if (!signalr.isConnected()) {
-                setInvitations((prev) =>
-                    prev.filter((i) => i.id !== invitationId)
-                );
-            } else {
-                // На всякий случай тоже убираем — от дубликата
-                // защищает проверка `some(i => i.id === ...)`.
-                setInvitations((prev) =>
-                    prev.filter((i) => i.id !== invitationId)
-                );
-            }
+            // Убираем карточку локально — мгновенный отклик.
+            // Если SignalR подключён — InvitationProcessed придёт и всё равно
+            // уберёт (идемпотентно). Если нет — мы уже убрали.
+            setInvitations((prev) =>
+                prev.filter((i) => i.id !== invitationId)
+            );
 
             // Принято — редирект в проект
             if (accept && acceptedInvitation?.projectCode) {

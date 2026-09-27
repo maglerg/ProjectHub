@@ -1,6 +1,6 @@
 // projecthub.client/src/components/ProjectsPage.js
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Folder,
@@ -34,6 +34,7 @@ import InviteUserModal from './InviteUserModal';
 import ChatsListPage from './ChatsListPage';
 import NotesPage from './notes/NotesPage';
 import { searchProjectsByTags, setProjectTags } from '../services/projectTagsApi';
+import { signalr } from '../services/signalrService';   // 🆕
 
 import {
     fetchAllProjects,
@@ -493,6 +494,131 @@ const ProjectsPage = () => {
         setMessage('✅ Приглашение отправлено');
         setTimeout(() => setMessage(''), 2500);
     };
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 Refs для SignalR — чтобы обработчики видели актуальные
+    //     activeTab и фильтры без пересоздания подписок.
+    // ═══════════════════════════════════════════════════════════
+    const activeTabRef = useRef(activeTab);
+    useEffect(() => {
+        activeTabRef.current = activeTab;
+    }, [activeTab]);
+
+    const filtersRef = useRef({
+        showFavoritesOnly,
+        showMyProjectsOnly,
+        selectedCategory,
+    });
+    useEffect(() => {
+        filtersRef.current = {
+            showFavoritesOnly,
+            showMyProjectsOnly,
+            selectedCategory,
+        };
+    }, [showFavoritesOnly, showMyProjectsOnly, selectedCategory]);
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR: realtime-архивация проектов
+    //     Owner в одной вкладке архивирует — у admin'а в другой
+    //     карточка должна переместиться из «Моих» в «Архив».
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        // ── Проект архивирован ──
+        const handleProjectArchived = (payload) => {
+            if (!payload?.publicCode) return;
+
+            const tab = activeTabRef.current;
+
+            // Если открыт таб «Архив» — перезагружаем его
+            if (tab === 'archive') {
+                loadArchivedProjects();
+                return;
+            }
+
+            // Если открыт таб «Мои проекты» — перезагружаем (проект уйдёт)
+            if (tab === 'my') {
+                loadProjects(false, true);
+                return;
+            }
+
+            // Если открыт таб «Избранное» — перезагружаем
+            if (tab === 'favorites') {
+                loadProjects(true, false);
+                return;
+            }
+
+            // Общий список / поиск — просто убираем из текущего списка
+            setProjects((prev) =>
+                prev.filter((p) => p.publicCode !== payload.publicCode)
+            );
+
+            setMessage(`📦 Проект «${payload.name || ''}» архивирован`);
+            setTimeout(() => setMessage(''), 3000);
+        };
+
+        // ── Проект восстановлен ──
+        const handleProjectUnarchived = (payload) => {
+            if (!payload?.publicCode) return;
+
+            const tab = activeTabRef.current;
+
+            // Если открыт таб «Архив» — перезагружаем (проект уйдёт)
+            if (tab === 'archive') {
+                loadArchivedProjects();
+                return;
+            }
+
+            // Если открыт таб «Мои проекты» — перезагружаем (проект вернётся)
+            if (tab === 'my') {
+                loadProjects(false, true);
+                return;
+            }
+
+            // Если открыт общий список с фильтрами — перезагружаем
+            const { selectedCategory: cat } = filtersRef.current;
+            if (tab && cat) {
+                loadProjects(false, false, cat);
+                return;
+            }
+
+            setMessage(`↩️ Проект «${payload.name || ''}» восстановлен`);
+            setTimeout(() => setMessage(''), 3000);
+        };
+
+        // ── Reconnect ──
+        const handleReconnected = () => {
+            console.log('🔄 SignalR reconnected, refreshing projects list…');
+            const tab = activeTabRef.current;
+
+            if (tab === 'archive') {
+                loadArchivedProjects();
+            } else if (tab === 'my') {
+                loadProjects(false, true);
+            } else if (tab === 'favorites') {
+                loadProjects(true, false);
+            } else if (tab) {
+                const { selectedCategory: cat } = filtersRef.current;
+                loadProjects(false, false, cat || null);
+            }
+        };
+
+        signalr.on('ProjectArchived', handleProjectArchived);
+        signalr.on('ProjectUnarchived', handleProjectUnarchived);
+        signalr.on('_reconnected', handleReconnected);
+
+        // Ленивый connect — на случай, если пользователь зашёл сразу на /projects,
+        // без открытия чата или дашборда.
+        signalr.connect().catch((err) => {
+            console.warn('SignalR connect from ProjectsPage failed:', err);
+        });
+
+        return () => {
+            signalr.off('ProjectArchived', handleProjectArchived);
+            signalr.off('ProjectUnarchived', handleProjectUnarchived);
+            signalr.off('_reconnected', handleReconnected);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // 🆕 Первичная загрузка доски — только если в sessionStorage не было сохранённого таба
     useEffect(() => {

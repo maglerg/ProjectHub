@@ -325,6 +325,22 @@ public class InvitationService
 
             _logger.LogInformation(
                 $"Пользователь {inviteeId} принял приглашение, добавлен в проект {projectId}");
+
+            // 🆕 ── SignalR: UI-событие — новый участник ──
+            await _activity.EmitToProjectAsync(
+    projectCode,
+    "MemberAdded",
+    new
+    {
+        UserId = inviteeId,
+        Name = inviteeName,
+        Email = inviteeEmail,
+        Specialization = invitation.Invitee?.Specialization.ToString(),
+        Role = ProjectMemberRole.Member.ToString(),
+        JoinedAt = DateTime.UtcNow,
+        AvatarUrl = inviteeAvatarUrl,
+        IsOnline = invitation.Invitee?.IsOnline ?? false
+    });
         }
         else
         {

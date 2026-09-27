@@ -10,25 +10,25 @@ import '../styles/components/MemberCard.css';
 
 const MemberCard = ({
     member,
-    isMe = false,             // 🆕 флаг «это текущий пользователь»
+    isMe = false,
     onRemove,
-    // 🆕 Опциональные пропсы для контекстного меню
-    friendStatus,             // { status, isFriend, requestId }
-    projectContext,           // { projectCode, memberRole, isOwnerViewer, isAdminViewer }
+    friendStatus,
+    projectContext,
     onSendMessage,
     onAddFriend,
     onCancelRequest,
     onAcceptRequest,
     onRejectRequest,
     onRemoveFriend,
-    onChangeRole,             // (user, newRole) => void
+    onChangeRole,
     onRemoveFromProject,
+    // 🆕 Управление отображением онлайн-точки (по умолчанию — показываем)
+    showOnline = true,
 }) => {
     const navigate = useNavigate();
     const { user: currentUser } = useAuth();
 
-    // 🆕 Контекстное меню
-    const [contextMenu, setContextMenu] = useState(null); // { x, y }
+    const [contextMenu, setContextMenu] = useState(null);
 
     const getRoleColor = (role) => {
         switch (role?.toLowerCase()) {
@@ -39,7 +39,6 @@ const MemberCard = ({
         }
     };
 
-    // 🆕 Возвращает Lucide-компонент вместо эмодзи
     const getRoleIcon = (role) => {
         switch (role?.toLowerCase()) {
             case 'owner': return Crown;
@@ -63,7 +62,6 @@ const MemberCard = ({
         }
     };
 
-    // 🆕 Правый клик — открыть контекстное меню
     const handleContextMenu = (e) => {
         e.preventDefault();
         e.stopPropagation();
@@ -71,6 +69,12 @@ const MemberCard = ({
     };
 
     const RoleIcon = getRoleIcon(member.role);
+
+    // 🆕 Показываем точку, если:
+    //   • showOnline не отключён явно,
+    //   • member.isOnline === true,
+    //   • и это не «я сам» (у себя точки нет — это визуальный шум).
+    const onlineVisible = showOnline && member.isOnline === true && !isMe;
 
     return (
         <>
@@ -95,6 +99,16 @@ const MemberCard = ({
                             email={member.email}
                             size="md"
                         />
+
+                        {/* 🆕 Онлайн-индикатор */}
+                        {onlineVisible && (
+                            <span
+                                className="member-online-dot"
+                                title="Онлайн"
+                                aria-label="Онлайн"
+                            />
+                        )}
+
                         {member.role?.toLowerCase() === 'owner' && (
                             <div className="member-owner-crown">
                                 <Crown size={12} />
@@ -159,7 +173,6 @@ const MemberCard = ({
                     friendStatus={friendStatus}
                     projectContext={
                         projectContext || (
-                            // если карточка в контексте проекта — соберём контекст из member.role
                             member.role
                                 ? {
                                     projectCode: projectContext?.projectCode,

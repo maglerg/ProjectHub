@@ -58,7 +58,7 @@ import {
     processFriendRequest,
 } from '../services/friendRequestsApi';
 import { getFriends, removeFriend } from '../services/friendsApi';
-import { signalr } from '../services/signalrService';   // 🆕
+import { signalr } from '../services/signalrService';
 
 import TasksBoard from './tasks/TasksBoard';
 import TaskTimeline from './tasks/TaskTimeline';
@@ -170,6 +170,19 @@ const ProjectDashboardPage = () => {
     // ── Меню пользователя ──
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const userMenuRef = useRef(null);
+
+    // 🆕 Ref для актуального userStatus — нужен в SignalR-обработчиках
+    const userStatusRef = useRef(userStatus);
+    useEffect(() => {
+        userStatusRef.current = userStatus;
+    }, [userStatus]);
+
+    // 🆕 Ref для актуального members — чтобы в обработчиках
+    // можно было проверить «есть ли userId у нас в списке», не тянув из замыкания
+    const membersRef = useRef(members);
+    useEffect(() => {
+        membersRef.current = members;
+    }, [members]);
 
     // ── Права ──
     const isOwnerUser = userStatus === 'Owner';
@@ -306,10 +319,12 @@ const ProjectDashboardPage = () => {
     }, []);
 
     // ── Загрузка деталей проекта ──
-    const loadProjectDetails = useCallback(async () => {
-        setLoading(true);
-        setError(null);
-        setNotification(null);
+    const loadProjectDetails = useCallback(async (silent = false) => {
+        if (!silent) {
+            setLoading(true);
+            setError(null);
+            setNotification(null);
+        }
 
         try {
             const projectData = await searchMyProjectByCode(code);
@@ -321,8 +336,10 @@ const ProjectDashboardPage = () => {
                     || status === 'Member';
 
                 if (!isMember) {
-                    setError('У вас нет доступа к этой странице');
-                    setLoading(false);
+                    if (!silent) {
+                        setError('У вас нет доступа к этой странице');
+                        setLoading(false);
+                    }
                     return;
                 }
 
@@ -332,13 +349,13 @@ const ProjectDashboardPage = () => {
 
                 loadVotingsBadge(projectData.publicCode);
             } else {
-                setError('Проект не найден');
+                if (!silent) setError('Проект не найден');
             }
         } catch (err) {
             console.error('Ошибка загрузки проекта:', err);
-            setError(err.message || 'Не удалось загрузить проект');
+            if (!silent) setError(err.message || 'Не удалось загрузить проект');
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     }, [code, loadVotingsBadge]);
 
@@ -367,17 +384,181 @@ const ProjectDashboardPage = () => {
         const handleVotingClosed = () => refreshVotingsBadge();
         const handleVotingDeleted = () => refreshVotingsBadge();
 
+        // ═══════════════════════════════════════════════════════════
+        //  🆕 АРХИВАЦИЯ: перевод UI в read-only / обратно
+        // ═══════════════════════════════════════════════════════════
+
+        const handleProjectArchived = (payload) => {
+            if (!payload?.publicCode) return;
+            if (payload.publicCode !== projectCode) return;
+
+            // Мгновенно переводим проект в режим «архив»
+            setProject((prev) => prev ? {
+                ...prev,
+                isArchived: true,
+                archivedAt: payload.archivedAt || new Date().toISOString(),
+            } : prev);
+
+            // Обновляем голосования (бэк закрыл активные)
+            setVotingsRefreshKey((k) => k + 1);
+            loadVotingsBadge(projectCode);
+
+            setNotification({
+                type: 'info',
+                text: '📦 Проект переведён в архив — действия недоступны'
+            });
+            setTimeout(() => setNotification(null), 4000);
+        };
+
+        const handleProjectUnarchived = (payload) => {
+            if (!payload?.publicCode) return;
+            if (payload.publicCode !== projectCode) return;
+
+            setProject((prev) => prev ? {
+                ...prev,
+                isArchived: false,
+                archivedAt: null,
+            } : prev);
+
+            setNotification({
+                type: 'success',
+                text: '↩️ Проект восстановлен из архива'
+            });
+            setTimeout(() => setNotification(null), 3000);
+        };
+
+        // ═══════════════════════════════════════════════════════════
+        //  🆕 УЧАСТНИКИ: добавление / удаление / смена роли
+        // ═══════════════════════════════════════════════════════════
+
+        // ── Новый участник (join / accept invitation / approve application) ──
+        const handleMemberAdded = (member) => {
+            if (!member?.userId) return;
+
+            setMembers((prev) => {
+                if (prev.some((m) => m.userId === member.userId)) return prev;
+                return [...prev, member];
+            });
+
+            setNotification({
+                type: 'success',
+                text: `👋 ${member.name || 'Новый участник'} присоединился к проекту`
+            });
+            setTimeout(() => setNotification(null), 3000);
+        };
+
+        // ── Участник удалён ──
+        const handleMemberRemoved = (payload) => {
+            if (!payload?.userId) return;
+
+            setMembers((prev) => prev.filter((m) => m.userId !== payload.userId));
+
+            // Проверяем — не меня ли удалили?
+            const myEmail = user?.email?.toLowerCase();
+            const removedMe =
+                (payload.userId && payload.userId === user?.id) ||
+                (myEmail && payload.email?.toLowerCase() === myEmail);
+
+            if (removedMe) {
+                setNotification({
+                    type: 'error',
+                    text: 'Вы были удалены из проекта'
+                });
+                setTimeout(() => {
+                    navigate('/projects');
+                }, 1500);
+                return;
+            }
+
+            setNotification({
+                type: 'info',
+                text: `${payload.name || 'Участник'} удалён из проекта`
+            });
+            setTimeout(() => setNotification(null), 3000);
+        };
+
+        // ── Роль участника изменена ──
+        const handleMemberRoleChanged = (payload) => {
+            if (!payload?.userId) return;
+
+            setMembers((prev) =>
+                prev.map((m) =>
+                    m.userId === payload.userId
+                        ? { ...m, role: payload.newRole }
+                        : m
+                )
+            );
+
+            // Если изменили МОЮ роль — обновим userStatus
+            const myEmail = user?.email?.toLowerCase();
+            const isMe =
+                (payload.userId && payload.userId === user?.id) ||
+                (myEmail && payload.email?.toLowerCase() === myEmail);
+
+            if (isMe) {
+                setUserStatus(payload.newRole);
+                setNotification({
+                    type: 'success',
+                    text: `Ваша роль изменена на «${payload.newRole}»`
+                });
+                setTimeout(() => setNotification(null), 3000);
+            }
+        };
+
+        // ═══════════════════════════════════════════════════════════
+        //  🆕 PRESENCE: обновление онлайн-статуса в карточках
+        //     Событие глобальное (Clients.Others), фильтруем по members.
+        // ═══════════════════════════════════════════════════════════
+
+        const handleUserOnline = (userId) => {
+            if (!userId) return;
+            // Если такого участника нет в списке — не ререндерим
+            if (!membersRef.current.some((m) => m.userId === userId)) return;
+
+            setMembers((prev) =>
+                prev.map((m) =>
+                    m.userId === userId ? { ...m, isOnline: true } : m
+                )
+            );
+        };
+
+        const handleUserOffline = (userId) => {
+            if (!userId) return;
+            if (!membersRef.current.some((m) => m.userId === userId)) return;
+
+            setMembers((prev) =>
+                prev.map((m) =>
+                    m.userId === userId ? { ...m, isOnline: false } : m
+                )
+            );
+        };
+
         // ── Reconnect ──
         const handleReconnected = () => {
             console.log('🔄 SignalR reconnected, re-joining project…');
             signalr.invoke('JoinProject', projectCode).catch(() => { });
             refreshVotingsBadge();
+            // Тихо перезагружаем проект — вдруг кто-то добавился/удалился,
+            // пока мы были offline
+            loadProjectDetails(true);
         };
+
+        // ── Подписки ──
+        signalr.on('ProjectArchived', handleProjectArchived);
+        signalr.on('ProjectUnarchived', handleProjectUnarchived);
 
         signalr.on('VotingCreated', handleVotingCreated);
         signalr.on('VoteCast', handleVoteCast);
         signalr.on('VotingClosed', handleVotingClosed);
         signalr.on('VotingDeleted', handleVotingDeleted);
+
+        signalr.on('MemberAdded', handleMemberAdded);
+        signalr.on('MemberRemoved', handleMemberRemoved);
+        signalr.on('MemberRoleChanged', handleMemberRoleChanged);
+
+        signalr.on('UserOnline', handleUserOnline);
+        signalr.on('UserOffline', handleUserOffline);
+
         signalr.on('_reconnected', handleReconnected);
 
         // JoinProject — единственный раз на всю страницу проекта
@@ -395,10 +576,21 @@ const ProjectDashboardPage = () => {
         return () => {
             cancelled = true;
 
+            signalr.off('ProjectArchived', handleProjectArchived);
+            signalr.off('ProjectUnarchived', handleProjectUnarchived);
+
             signalr.off('VotingCreated', handleVotingCreated);
             signalr.off('VoteCast', handleVoteCast);
             signalr.off('VotingClosed', handleVotingClosed);
             signalr.off('VotingDeleted', handleVotingDeleted);
+
+            signalr.off('MemberAdded', handleMemberAdded);
+            signalr.off('MemberRemoved', handleMemberRemoved);
+            signalr.off('MemberRoleChanged', handleMemberRoleChanged);
+
+            signalr.off('UserOnline', handleUserOnline);
+            signalr.off('UserOffline', handleUserOffline);
+
             signalr.off('_reconnected', handleReconnected);
 
             signalr.invoke('LeaveProject', projectCode).catch(() => { });
@@ -603,7 +795,15 @@ const ProjectDashboardPage = () => {
 
         try {
             await changeMemberRoleByCodeAndEmail(project.publicCode, member.email, newRole);
-            await loadProjectDetails();
+
+            // Локально обновим роль — мгновенный отклик.
+            // SignalR MemberRoleChanged тоже придёт и обновит у всех.
+            setMembers((prev) =>
+                prev.map((m) =>
+                    m.userId === member.userId ? { ...m, role: newRole } : m
+                )
+            );
+
             setNotification({ type: 'success', text: 'Роль обновлена' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
@@ -617,7 +817,11 @@ const ProjectDashboardPage = () => {
 
         try {
             await removeMemberFromProject(project.publicCode, member.email);
-            await loadProjectDetails();
+
+            // Локально убираем — мгновенный отклик.
+            // SignalR MemberRemoved тоже придёт.
+            setMembers((prev) => prev.filter((m) => m.userId !== member.userId));
+
             setNotification({ type: 'success', text: 'Участник удалён' });
             setTimeout(() => setNotification(null), 3000);
         } catch (err) {
@@ -1169,7 +1373,6 @@ const ProjectDashboardPage = () => {
                                 )}
                             </div>
 
-                            {/* 📌 1. ОПИСАНИЕ — теперь идёт первым после заголовка */}
                             {project.description && (
                                 <div className="description-section">
                                     <h3 className="subsection-title">Описание</h3>
@@ -1177,7 +1380,6 @@ const ProjectDashboardPage = () => {
                                 </div>
                             )}
 
-                            {/* 📌 2. ИНФОРМАЦИЯ — идёт после описания, в аккуратной сетке 2×N */}
                             <div className="info-grid">
                                 <div className="info-item">
                                     <span className="info-label">
@@ -1230,7 +1432,6 @@ const ProjectDashboardPage = () => {
                                 </div>
                             </div>
 
-                            {/* 📌 3. ТЕГИ — идут последними, аккуратной строкой */}
                             <div className="project-tags-section">
                                 <h3 className="subsection-title">Теги проекта</h3>
 
@@ -1271,7 +1472,14 @@ const ProjectDashboardPage = () => {
                             <div className="section-header">
                                 <h2 className="section-title">Участники</h2>
                                 <div className="section-header-actions">
-                                    <span className="members-count">{members.length} чел.</span>
+                                    <span className="members-count">
+                                        {members.length} чел.
+                                        {members.some(m => m.isOnline) && (
+                                            <span className="members-online-count">
+                                                {' '}· {members.filter(m => m.isOnline).length} онлайн
+                                            </span>
+                                        )}
+                                    </span>
                                     {canManageMembers && !project.isArchived && (
                                         <>
                                             <button
@@ -1315,6 +1523,7 @@ const ProjectDashboardPage = () => {
                                                     role: member.role,
                                                     joinedAt: member.joinedAt,
                                                     avatarUrl: member.avatarUrl,
+                                                    isOnline: member.isOnline,
                                                 }}
                                                 projectContext={{
                                                     projectCode: project.publicCode,
