@@ -1,8 +1,10 @@
 ﻿// Services/FriendService.cs
 
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ProjectHub.API.Data;
 using ProjectHub.API.DTOs.FriendDtos;
+using ProjectHub.API.Hubs;
 using ProjectHub.API.Models;
 using ProjectHub.API.Models.Enums;
 
@@ -13,12 +15,18 @@ public class FriendService
     private readonly AppDbContext _dbContext;
     private readonly ILogger<FriendService> _logger;
     private readonly NotificationService _notificationService;
+    private readonly IHubContext<ChatHub> _hubContext;
 
-    public FriendService(AppDbContext dbContext, ILogger<FriendService> logger, NotificationService notificationService)
+    public FriendService(
+        AppDbContext dbContext,
+        ILogger<FriendService> logger,
+        NotificationService notificationService,
+        IHubContext<ChatHub> hubContext)
     {
         _dbContext = dbContext;
         _logger = logger;
         _notificationService = notificationService;
+        _hubContext = hubContext;
     }
 
     // 📌 Получить список друзей пользователя
@@ -40,14 +48,14 @@ public class FriendService
             IsOnline = f.FriendUser.IsOnline,
             CreatedAt = f.FriendUser.CreatedAt,
             FriendSince = f.CreatedAt,
-            AvatarUrl = f.FriendUser.AvatarUrl    // 🆕
+            AvatarUrl = f.FriendUser.AvatarUrl
         }).ToList();
     }
 
-    // 📌 Добавить друга по email
+    // 📌 Добавить друга по email (создаёт сразу Accepted — legacy-путь,
+    //     обычно используется FriendRequestService)
     public async Task<FriendResponseDto> AddFriendAsync(Guid userId, string friendEmail)
     {
-        // Находим пользователя, которого хотят добавить
         var friendUser = await _dbContext.Users
             .FirstOrDefaultAsync(u => u.Email == friendEmail);
 
@@ -69,7 +77,6 @@ public class FriendService
             };
         }
 
-        // Проверяем, есть ли уже такая связь
         var existingFriend = await _dbContext.Friends
             .FirstOrDefaultAsync(f => f.UserId == userId && f.FriendId == friendUser.Id);
 
@@ -93,7 +100,6 @@ public class FriendService
             }
         }
 
-        // Создаем запись о дружбе
         var friend = new Friend
         {
             Id = Guid.NewGuid(),
@@ -108,29 +114,40 @@ public class FriendService
 
         _logger.LogInformation($"Пользователь {userId} добавил в друзья {friendUser.Id}");
 
+        var dto = new FriendDto
+        {
+            Id = friendUser.Id,
+            Name = friendUser.Name,
+            Email = friendUser.Email,
+            Specialization = friendUser.Specialization.ToString(),
+            Description = friendUser.Description,
+            IsOnline = friendUser.IsOnline,
+            CreatedAt = friendUser.CreatedAt,
+            FriendSince = friend.CreatedAt,
+            AvatarUrl = friendUser.AvatarUrl
+        };
+
+        // 🆕 ── SignalR: FriendAdded обоим ──
+        var payload = new
+        {
+            UserId = userId,
+            FriendId = friendUser.Id,
+        };
+
+        await EmitToUserAsync(userId, "FriendAdded", payload);
+        await EmitToUserAsync(friendUser.Id, "FriendAdded", payload);
+
         return new FriendResponseDto
         {
             Success = true,
             Message = "Пользователь добавлен в друзья",
-            Friend = new FriendDto
-            {
-                Id = friendUser.Id,
-                Name = friendUser.Name,
-                Email = friendUser.Email,
-                Specialization = friendUser.Specialization.ToString(),
-                Description = friendUser.Description,
-                IsOnline = friendUser.IsOnline,
-                CreatedAt = friendUser.CreatedAt,
-                FriendSince = friend.CreatedAt,
-                AvatarUrl = friendUser.AvatarUrl    // 🆕
-            }
+            Friend = dto
         };
     }
 
     // 📌 Удалить друга
     public async Task<bool> RemoveFriendAsync(Guid userId, Guid friendId)
     {
-        // Находим обе записи о дружбе
         var friendships = await _dbContext.Friends
             .Where(f => (f.UserId == userId && f.FriendId == friendId) ||
                         (f.UserId == friendId && f.FriendId == userId))
@@ -139,14 +156,15 @@ public class FriendService
         if (!friendships.Any())
             return false;
 
-        // Удаляем обе записи
         _dbContext.Friends.RemoveRange(friendships);
         await _dbContext.SaveChangesAsync();
 
-        _logger.LogInformation($"🗑️ Пользователь {userId} и {friendId} удалены из друзей друг у друга");
+        _logger.LogInformation(
+            $"🗑️ Пользователь {userId} и {friendId} удалены из друзей друг у друга");
+
+        var user = await _dbContext.Users.FindAsync(userId);
 
         // 📨 Уведомление второму пользователю
-        var user = await _dbContext.Users.FindAsync(userId);
         await _notificationService.CreateNotificationAsync(
             friendId,
             "💔 Пользователь удален из друзей",
@@ -155,6 +173,16 @@ public class FriendService
             $"/users/{Uri.EscapeDataString(user?.Email ?? "")}",
             userId
         );
+
+        // 🆕 ── SignalR: FriendRemoved обоим ──
+        var payload = new
+        {
+            UserId = userId,
+            FriendId = friendId,
+        };
+
+        await EmitToUserAsync(userId, "FriendRemoved", payload);
+        await EmitToUserAsync(friendId, "FriendRemoved", payload);
 
         return true;
     }
@@ -168,7 +196,9 @@ public class FriendService
             return false;
 
         return await _dbContext.Friends
-            .AnyAsync(f => f.UserId == userId && f.FriendId == friendUser.Id && f.Status == FriendStatus.Accepted);
+            .AnyAsync(f => f.UserId == userId
+                           && f.FriendId == friendUser.Id
+                           && f.Status == FriendStatus.Accepted);
     }
 
     // 📌 Получить статус дружбы
@@ -181,5 +211,25 @@ public class FriendService
             return FriendStatus.Rejected;
 
         return friend.Status;
+    }
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR — ХЕЛПЕР ЭМИТА
+    // ═══════════════════════════════════════════════════════════
+
+    private async Task EmitToUserAsync(Guid userId, string eventName, object payload)
+    {
+        try
+        {
+            await _hubContext.Clients
+                .Group($"user:{userId}")
+                .SendAsync(eventName, payload);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "SignalR: не удалось отправить {EventName} в user:{UserId}",
+                eventName, userId);
+        }
     }
 }

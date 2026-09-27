@@ -1,6 +1,6 @@
 // projecthub.client/src/components/FriendsList.js
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Search,
@@ -24,6 +24,7 @@ import {
 } from '../services/friendRequestsApi';
 import { getFriends, removeFriend } from '../services/friendsApi';
 import { createPersonalChat } from '../services/chatsApi';
+import { signalr } from '../services/signalrService';
 import '../styles/components/FriendsList.css';
 
 const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
@@ -37,6 +38,128 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
     const [notification, setNotification] = useState(null);
     const [friendStatus, setFriendStatus] = useState(null);
     const [isProcessing, setIsProcessing] = useState(false);
+
+    // 🆕 Ref — чтобы обработчики SignalR видели актуальный найденный email
+    const foundUserRef = useRef(foundUser);
+    useEffect(() => { foundUserRef.current = foundUser; }, [foundUser]);
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR: подписки на события друзей и заявок
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        // ── Заявка обработана (собеседником или мной) ──
+        const handleRequestProcessed = (payload) => {
+            const current = foundUserRef.current;
+            if (!current) return;
+
+            const { senderId, receiverId, status } = payload || {};
+
+            // Меняем статус, только если это касается найденного пользователя
+            const involvesFoundUser =
+                current.id === senderId || current.id === receiverId;
+
+            if (!involvesFoundUser) return;
+
+            if (status === 'Accepted') {
+                setFriendStatus({ status: 'Friend', isFriend: true, requestId: null });
+                setNotification({ type: 'success', text: '✅ Теперь вы друзья!' });
+            } else if (status === 'Rejected') {
+                setFriendStatus({ status: 'None', isFriend: false, requestId: null });
+            }
+
+            setTimeout(() => setNotification(null), 3000);
+        };
+
+        // ── Заявка отменена ──
+        const handleRequestCanceled = (payload) => {
+            const current = foundUserRef.current;
+            if (!current) return;
+
+            const { requestId } = payload || {};
+            if (!requestId) return;
+
+            // Если в найденном статусе как раз эта заявка — сбрасываем
+            setFriendStatus((prev) => {
+                if (prev?.requestId === requestId) {
+                    return { status: 'None', isFriend: false, requestId: null };
+                }
+                return prev;
+            });
+        };
+
+        // ── Стали друзьями (создалась запись Friend) ──
+        const handleFriendAdded = (payload) => {
+            const current = foundUserRef.current;
+            if (!current) return;
+
+            const { senderId, receiverId } = payload || {};
+
+            const involvesFoundUser =
+                current.id === senderId || current.id === receiverId;
+
+            if (!involvesFoundUser) return;
+
+            setFriendStatus({ status: 'Friend', isFriend: true, requestId: null });
+
+            // Просим родителя обновить список друзей
+            if (onFriendAdded) {
+                const otherUser = current;
+                onFriendAdded(otherUser);
+            }
+        };
+
+        // ── Друга удалили ──
+        const handleFriendRemoved = (payload) => {
+            const current = foundUserRef.current;
+            const { userId, friendId } = payload || {};
+
+            // Если в поиске открыт именно этот пользователь — сбрасываем статус
+            if (current && (current.id === userId || current.id === friendId)) {
+                setFriendStatus({ status: 'None', isFriend: false, requestId: null });
+            }
+
+            // Просим родителя обновить список
+            if (onFriendRemoved) {
+                // Найдём id для удаления — родитель хранит свои объекты,
+                // но по контракту MemberCard.key === friend.id (это user.id).
+                // Мы не знаем, кого именно нужно удалить из локального массива
+                // без точного id. Передаём оба варианта — родитель сам разрулит.
+                const removeId = current?.id === userId ? friendId : userId;
+                onFriendRemoved(removeId);
+            }
+        };
+
+        // ── Reconnect ──
+        const handleReconnected = () => {
+            console.log('🔄 SignalR reconnected, refreshing friend status…');
+            // Тихий рефетч статуса найденного пользователя
+            const current = foundUserRef.current;
+            if (current?.email) {
+                getFriendStatus(current.email)
+                    .then((status) => setFriendStatus(status))
+                    .catch(() => { });
+            }
+        };
+
+        signalr.on('FriendRequestProcessed', handleRequestProcessed);
+        signalr.on('FriendRequestCanceled', handleRequestCanceled);
+        signalr.on('FriendAdded', handleFriendAdded);
+        signalr.on('FriendRemoved', handleFriendRemoved);
+        signalr.on('_reconnected', handleReconnected);
+
+        signalr.connect().catch((err) => {
+            console.warn('SignalR connect from FriendsList failed:', err);
+        });
+
+        return () => {
+            signalr.off('FriendRequestProcessed', handleRequestProcessed);
+            signalr.off('FriendRequestCanceled', handleRequestCanceled);
+            signalr.off('FriendAdded', handleFriendAdded);
+            signalr.off('FriendRemoved', handleFriendRemoved);
+            signalr.off('_reconnected', handleReconnected);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     // ── Поиск пользователя по email ──
     const handleSearch = async (e) => {
@@ -90,8 +213,24 @@ const FriendsList = ({ friends, loading, onFriendAdded, onFriendRemoved }) => {
 
             if (onFriendAdded) onFriendAdded(targetUser || foundUser);
         } catch (err) {
-            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка') });
-            setTimeout(() => setNotification(null), 3000);
+            // 🆕 Понятные сообщения для частых кейсов
+            const errorText = (err.message || '').toLowerCase();
+            let friendlyMessage = err.message || 'Ошибка';
+
+            if (errorText.includes('уже отправил вам заявку')) {
+                friendlyMessage = 'Этот пользователь уже отправил вам заявку — проверьте входящие';
+                // Обновляем статус на «Received»
+                setFriendStatus((prev) => ({ ...(prev || {}), status: 'Received' }));
+            } else if (errorText.includes('заявка уже отправлена')) {
+                friendlyMessage = 'Заявка уже отправлена';
+                setFriendStatus((prev) => ({ ...(prev || {}), status: 'Pending' }));
+            } else if (errorText.includes('уже в друзьях')) {
+                friendlyMessage = 'Этот пользователь уже в друзьях';
+                setFriendStatus({ status: 'Friend', isFriend: true });
+            }
+
+            setNotification({ type: 'error', text: friendlyMessage });
+            setTimeout(() => setNotification(null), 4000);
         } finally {
             setIsProcessing(false);
         }

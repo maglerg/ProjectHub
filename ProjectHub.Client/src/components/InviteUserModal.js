@@ -55,17 +55,19 @@ const InviteUserModal = ({ project, onClose, onInvitationSent }) => {
     };
 
     // 📌 Отправить приглашение (используем publicCode)
+    // 📌 Отправить приглашение (используем publicCode)
     const handleSendInvitation = async () => {
         if (!foundUser || !project?.publicCode) {
             console.error('❌ Нет publicCode проекта');
             return;
         }
 
+        if (isSending) return;
+
         setIsSending(true);
         setNotification(null);
 
         try {
-            // ✅ Используем publicCode вместо project.id
             await createInvitationByCode(project.publicCode, foundUser.email, message);
             setIsInvited(true);
             setNotification({ type: 'success', text: '✅ Приглашение отправлено!' });
@@ -74,7 +76,32 @@ const InviteUserModal = ({ project, onClose, onInvitationSent }) => {
                 onInvitationSent();
             }
         } catch (err) {
-            setNotification({ type: 'error', text: '❌ ' + (err.message || 'Ошибка отправки') });
+            const errorText = (err.message || '').toLowerCase();
+
+            // 🆕 Понятные сообщения для частых кейсов
+            let friendlyMessage;
+
+            if (
+                errorText.includes('уже отправлено') ||
+                errorText.includes('уже приглашён') ||
+                errorText.includes('already')
+            ) {
+                friendlyMessage = 'Этот пользователь уже приглашён в проект';
+            } else if (
+                errorText.includes('уже является участником') ||
+                errorText.includes('already a member')
+            ) {
+                friendlyMessage = 'Пользователь уже является участником проекта';
+            } else if (
+                errorText.includes('нет прав') ||
+                errorText.includes('доступ')
+            ) {
+                friendlyMessage = 'У вас нет прав приглашать участников';
+            } else {
+                friendlyMessage = err.message || 'Ошибка отправки приглашения';
+            }
+
+            setNotification({ type: 'error', text: friendlyMessage });
         } finally {
             setIsSending(false);
         }

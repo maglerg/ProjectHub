@@ -1,6 +1,6 @@
 // projecthub.client/src/components/FriendRequestsPage.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getIncomingFriendRequests, processFriendRequest } from '../services/friendRequestsApi';
+import { signalr } from '../services/signalrService';
 import '../styles/components/FriendRequestsPage.css';
 
 const FriendRequestsPage = () => {
@@ -30,13 +31,18 @@ const FriendRequestsPage = () => {
     const [success, setSuccess] = useState(null);
     const [filter, setFilter] = useState('pending');
 
+    // 🆕 Refs — чтобы обработчики SignalR видели актуальные данные
+    const userIdRef = useRef(null);
     useEffect(() => {
-        loadFriendRequests();
-    }, []);
+        userIdRef.current = user?.id || user?.userId || null;
+    }, [user]);
 
-    const loadFriendRequests = async () => {
-        setLoading(true);
-        setError(null);
+    // ── Загрузка ──
+    const loadFriendRequests = useCallback(async (silent = false) => {
+        if (!silent) {
+            setLoading(true);
+            setError(null);
+        }
         try {
             console.log('📥 Загрузка заявок в друзья...');
             const data = await getIncomingFriendRequests();
@@ -49,18 +55,99 @@ const FriendRequestsPage = () => {
             }
         } catch (err) {
             console.error('❌ Ошибка загрузки заявок:', err);
-            setError(err.message || 'Ошибка загрузки заявок');
-            setRequests([]);
+            if (!silent) {
+                setError(err.message || 'Ошибка загрузки заявок');
+                setRequests([]);
+            }
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
-    };
+    }, []);
 
+    useEffect(() => {
+        loadFriendRequests();
+    }, [loadFriendRequests]);
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR: подписки на события заявок в друзья
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        // ── Новая входящая заявка ──
+        const handleRequestCreated = (request) => {
+            if (!request?.id) return;
+
+            // Бэк эмитит в user:{receiverId}, но защищаемся от лишнего.
+            const currentUserId = userIdRef.current;
+            const currentEmail = user?.email?.toLowerCase();
+
+            const isForMe =
+                (currentUserId && request.receiverId === currentUserId) ||
+                (currentEmail && request.receiverEmail?.toLowerCase() === currentEmail);
+
+            if (!isForMe) return;
+
+            setRequests((prev) => {
+                if (prev.some((r) => r.id === request.id)) return prev;
+                return [request, ...prev];
+            });
+
+            setSuccess('👋 Новая заявка в друзья!');
+            setTimeout(() => setSuccess(null), 3000);
+        };
+
+        // ── Заявка обработана (мной в другой вкладке или собеседником) ──
+        const handleRequestProcessed = (payload) => {
+            const requestId = payload?.requestId;
+            if (!requestId) return;
+
+            // Убираем карточку из списка
+            setRequests((prev) => prev.filter((r) => r.id !== requestId));
+        };
+
+        // ── Заявка отменена отправителем ──
+        const handleRequestCanceled = (payload) => {
+            const requestId = payload?.requestId;
+            if (!requestId) return;
+
+            setRequests((prev) => prev.filter((r) => r.id !== requestId));
+
+            setSuccess('↩️ Заявка была отменена отправителем');
+            setTimeout(() => setSuccess(null), 3000);
+        };
+
+        // ── Reconnect ──
+        const handleReconnected = () => {
+            console.log('🔄 SignalR reconnected, refreshing friend requests…');
+            loadFriendRequests(true);
+        };
+
+        signalr.on('FriendRequestCreated', handleRequestCreated);
+        signalr.on('FriendRequestProcessed', handleRequestProcessed);
+        signalr.on('FriendRequestCanceled', handleRequestCanceled);
+        signalr.on('_reconnected', handleReconnected);
+
+        // На случай, если соединение ещё не поднято
+        signalr.connect().catch((err) => {
+            console.warn('SignalR connect from FriendRequestsPage failed:', err);
+        });
+
+        return () => {
+            signalr.off('FriendRequestCreated', handleRequestCreated);
+            signalr.off('FriendRequestProcessed', handleRequestProcessed);
+            signalr.off('FriendRequestCanceled', handleRequestCanceled);
+            signalr.off('_reconnected', handleReconnected);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loadFriendRequests, user?.email]);
+
+    // ── Обработка заявки ──
     const handleProcess = async (requestId, approve) => {
         if (!requestId) {
             setError('Ошибка: ID заявки не найден');
             return;
         }
+
+        if (processing) return;
 
         setProcessing(requestId);
         setError(null);
@@ -71,8 +158,9 @@ const FriendRequestsPage = () => {
             await processFriendRequest(requestId, approve);
             setSuccess(approve ? '✅ Заявка принята!' : '❌ Заявка отклонена');
 
-            // Обновляем список
-            await loadFriendRequests();
+            // Убираем карточку сразу.
+            // Если SignalR подключён — обработчик также уберёт (защита от дублей).
+            setRequests((prev) => prev.filter((r) => r.id !== requestId));
 
             // Скрываем сообщение через 3 секунды
             setTimeout(() => setSuccess(null), 3000);
@@ -80,6 +168,10 @@ const FriendRequestsPage = () => {
             console.error('❌ Ошибка обработки:', err);
             setError(err.message || 'Ошибка обработки заявки');
             setTimeout(() => setError(null), 3000);
+
+            // Если ошибка — возможно, заявка уже обработана в другой вкладке.
+            // Тихий рефетч актуализирует список.
+            loadFriendRequests(true);
         } finally {
             setProcessing(null);
         }

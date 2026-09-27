@@ -1,6 +1,6 @@
 // projecthub.client/src/components/ApplicationsPage.js
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
     ArrowLeft,
@@ -20,6 +20,7 @@ import { useAuth } from '../context/AuthContext';
 import { searchProjectByCode } from '../services/projectsApi';
 import { getApplicationsByCode, processApplication } from '../services/applicationsApi';
 import { getUnreadCount } from '../services/notificationsApi';
+import { signalr } from '../services/signalrService';
 import UserAvatar from './UserAvatar';
 import '../styles/components/ApplicationsPage.css';
 
@@ -36,44 +37,53 @@ const ApplicationsPage = () => {
     const [success, setSuccess] = useState(null);
     const [filter, setFilter] = useState('pending');
 
-    useEffect(() => {
-        if (code) {
-            loadData();
-        } else {
-            setError('Код проекта не указан');
-            setLoading(false);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [code]);
+    // 🆕 Ref — чтобы обработчики SignalR видели актуальный userStatus
+    const userStatusRef = useRef('NotJoined');
 
-    const loadData = async () => {
-        setLoading(true);
-        setError(null);
+    // ── Загрузка данных ──
+    const loadData = useCallback(async (silent = false) => {
+        if (!code) {
+            setError('Код проекта не указан');
+            if (!silent) setLoading(false);
+            return;
+        }
+
+        if (!silent) {
+            setLoading(true);
+            setError(null);
+        }
 
         try {
             const projectData = await searchProjectByCode(code);
 
             if (!projectData) {
-                setError('Проект не найден');
-                setLoading(false);
+                if (!silent) {
+                    setError('Проект не найден');
+                    setLoading(false);
+                }
                 return;
             }
 
             setProject(projectData);
 
             const userStatus = projectData.userStatus || 'NotJoined';
+            userStatusRef.current = userStatus;
 
             if (userStatus !== 'Owner' && userStatus !== 'Admin') {
-                setError('У вас нет прав для просмотра заявок');
-                setLoading(false);
+                if (!silent) {
+                    setError('У вас нет прав для просмотра заявок');
+                    setLoading(false);
+                }
                 return;
             }
 
-            await loadApplications(code);
+            await loadApplications(code, silent);
         } catch (err) {
             console.error('❌ Ошибка загрузки:', err);
-            setError(err.message || 'Ошибка загрузки данных');
-            setLoading(false);
+            if (!silent) {
+                setError(err.message || 'Ошибка загрузки данных');
+                setLoading(false);
+            }
         }
 
         // Обновляем счётчик уведомлений
@@ -82,13 +92,14 @@ const ApplicationsPage = () => {
         } catch (err) {
             console.warn('Не удалось обновить счётчик:', err);
         }
-    };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [code]);
 
-    const loadApplications = async (projectCode) => {
+    const loadApplications = async (projectCode, silent = false) => {
         try {
             if (!projectCode) {
                 setApplications([]);
-                setLoading(false);
+                if (!silent) setLoading(false);
                 return;
             }
 
@@ -102,13 +113,93 @@ const ApplicationsPage = () => {
             }
         } catch (err) {
             console.error('❌ Ошибка загрузки заявок:', err);
-            setError(err.message || 'Ошибка загрузки заявок');
+            if (!silent) setError(err.message || 'Ошибка загрузки заявок');
             setApplications([]);
         } finally {
-            setLoading(false);
+            if (!silent) setLoading(false);
         }
     };
 
+    useEffect(() => {
+        loadData();
+    }, [loadData]);
+
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 SIGNALR: JoinProject + подписки на события заявок.
+    //     Страница /projects/:code/applications — отдельный маршрут,
+    //     поэтому JoinProject делает сама.
+    // ═══════════════════════════════════════════════════════════
+    useEffect(() => {
+        if (!code) return;
+
+        let cancelled = false;
+
+        // ── Новая заявка подана ──
+        const handleApplicationCreated = (application) => {
+            if (!application?.id) return;
+
+            // Показываем только owner'у и админам
+            const status = userStatusRef.current;
+            if (status !== 'Owner' && status !== 'Admin') return;
+
+            setApplications((prev) => {
+                // Защита от дублей
+                if (prev.some((a) => a.id === application.id)) return prev;
+                // Добавляем в начало — там сортировка по CreatedAt desc
+                return [application, ...prev];
+            });
+
+            setSuccess('📨 Новая заявка!');
+            setTimeout(() => setSuccess(null), 3000);
+        };
+
+        // ── Заявка обработана (одобрена/отклонена) ──
+        const handleApplicationProcessed = (payload) => {
+            const applicationId = payload?.applicationId;
+            if (!applicationId) return;
+
+            setApplications((prev) =>
+                prev.filter((a) => a.id !== applicationId)
+            );
+        };
+
+        // ── Reconnect — перезагружаем всё ──
+        const handleReconnected = () => {
+            console.log('🔄 SignalR reconnected, refreshing applications…');
+            signalr.invoke('JoinProject', code).catch(() => { });
+            loadData(true);
+        };
+
+        signalr.on('ApplicationCreated', handleApplicationCreated);
+        signalr.on('ApplicationProcessed', handleApplicationProcessed);
+        signalr.on('_reconnected', handleReconnected);
+
+        // JoinProject — страница отдельная, делаем сами
+        (async () => {
+            try {
+                await signalr.connect();
+                if (cancelled) return;
+                await signalr.invoke('JoinProject', code);
+                console.log(`✅ ApplicationsPage joined project:${code}`);
+            } catch (err) {
+                console.warn('SignalR: не удалось присоединиться к проекту:', err);
+            }
+        })();
+
+        return () => {
+            cancelled = true;
+
+            signalr.off('ApplicationCreated', handleApplicationCreated);
+            signalr.off('ApplicationProcessed', handleApplicationProcessed);
+            signalr.off('_reconnected', handleReconnected);
+
+            signalr.invoke('LeaveProject', code).catch(() => { });
+            console.log(`👋 ApplicationsPage left project:${code}`);
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [code]);
+
+    // ── Обработка заявки ──
     const handleProcess = async (applicationId, approve) => {
         if (!applicationId) {
             setError('Ошибка: ID заявки не найден');
@@ -123,8 +214,13 @@ const ApplicationsPage = () => {
             await processApplication(applicationId, approve);
             setSuccess(approve ? '✅ Заявка одобрена!' : '❌ Заявка отклонена');
 
-            await loadApplications(code);
-            await loadData();
+            // Если SignalR не подключён — обновляем вручную.
+            // Если подключён — придёт ApplicationProcessed и уберёт из списка,
+            // но всё равно перезагружаем для актуальности.
+            if (!signalr.isConnected()) {
+                await loadApplications(code);
+                await loadData();
+            }
         } catch (err) {
             console.error('❌ Ошибка обработки:', err);
             setError(err.message || 'Ошибка обработки заявки');
@@ -330,7 +426,6 @@ const ApplicationsPage = () => {
                             <div key={app.id} className="application-card">
                                 <div className="application-header">
                                     <div className="user-info">
-                                        {/* 🆕 Аватар заявителя */}
                                         <UserAvatar
                                             avatarUrl={app.userAvatarUrl}
                                             name={app.userName}
