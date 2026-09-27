@@ -983,3 +983,69 @@
         letter-spacing: 0.05em;
         vertical-align: middle;
     }
+/* ═══════════════════════════════════════════════════════════
+   BADGE НА КНОПКЕ «ЗАЯВКИ»
+   ═══════════════════════════════════════════════════════════ */
+
+.btn .btn-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 18px;
+    height: 18px;
+    padding: 0 5px;
+    margin-left: 6px;
+    background: #ef4444;
+    color: #fff;
+    border-radius: 9px;
+    font-size: 11px;
+    font-weight: 600;
+    line-height: 1;
+}
+
+/* У secondary-кнопки — badge с тёмно-красным фоном */
+.btn--secondary .btn-badge {
+    background: #dc2626;
+}
+
+/* На мобильных чуть меньше */
+@media (max-width: 480px) {
+    .btn .btn-badge {
+        min-width: 16px;
+        height: 16px;
+        padding: 0 4px;
+        font-size: 10px;
+        margin-left: 4px;
+    }
+}
+
+/* ═══════════════════════════════════════════════════════════
+   NO-ACCESS SECTION (для раздела «Заявки» без прав)
+   ═══════════════════════════════════════════════════════════ */
+
+.no-access-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    gap: 12px;
+    color: #6b7280;
+    text-align: center;
+}
+
+    .no-access-section h3 {
+        margin: 0;
+        font-size: 20px;
+        color: #374151;
+    }
+
+    .no-access-section p {
+        margin: 0;
+        font-size: 14px;
+        max-width: 400px;
+    }
+
+    .no-access-section svg {
+        color: #d1d5db;
+    }

@@ -167,10 +167,9 @@ public class ApplicationService
                 throw new InvalidOperationException(
                     "Проект находится в архиве, одобрить заявку нельзя");
 
-            application.Status = ApplicationStatus.Approved;
-            application.ProcessedAt = DateTime.UtcNow;
-            application.ProcessedBy = processedBy;
-            application.UpdatedAt = DateTime.UtcNow;
+            // 🆕 НЕ выставляем Status = Approved — заявка будет удалена.
+            //    Сохраняем только метаданные обработки (для activity и DTO).
+            var processedAt = DateTime.UtcNow;
 
             var member = new ProjectMember
             {
@@ -193,6 +192,9 @@ public class ApplicationService
                 relatedEntityId: application.Id
             );
 
+            // 🆕 Удаляем заявку из БД (как в reject-ветке)
+            _dbContext.Applications.Remove(application);
+
             await _dbContext.SaveChangesAsync();
 
             // 🆕 ── SignalR: событие истории ──
@@ -214,8 +216,20 @@ public class ApplicationService
                     IsOnline = application.User?.IsOnline ?? false
                 });
 
+            // 🆕 ── SignalR: UI-событие — заявка обработана ──
+            // ApplicationsPage убирает карточку из списка.
+            await _activity.EmitToProjectAsync(
+                application.Project.PublicCode,
+                "ApplicationProcessed",
+                new
+                {
+                    ApplicationId = application.Id,
+                    Status = "Approved",
+                });
+
             _logger.LogInformation(
-                $"✅ Пользователь {application.UserId} добавлен в участники проекта {application.ProjectId}");
+                $"✅ Пользователь {application.UserId} добавлен в участники проекта {application.ProjectId}, " +
+                $"заявка {application.Id} удалена");
 
             await _notificationService.CreateNotificationAsync(
                 application.UserId,
@@ -249,6 +263,25 @@ public class ApplicationService
             }
 
             _logger.LogInformation("📨 Уведомления о новом участнике отправлены");
+
+            // 🆕 Возвращаем DTO вручную — application уже detached/removed.
+            //    Статус выставляем как «Approved», т.к. это ответ API.
+            return new ApplicationResponseDto
+            {
+                Id = application.Id,
+                ProjectId = application.ProjectId,
+                ProjectName = application.Project?.Name ?? string.Empty,
+                ProjectCode = application.Project?.PublicCode ?? string.Empty,
+                UserId = application.UserId,
+                UserName = application.User?.Name ?? string.Empty,
+                UserEmail = application.User?.Email ?? string.Empty,
+                UserSpecialization = application.User?.Specialization.ToString(),
+                UserAvatarUrl = application.User?.AvatarUrl,
+                Status = "Approved",
+                Message = application.Message,
+                CreatedAt = application.CreatedAt,
+                ProcessedAt = processedAt
+            };
         }
         else
         {

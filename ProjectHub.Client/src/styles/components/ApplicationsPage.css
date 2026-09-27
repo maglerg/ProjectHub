@@ -391,3 +391,20 @@
     align-self: flex-start;
     margin-top: 4px;
 }
+/* ═══════════════════════════════════════════════════════════
+   EMBEDDED РЕЖИМ
+   ═══════════════════════════════════════════════════════════ */
+
+.applications-page--embedded {
+    min-height: auto;
+    background: transparent;
+}
+
+    .applications-page--embedded .applications-content {
+        max-width: none;
+        padding: 0;
+    }
+
+    .applications-page--embedded .applications-filters {
+        /* без изменений — оставляем как есть */
+    }

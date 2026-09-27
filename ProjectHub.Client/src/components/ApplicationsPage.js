@@ -25,10 +25,19 @@ import { signalr } from '../services/signalrService';
 import UserAvatar from './UserAvatar';
 import '../styles/components/ApplicationsPage.css';
 
-const ApplicationsPage = () => {
-    const { code } = useParams();
+const ApplicationsPage = ({
+    // 🆕 embedded-режим: используется внутри ProjectDashboardPage
+    embedded = false,
+    projectCode: projectCodeProp = null,
+    isArchived: isArchivedProp = null,
+    onPendingCountChange = null,
+}) => {
+    const params = useParams();
     const navigate = useNavigate();
     const { user } = useAuth();
+
+    // 🆕 Код проекта: либо из пропса (embedded), либо из URL
+    const code = projectCodeProp || params.code;
 
     const [project, setProject] = useState(null);
     const [applications, setApplications] = useState([]);
@@ -37,6 +46,17 @@ const ApplicationsPage = () => {
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
     const [filter, setFilter] = useState('pending');
+
+    // 🆕 Локальный isArchived — синхронизируется с пропом,
+    //     но может быть переопределён через SignalR
+    const [isArchivedLocal, setIsArchivedLocal] = useState(isArchivedProp === true);
+    useEffect(() => {
+        if (isArchivedProp !== null) {
+            setIsArchivedLocal(isArchivedProp);
+        }
+    }, [isArchivedProp]);
+
+    const isArchived = isArchivedLocal;
 
     // 🆕 Ref — чтобы обработчики SignalR видели актуальный userStatus
     const userStatusRef = useRef('NotJoined');
@@ -87,14 +107,17 @@ const ApplicationsPage = () => {
             }
         }
 
-        // Обновляем счётчик уведомлений
-        try {
-            await getUnreadCount();
-        } catch (err) {
-            console.warn('Не удалось обновить счётчик:', err);
+        // Обновляем счётчик уведомлений (только в standalone-режиме,
+        // чтобы не спамить при embedded)
+        if (!embedded) {
+            try {
+                await getUnreadCount();
+            } catch (err) {
+                console.warn('Не удалось обновить счётчик:', err);
+            }
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [code]);
+    }, [code, embedded]);
 
     const loadApplications = async (projectCode, silent = false) => {
         try {
@@ -126,10 +149,9 @@ const ApplicationsPage = () => {
     }, [loadData]);
 
     // ═══════════════════════════════════════════════════════════
-    //  🆕 SIGNALR: JoinProject + подписки на события заявок
-    //     и архивацию проекта.
-    //     Страница /projects/:code/applications — отдельный маршрут,
-    //     поэтому JoinProject делает сама.
+    //  🆕 SIGNALR: подписки на события заявок и архивацию проекта.
+    //     JoinProject/LeaveProject делаем только в standalone-режиме,
+    //     в embedded — их делает родитель (ProjectDashboardPage).
     // ═══════════════════════════════════════════════════════════
     useEffect(() => {
         if (!code) return;
@@ -140,14 +162,11 @@ const ApplicationsPage = () => {
         const handleApplicationCreated = (application) => {
             if (!application?.id) return;
 
-            // Показываем только owner'у и админам
             const status = userStatusRef.current;
             if (status !== 'Owner' && status !== 'Admin') return;
 
             setApplications((prev) => {
-                // Защита от дублей
                 if (prev.some((a) => a.id === application.id)) return prev;
-                // Добавляем в начало — там сортировка по CreatedAt desc
                 return [application, ...prev];
             });
 
@@ -155,7 +174,7 @@ const ApplicationsPage = () => {
             setTimeout(() => setSuccess(null), 3000);
         };
 
-        // ── Заявка обработана (одобрена/отклонена) ──
+        // ── Заявка обработана ──
         const handleApplicationProcessed = (payload) => {
             const applicationId = payload?.applicationId;
             if (!applicationId) return;
@@ -165,7 +184,7 @@ const ApplicationsPage = () => {
             );
         };
 
-        // 🆕 ── Заявка отменена (архивация проекта и т.п.) ──
+        // ── Заявка отменена ──
         const handleApplicationCanceled = (payload) => {
             const applicationId = payload?.applicationId;
             if (!applicationId) return;
@@ -175,36 +194,38 @@ const ApplicationsPage = () => {
             );
         };
 
-        // 🆕 ── Проект архивирован ──
+        // ── Проект архивирован ──
         const handleProjectArchived = (payload) => {
             if (!payload?.publicCode) return;
             if (payload.publicCode !== code) return;
 
-            // Обновляем проект — UI переключится в read-only
-            setProject((prev) => prev ? { ...prev, isArchived: true } : prev);
-
-            // Заявки отменены на бэке — очищаем список
+            setIsArchivedLocal(true);
             setApplications([]);
 
             setSuccess('📦 Проект в архиве — заявки отменены');
             setTimeout(() => setSuccess(null), 4000);
         };
 
-        // 🆕 ── Проект восстановлен ──
+        // ── Проект восстановлен ──
         const handleProjectUnarchived = (payload) => {
             if (!payload?.publicCode) return;
             if (payload.publicCode !== code) return;
 
-            setProject((prev) => prev ? { ...prev, isArchived: false } : prev);
+            setIsArchivedLocal(false);
 
             setSuccess('↩️ Проект восстановлен из архива');
             setTimeout(() => setSuccess(null), 3000);
         };
 
-        // ── Reconnect — перезагружаем всё ──
+        // ── Reconnect ──
         const handleReconnected = () => {
             console.log('🔄 SignalR reconnected, refreshing applications…');
-            signalr.invoke('JoinProject', code).catch(() => { });
+
+            // JoinProject только в standalone-режиме
+            if (!embedded) {
+                signalr.invoke('JoinProject', code).catch(() => { });
+            }
+
             loadData(true);
         };
 
@@ -215,17 +236,20 @@ const ApplicationsPage = () => {
         signalr.on('ProjectUnarchived', handleProjectUnarchived);
         signalr.on('_reconnected', handleReconnected);
 
-        // JoinProject — страница отдельная, делаем сами
-        (async () => {
-            try {
-                await signalr.connect();
-                if (cancelled) return;
-                await signalr.invoke('JoinProject', code);
-                console.log(`✅ ApplicationsPage joined project:${code}`);
-            } catch (err) {
-                console.warn('SignalR: не удалось присоединиться к проекту:', err);
-            }
-        })();
+        // JoinProject — только если это standalone-страница.
+        // В embedded это уже делает родитель.
+        if (!embedded) {
+            (async () => {
+                try {
+                    await signalr.connect();
+                    if (cancelled) return;
+                    await signalr.invoke('JoinProject', code);
+                    console.log(`✅ ApplicationsPage joined project:${code}`);
+                } catch (err) {
+                    console.warn('SignalR: не удалось присоединиться к проекту:', err);
+                }
+            })();
+        }
 
         return () => {
             cancelled = true;
@@ -237,11 +261,14 @@ const ApplicationsPage = () => {
             signalr.off('ProjectUnarchived', handleProjectUnarchived);
             signalr.off('_reconnected', handleReconnected);
 
-            signalr.invoke('LeaveProject', code).catch(() => { });
-            console.log(`👋 ApplicationsPage left project:${code}`);
+            // LeaveProject — только в standalone-режиме
+            if (!embedded) {
+                signalr.invoke('LeaveProject', code).catch(() => { });
+                console.log(`👋 ApplicationsPage left project:${code}`);
+            }
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [code]);
+    }, [code, embedded]);
 
     // ── Обработка заявки ──
     const handleProcess = async (applicationId, approve) => {
@@ -258,13 +285,10 @@ const ApplicationsPage = () => {
             await processApplication(applicationId, approve);
             setSuccess(approve ? '✅ Заявка одобрена!' : '❌ Заявка отклонена');
 
-            // Если SignalR не подключён — обновляем вручную.
-            // Если подключён — придёт ApplicationProcessed и уберёт из списка.
             if (!signalr.isConnected()) {
                 await loadApplications(code);
                 await loadData(true);
             } else {
-                // Мгновенный локальный отклик — убираем карточку
                 setApplications((prev) =>
                     prev.filter((a) => a.id !== applicationId)
                 );
@@ -322,7 +346,16 @@ const ApplicationsPage = () => {
     };
 
     const safeApplications = Array.isArray(applications) ? applications : [];
-    const isArchived = !!project?.isArchived;
+
+    // 🆕 Уведомляем родителя о счётчике pending-заявок
+    useEffect(() => {
+        if (onPendingCountChange) {
+            const pendingCount = safeApplications.filter(
+                a => a.status === 'Pending'
+            ).length;
+            onPendingCountChange(pendingCount);
+        }
+    }, [safeApplications, onPendingCountChange]);
 
     const filteredApplications = safeApplications.filter(app => {
         if (filter === 'pending') return app.status === 'Pending';
@@ -382,24 +415,27 @@ const ApplicationsPage = () => {
     }
 
     return (
-        <div className="applications-page">
-            <header className="applications-header">
-                <button
-                    type="button"
-                    className="btn btn--ghost btn--sm"
-                    onClick={() => navigate(`/projects/${code}`)}
-                >
-                    <ArrowLeft size={16} />
-                    Назад к проекту
-                </button>
-                <h1>
-                    <Mail size={24} />
-                    Заявки на вступление
-                </h1>
-                <span className="project-name">{project.name || 'Без названия'}</span>
-            </header>
+        <div className={embedded ? 'applications-page applications-page--embedded' : 'applications-page'}>
+            {/* 🆕 Хедер только в standalone-режиме */}
+            {!embedded && (
+                <header className="applications-header">
+                    <button
+                        type="button"
+                        className="btn btn--ghost btn--sm"
+                        onClick={() => navigate(`/projects/${code}`)}
+                    >
+                        <ArrowLeft size={16} />
+                        Назад к проекту
+                    </button>
+                    <h1>
+                        <Mail size={24} />
+                        Заявки на вступление
+                    </h1>
+                    <span className="project-name">{project.name || 'Без названия'}</span>
+                </header>
+            )}
 
-            {/* 🆕 Плашка «архив» */}
+            {/* Плашка «архив» — и в standalone, и в embedded */}
             {isArchived && (
                 <div className="archive-banner">
                     <Archive size={16} />
@@ -408,20 +444,23 @@ const ApplicationsPage = () => {
             )}
 
             <div className="applications-content">
-                <div className="project-info-bar">
-                    <span>
-                        <Folder size={14} />
-                        Код: <strong>{project.publicCode || '—'}</strong>
-                    </span>
-                    <span>
-                        <Users size={14} />
-                        Участников: <strong>{project.members?.length || 0}</strong>
-                    </span>
-                    <span>
-                        <ClipboardList size={14} />
-                        Всего заявок: <strong>{safeApplications.length}</strong>
-                    </span>
-                </div>
+                {/* 🆕 Info-bar только в standalone-режиме */}
+                {!embedded && (
+                    <div className="project-info-bar">
+                        <span>
+                            <Folder size={14} />
+                            Код: <strong>{project.publicCode || '—'}</strong>
+                        </span>
+                        <span>
+                            <Users size={14} />
+                            Участников: <strong>{project.members?.length || 0}</strong>
+                        </span>
+                        <span>
+                            <ClipboardList size={14} />
+                            Всего заявок: <strong>{safeApplications.length}</strong>
+                        </span>
+                    </div>
+                )}
 
                 <div className="applications-filters">
                     <button

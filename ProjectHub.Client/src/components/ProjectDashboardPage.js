@@ -59,6 +59,10 @@ import {
 } from '../services/friendRequestsApi';
 import { getFriends, removeFriend } from '../services/friendsApi';
 import { signalr } from '../services/signalrService';
+// 🆕 Заявки
+import {
+    getApplicationsByCode,
+} from '../services/applicationsApi';
 
 import TasksBoard from './tasks/TasksBoard';
 import TaskTimeline from './tasks/TaskTimeline';
@@ -76,6 +80,8 @@ import ProjectHistoryPage from './ProjectHistoryPage';
 import ChatPage from './ChatPage';
 import VotingPage from './VotingPage';
 import CreateVotingModal from './CreateVotingPage';
+// 🆕 Embeddable-страница заявок
+import ApplicationsPageEmbedded from './ApplicationsPage';
 
 import {
     searchMyProjectByCode,
@@ -91,6 +97,7 @@ import '../styles/components/ProjectDashboardPage.css';
 const MENU_ITEMS = [
     { key: 'info', icon: ClipboardList, label: 'Информация' },
     { key: 'members', icon: Users, label: 'Участники' },
+    { key: 'applications', icon: Inbox, label: 'Заявки' },        // 🆕
     { key: 'tasks', icon: ListTodo, label: 'Задачи' },
     { key: 'timeline', icon: Calendar, label: 'Таймлайн' },
     { key: 'chat', icon: MessageCircle, label: 'Чат проекта' },
@@ -157,6 +164,9 @@ const ProjectDashboardPage = () => {
     const [votingsBadge, setVotingsBadge] = useState(0);
     const [votingsRefreshKey, setVotingsRefreshKey] = useState(0);
 
+    // 🆕 Счётчик pending-заявок для badge
+    const [pendingApplicationsCount, setPendingApplicationsCount] = useState(0);
+
     // ── Таймлайн ──
     const [timelineColumns, setTimelineColumns] = useState([]);
     const [timelineLoading, setTimelineLoading] = useState(false);
@@ -177,8 +187,7 @@ const ProjectDashboardPage = () => {
         userStatusRef.current = userStatus;
     }, [userStatus]);
 
-    // 🆕 Ref для актуального members — чтобы в обработчиках
-    // можно было проверить «есть ли userId у нас в списке», не тянув из замыкания
+    // 🆕 Ref для актуального members
     const membersRef = useRef(members);
     useEffect(() => {
         membersRef.current = members;
@@ -318,6 +327,20 @@ const ProjectDashboardPage = () => {
         }
     }, []);
 
+    // 🆕 Загрузка счётчика pending-заявок
+    const loadPendingApplicationsCount = useCallback(async (projectCode) => {
+        if (!projectCode) return;
+        try {
+            const data = await getApplicationsByCode(projectCode);
+            const count = (Array.isArray(data) ? data : [])
+                .filter(a => a.status === 'Pending').length;
+            setPendingApplicationsCount(count);
+        } catch (err) {
+            console.warn('Не удалось загрузить счётчик заявок:', err);
+            setPendingApplicationsCount(0);
+        }
+    }, []);
+
     // ── Загрузка деталей проекта ──
     const loadProjectDetails = useCallback(async (silent = false) => {
         if (!silent) {
@@ -348,6 +371,11 @@ const ProjectDashboardPage = () => {
                 setUserStatus(status);
 
                 loadVotingsBadge(projectData.publicCode);
+
+                // 🆕 Счётчик заявок — только для owner/admin
+                if (status === 'Owner' || status === 'Admin') {
+                    loadPendingApplicationsCount(projectData.publicCode);
+                }
             } else {
                 if (!silent) setError('Проект не найден');
             }
@@ -357,7 +385,7 @@ const ProjectDashboardPage = () => {
         } finally {
             if (!silent) setLoading(false);
         }
-    }, [code, loadVotingsBadge]);
+    }, [code, loadVotingsBadge, loadPendingApplicationsCount]);
 
     useEffect(() => {
         loadProjectDetails();
@@ -365,8 +393,6 @@ const ProjectDashboardPage = () => {
 
     // ═══════════════════════════════════════════════════════════
     //  🆕 SIGNALR: ЕДИНАЯ точка JoinProject/LeaveProject
-    //     Дочерние компоненты (TasksBoard, VotingsListPage, ...)
-    //     только подписываются на события, не трогая группу.
     // ═══════════════════════════════════════════════════════════
     useEffect(() => {
         const projectCode = project?.publicCode;
@@ -385,23 +411,62 @@ const ProjectDashboardPage = () => {
         const handleVotingDeleted = () => refreshVotingsBadge();
 
         // ═══════════════════════════════════════════════════════════
-        //  🆕 АРХИВАЦИЯ: перевод UI в read-only / обратно
+        //  🆕 ЗАЯВКИ: обновление счётчика в badge
+        // ═══════════════════════════════════════════════════════════
+
+        const handleApplicationCreated = (application) => {
+            if (!application?.id) return;
+            if (application.status !== 'Pending') return;
+
+            const status = userStatusRef.current;
+            if (status !== 'Owner' && status !== 'Admin') return;
+
+            setPendingApplicationsCount((prev) => prev + 1);
+
+            setNotification({
+                type: 'info',
+                text: `📨 Новая заявка от ${application.userName || 'пользователя'}`
+            });
+            setTimeout(() => setNotification(null), 3000);
+        };
+
+        const handleApplicationProcessed = (payload) => {
+            if (!payload?.applicationId) return;
+
+            const status = userStatusRef.current;
+            if (status !== 'Owner' && status !== 'Admin') return;
+
+            setPendingApplicationsCount((prev) => Math.max(0, prev - 1));
+        };
+
+        const handleApplicationCanceled = (payload) => {
+            if (!payload?.applicationId) return;
+
+            const status = userStatusRef.current;
+            if (status !== 'Owner' && status !== 'Admin') return;
+
+            setPendingApplicationsCount((prev) => Math.max(0, prev - 1));
+        };
+
+        // ═══════════════════════════════════════════════════════════
+        //  АРХИВАЦИЯ
         // ═══════════════════════════════════════════════════════════
 
         const handleProjectArchived = (payload) => {
             if (!payload?.publicCode) return;
             if (payload.publicCode !== projectCode) return;
 
-            // Мгновенно переводим проект в режим «архив»
             setProject((prev) => prev ? {
                 ...prev,
                 isArchived: true,
                 archivedAt: payload.archivedAt || new Date().toISOString(),
             } : prev);
 
-            // Обновляем голосования (бэк закрыл активные)
             setVotingsRefreshKey((k) => k + 1);
             loadVotingsBadge(projectCode);
+
+            // 🆕 Заявки отменены на бэке
+            setPendingApplicationsCount(0);
 
             setNotification({
                 type: 'info',
@@ -428,10 +493,9 @@ const ProjectDashboardPage = () => {
         };
 
         // ═══════════════════════════════════════════════════════════
-        //  🆕 УЧАСТНИКИ: добавление / удаление / смена роли
+        //  УЧАСТНИКИ
         // ═══════════════════════════════════════════════════════════
 
-        // ── Новый участник (join / accept invitation / approve application) ──
         const handleMemberAdded = (member) => {
             if (!member?.userId) return;
 
@@ -447,13 +511,11 @@ const ProjectDashboardPage = () => {
             setTimeout(() => setNotification(null), 3000);
         };
 
-        // ── Участник удалён ──
         const handleMemberRemoved = (payload) => {
             if (!payload?.userId) return;
 
             setMembers((prev) => prev.filter((m) => m.userId !== payload.userId));
 
-            // Проверяем — не меня ли удалили?
             const myEmail = user?.email?.toLowerCase();
             const removedMe =
                 (payload.userId && payload.userId === user?.id) ||
@@ -477,7 +539,6 @@ const ProjectDashboardPage = () => {
             setTimeout(() => setNotification(null), 3000);
         };
 
-        // ── Роль участника изменена ──
         const handleMemberRoleChanged = (payload) => {
             if (!payload?.userId) return;
 
@@ -489,7 +550,6 @@ const ProjectDashboardPage = () => {
                 )
             );
 
-            // Если изменили МОЮ роль — обновим userStatus
             const myEmail = user?.email?.toLowerCase();
             const isMe =
                 (payload.userId && payload.userId === user?.id) ||
@@ -506,13 +566,11 @@ const ProjectDashboardPage = () => {
         };
 
         // ═══════════════════════════════════════════════════════════
-        //  🆕 PRESENCE: обновление онлайн-статуса в карточках
-        //     Событие глобальное (Clients.Others), фильтруем по members.
+        //  PRESENCE
         // ═══════════════════════════════════════════════════════════
 
         const handleUserOnline = (userId) => {
             if (!userId) return;
-            // Если такого участника нет в списке — не ререндерим
             if (!membersRef.current.some((m) => m.userId === userId)) return;
 
             setMembers((prev) =>
@@ -538,14 +596,16 @@ const ProjectDashboardPage = () => {
             console.log('🔄 SignalR reconnected, re-joining project…');
             signalr.invoke('JoinProject', projectCode).catch(() => { });
             refreshVotingsBadge();
-            // Тихо перезагружаем проект — вдруг кто-то добавился/удалился,
-            // пока мы были offline
             loadProjectDetails(true);
         };
 
         // ── Подписки ──
         signalr.on('ProjectArchived', handleProjectArchived);
         signalr.on('ProjectUnarchived', handleProjectUnarchived);
+
+        signalr.on('ApplicationCreated', handleApplicationCreated);
+        signalr.on('ApplicationProcessed', handleApplicationProcessed);
+        signalr.on('ApplicationCanceled', handleApplicationCanceled);
 
         signalr.on('VotingCreated', handleVotingCreated);
         signalr.on('VoteCast', handleVoteCast);
@@ -578,6 +638,10 @@ const ProjectDashboardPage = () => {
 
             signalr.off('ProjectArchived', handleProjectArchived);
             signalr.off('ProjectUnarchived', handleProjectUnarchived);
+
+            signalr.off('ApplicationCreated', handleApplicationCreated);
+            signalr.off('ApplicationProcessed', handleApplicationProcessed);
+            signalr.off('ApplicationCanceled', handleApplicationCanceled);
 
             signalr.off('VotingCreated', handleVotingCreated);
             signalr.off('VoteCast', handleVoteCast);
@@ -712,7 +776,7 @@ const ProjectDashboardPage = () => {
     };
 
     // ═══════════════════════════════════════════════════════════
-    //  Действия над участниками (из контекстного меню карточки)
+    //  Действия над участниками
     // ═══════════════════════════════════════════════════════════
 
     const handleMemberSendMessage = async (member) => {
@@ -796,8 +860,6 @@ const ProjectDashboardPage = () => {
         try {
             await changeMemberRoleByCodeAndEmail(project.publicCode, member.email, newRole);
 
-            // Локально обновим роль — мгновенный отклик.
-            // SignalR MemberRoleChanged тоже придёт и обновит у всех.
             setMembers((prev) =>
                 prev.map((m) =>
                     m.userId === member.userId ? { ...m, role: newRole } : m
@@ -818,8 +880,6 @@ const ProjectDashboardPage = () => {
         try {
             await removeMemberFromProject(project.publicCode, member.email);
 
-            // Локально убираем — мгновенный отклик.
-            // SignalR MemberRemoved тоже придёт.
             setMembers((prev) => prev.filter((m) => m.userId !== member.userId));
 
             setNotification({ type: 'success', text: 'Участник удалён' });
@@ -1136,6 +1196,14 @@ const ProjectDashboardPage = () => {
                                     {item.key === 'votings' && votingsBadge > 0 && (
                                         <span className="sidebar-nav-badge">{votingsBadge}</span>
                                     )}
+                                    {/* 🆕 Badge заявок */}
+                                    {item.key === 'applications'
+                                        && canManageMembers
+                                        && pendingApplicationsCount > 0 && (
+                                            <span className="sidebar-nav-badge">
+                                                {pendingApplicationsCount}
+                                            </span>
+                                        )}
                                 </button>
                             );
                         })}
@@ -1490,6 +1558,23 @@ const ProjectDashboardPage = () => {
                                                 <Settings size={14} />
                                                 Управление
                                             </button>
+
+                                            {/* 🆕 Кнопка «Заявки» */}
+                                            <button
+                                                type="button"
+                                                className="btn btn--secondary btn--sm"
+                                                onClick={() => setActiveSection('applications')}
+                                                title="Обработать заявки на вступление"
+                                            >
+                                                <Inbox size={14} />
+                                                Заявки
+                                                {pendingApplicationsCount > 0 && (
+                                                    <span className="btn-badge">
+                                                        {pendingApplicationsCount}
+                                                    </span>
+                                                )}
+                                            </button>
+
                                             <button
                                                 type="button"
                                                 className="btn btn--primary btn--sm"
@@ -1542,6 +1627,26 @@ const ProjectDashboardPage = () => {
                                             />
                                         );
                                     })}
+                                </div>
+                            )}
+                        </section>
+                    )}
+
+                    {/* 🆕 ── ЗАЯВКИ (embedded) ── */}
+                    {activeSection === 'applications' && (
+                        <section className="dashboard-section">
+                            {canManageMembers ? (
+                                <ApplicationsPageEmbedded
+                                    embedded
+                                    projectCode={project.publicCode}
+                                    isArchived={project.isArchived}
+                                    onPendingCountChange={setPendingApplicationsCount}
+                                />
+                            ) : (
+                                <div className="no-access-section">
+                                    <Inbox size={48} />
+                                    <h3>Нет доступа</h3>
+                                    <p>Заявки может просматривать только владелец или администратор проекта</p>
                                 </div>
                             )}
                         </section>
