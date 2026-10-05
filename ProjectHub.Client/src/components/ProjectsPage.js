@@ -730,7 +730,6 @@ const ProjectsPage = () => {
                                     type="button"
                                     className="user-menu-item"
                                     onClick={() => handleMenuNavigate('/settings')}
-                                    title="Скоро"
                                 >
                                     <span className="user-menu-icon"><Settings size={14} /></span>
                                     Настройки

@@ -1,9 +1,12 @@
 /* src/styles/tokens.css */
 
-:root {
-    /* ═══════════════════════════════════════════════════════════
-       ЦВЕТА
-       ═══════════════════════════════════════════════════════════ */
+/* ═══════════════════════════════════════════════════════════
+   СВЕТЛАЯ ТЕМА (по умолчанию)
+   ═══════════════════════════════════════════════════════════ */
+
+:root,
+[data-theme="light"] {
+    /* ── Палитра ────────────────────────────────────────── */
     /* Primary (индиго) */
     --color-primary-50: #eef2ff;
     --color-primary-100: #e0e7ff;
@@ -22,7 +25,7 @@
     --color-gray-700: #374151;
     --color-gray-800: #1f2937;
     --color-gray-900: #111827;
-    /* Семантические */
+    /* Семантические (состояния) */
     --color-success: #10b981;
     --color-success-bg: #ecfdf5;
     --color-warning: #f59e0b;
@@ -31,7 +34,7 @@
     --color-danger-bg: #fef2f2;
     --color-info: #3b82f6;
     --color-info-bg: #eff6ff;
-    /* Семантические алиасы (для тёмной темы потом) */
+    /* ── Семантические алиасы (основные) ────────────────── */
     --color-bg: #ffffff;
     --color-bg-secondary: #f9fafb;
     --color-bg-tertiary: #f3f4f6;
@@ -40,9 +43,15 @@
     --color-text-tertiary: #9ca3af;
     --color-border: #e5e7eb;
     --color-border-strong: #d1d5db;
-    /* ═══════════════════════════════════════════════════════════
-       ОТСТУПЫ (шкала 4px)
-       ═══════════════════════════════════════════════════════════ */
+    /* Акцент (короткий алиас) */
+    --accent: var(--color-primary-500);
+    --accent-hover: var(--color-primary-600);
+    --accent-soft: var(--color-primary-50);
+    --accent-text-on: #ffffff;
+    /* Цвет скролла */
+    --scrollbar-thumb: var(--color-gray-300);
+    --scrollbar-thumb-hover: var(--color-gray-400);
+    /* ── Отступы ────────────────────────────────────────── */
     --space-1: 4px;
     --space-2: 8px;
     --space-3: 12px;
@@ -52,25 +61,19 @@
     --space-8: 32px;
     --space-10: 40px;
     --space-12: 48px;
-    /* ═══════════════════════════════════════════════════════════
-       РАДИУСЫ
-       ═══════════════════════════════════════════════════════════ */
+    /* ── Радиусы ────────────────────────────────────────── */
     --radius-sm: 6px;
     --radius-md: 10px;
     --radius-lg: 14px;
     --radius-xl: 20px;
     --radius-full: 9999px;
-    /* ═══════════════════════════════════════════════════════════
-       ТЕНИ
-       ═══════════════════════════════════════════════════════════ */
+    /* ── Тени ───────────────────────────────────────────── */
     --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
     --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04);
     --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
     --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.12);
     --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.16);
-    /* ═══════════════════════════════════════════════════════════
-       ТИПОГРАФИКА
-       ═══════════════════════════════════════════════════════════ */
+    /* ── Типографика ────────────────────────────────────── */
     --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
     --font-mono: 'JetBrains Mono', 'SF Mono', Menlo, Monaco, Consolas, monospace;
     --text-xs: 12px;
@@ -88,17 +91,86 @@
     --font-medium: 500;
     --font-semibold: 600;
     --font-bold: 700;
-    /* ═══════════════════════════════════════════════════════════
-       АНИМАЦИИ
-       ═══════════════════════════════════════════════════════════ */
+    /* ── Анимации ───────────────────────────────────────── */
     --transition-fast: 150ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-base: 200ms cubic-bezier(0.4, 0, 0.2, 1);
     --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
-    /* ═══════════════════════════════════════════════════════════
-       Z-INDEX
-       ═══════════════════════════════════════════════════════════ */
+    /* ── Z-Index ────────────────────────────────────────── */
     --z-dropdown: 100;
     --z-sticky: 200;
     --z-modal: 500;
     --z-toast: 1000;
+    /* ── Браузерные элементы ────────────────────────────── */
+    color-scheme: light;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ТЁМНАЯ ТЕМА
+   Переопределяем только семантические алиасы + нейтральные
+   + primary в светлую сторону (для контраста на тёмном фоне).
+   ═══════════════════════════════════════════════════════════ */
+
+[data-theme="dark"] {
+    /* ── Палитра (адаптированная) ───────────────────────── */
+    /* Primary — сдвинут светлее, чтобы контрастировал с фоном */
+    --color-primary-50: #1e1b4b;
+    --color-primary-100: #312e81;
+    --color-primary-200: #4338ca;
+    --color-primary-500: #6366f1;
+    --color-primary-600: #818cf8;
+    --color-primary-700: #a5b4fc;
+    /* Нейтральные — инвертируем «логически» */
+    --color-gray-50: #0b1220;
+    --color-gray-100: #111827;
+    --color-gray-200: #1f2937;
+    --color-gray-300: #334155;
+    --color-gray-400: #475569;
+    --color-gray-500: #64748b;
+    --color-gray-600: #94a3b8;
+    --color-gray-700: #cbd5e1;
+    --color-gray-800: #e2e8f0;
+    --color-gray-900: #f1f5f9;
+    /* Семантические (для тёмного фона) */
+    --color-success: #34d399;
+    --color-success-bg: #064e3b;
+    --color-warning: #fbbf24;
+    --color-warning-bg: #451a03;
+    --color-danger: #f87171;
+    --color-danger-bg: #450a0a;
+    --color-info: #60a5fa;
+    --color-info-bg: #172554;
+    /* ── Семантические алиасы ───────────────────────────── */
+    --color-bg: #0f172a;
+    --color-bg-secondary: #1e293b;
+    --color-bg-tertiary: #334155;
+    --color-text: #f1f5f9;
+    --color-text-secondary: #cbd5e1;
+    --color-text-tertiary: #94a3b8;
+    --color-border: #334155;
+    --color-border-strong: #475569;
+    /* Акцент */
+    --accent: var(--color-primary-500);
+    --accent-hover: var(--color-primary-600);
+    --accent-soft: var(--color-primary-50);
+    --accent-text-on: #ffffff;
+    /* Скроллбар */
+    --scrollbar-thumb: var(--color-gray-400);
+    --scrollbar-thumb-hover: var(--color-gray-500);
+    /* ── Тени — плотнее, чтобы «читались» на тёмном ─────── */
+    --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.5), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.6);
+    --shadow-xl: 0 24px 48px rgba(0, 0, 0, 0.7);
+    /* ── Браузерные элементы ────────────────────────────── */
+    color-scheme: dark;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ПЛАВНЫЙ ПЕРЕХОД ПРИ СМЕНЕ ТЕМЫ
+   ═══════════════════════════════════════════════════════════ */
+
+html,
+body {
+    transition: background-color var(--transition-base), color var(--transition-base);
 }

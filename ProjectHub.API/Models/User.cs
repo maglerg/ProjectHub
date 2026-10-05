@@ -1,6 +1,7 @@
 ﻿// Server/Models/User.cs
 
 using ProjectHub.API.Models;
+using ProjectHub.API.Models.Enums;
 using ProjectHub.Models.Enums;
 using System.ComponentModel.DataAnnotations;
 using System.Text.Json.Serialization;
@@ -30,6 +31,13 @@ public class User
     public ChatPrivacy ChatPrivacy { get; set; } = ChatPrivacy.All;
     [MaxLength(500)]
     public string? AvatarUrl { get; set; }
+
+    // 🆕 Настройки уведомлений (1:1)
+    [JsonIgnore]
+    public virtual UserNotificationSettings? NotificationSettings { get; set; }
+
+    // (опционально) — если хочешь ещё и Email в настройках, оставь как есть.
+    public OnlineVisibility OnlineVisibility { get; set; } = OnlineVisibility.Everyone;
 
 }
 public enum ChatPrivacy

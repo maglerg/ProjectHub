@@ -53,8 +53,11 @@ const ProfilePage = () => {
         email: '',
         specialization: '',
         description: '',
-        chatPrivacy: 'All',
     });
+
+    // 🆕 Значение приватности берём из profile (только для отображения)
+    const chatPrivacy = profile?.chatPrivacy || 'All';
+    const isFriendsOnly = chatPrivacy === 'FriendsOnly';
 
     useEffect(() => {
         loadProfile();
@@ -72,7 +75,6 @@ const ProfilePage = () => {
                 email: data.email || '',
                 specialization: data.specialization || '',
                 description: data.description || '',
-                chatPrivacy: data.chatPrivacy || 'All',
             });
             setUserInStorage(data);
         } catch (err) {
@@ -94,7 +96,12 @@ const ProfilePage = () => {
         setSuccess(null);
 
         try {
-            const updated = await updateUser(formData);
+            // 🆕 chatPrivacy больше не отправляем — этим управляет страница настроек.
+            const updated = await updateUser({
+                name: formData.name,
+                specialization: formData.specialization,
+                description: formData.description,
+            });
             setUser(updated);
             setProfile(updated);
             setUserInStorage(updated);
@@ -114,7 +121,6 @@ const ProfilePage = () => {
             email: profile?.email || '',
             specialization: profile?.specialization || '',
             description: profile?.description || '',
-            chatPrivacy: profile?.chatPrivacy || 'All',
         });
         setError(null);
         setSuccess(null);
@@ -211,9 +217,6 @@ const ProfilePage = () => {
             </div>
         );
     }
-
-    // Значение приватности для отображения
-    const isFriendsOnly = formData.chatPrivacy === 'FriendsOnly';
 
     return (
         <div className="profile-page">
@@ -398,84 +401,39 @@ const ProfilePage = () => {
                             />
                         </div>
 
-                        {/* 📌 КТО МОЖЕТ МНЕ ПИСАТЬ */}
+                        {/* 📌 КТО МОЖЕТ МНЕ ПИСАТЬ — только для просмотра.
+                             Редактирование перенесено в /settings → Приватность. */}
                         <div className="privacy-group">
                             <label className="form-label-with-icon">
                                 <Info size={16} />
                                 Кто может мне писать
                             </label>
 
-                            {isEditing ? (
-                                /* ── Режим редактирования: 2 опции ── */
-                                <>
-                                    <div className="privacy-options">
-                                        <label className={`privacy-option ${formData.chatPrivacy === 'All' ? 'selected' : ''}`}>
-                                            <input
-                                                type="radio"
-                                                name="chatPrivacy"
-                                                value="All"
-                                                checked={formData.chatPrivacy === 'All'}
-                                                onChange={handleChange}
-                                                disabled={saving}
-                                            />
-                                            <div className="privacy-option-content">
-                                                <span className="privacy-icon">
-                                                    <Globe size={20} />
-                                                </span>
-                                                <div className="privacy-text">
-                                                    <span className="privacy-title">Все пользователи</span>
-                                                    <span className="privacy-description">
-                                                        Любой может отправить вам сообщение
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </label>
+                            <div className={`privacy-view ${isFriendsOnly ? 'friends' : 'all'}`}>
+                                {isFriendsOnly ? (
+                                    <>
+                                        <Users size={16} />
+                                        <span>Только друзья</span>
+                                    </>
+                                ) : (
+                                    <>
+                                        <Globe size={16} />
+                                        <span>Все пользователи</span>
+                                    </>
+                                )}
+                            </div>
 
-                                        <label className={`privacy-option ${formData.chatPrivacy === 'FriendsOnly' ? 'selected' : ''}`}>
-                                            <input
-                                                type="radio"
-                                                name="chatPrivacy"
-                                                value="FriendsOnly"
-                                                checked={formData.chatPrivacy === 'FriendsOnly'}
-                                                onChange={handleChange}
-                                                disabled={saving}
-                                            />
-                                            <div className="privacy-option-content">
-                                                <span className="privacy-icon">
-                                                    <Users size={20} />
-                                                </span>
-                                                <div className="privacy-text">
-                                                    <span className="privacy-title">Только друзья</span>
-                                                    <span className="privacy-description">
-                                                        Писать смогут только ваши друзья
-                                                    </span>
-                                                </div>
-                                            </div>
-                                        </label>
-                                    </div>
-                                    {isFriendsOnly && (
-                                        <span className="field-hint">
-                                            <Info size={12} />
-                                            Вы по-прежнему сможете писать всем пользователям
-                                        </span>
-                                    )}
-                                </>
-                            ) : (
-                                /* ── Режим просмотра: одно информационное поле ── */
-                                <div className={`privacy-view ${isFriendsOnly ? 'friends' : 'all'}`}>
-                                    {isFriendsOnly ? (
-                                        <>
-                                            <Users size={16} />
-                                            <span>Только друзья</span>
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Globe size={16} />
-                                            <span>Все пользователи</span>
-                                        </>
-                                    )}
-                                </div>
-                            )}
+                            <span className="field-hint">
+                                <Info size={12} />
+                                Изменить можно в{' '}
+                                <button
+                                    type="button"
+                                    className="link-btn"
+                                    onClick={() => navigate('/settings?tab=privacy')}
+                                >
+                                    настройках
+                                </button>
+                            </span>
                         </div>
 
                         {isEditing && (

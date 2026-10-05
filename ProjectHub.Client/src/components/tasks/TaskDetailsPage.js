@@ -17,6 +17,14 @@ import {
     AlertTriangle,
     Plus,
     Check,
+    // 🆕 добавленные для новой разметки
+    Folder,
+    Calendar,
+    User,
+    Users,
+    BarChart3,
+    RefreshCw,
+    ClipboardList,
 } from 'lucide-react';
 import {
     TASK_PRIORITIES,
@@ -679,26 +687,66 @@ export default function TaskDetailsPage() {
 
     return (
         <div className="task-details-page">
-            <button
-                type="button"
-                className="btn btn--ghost btn--sm"
-                onClick={() => navigate(-1)}
-            >
-                <ArrowLeft size={16} />
-                Назад
-            </button>
+
+            {/* ══════════ STICKY HEADER ══════════ */}
+            <header className="td-topbar">
+                {/* ─── Левая часть: назад + название ─── */}
+                <div className="td-topbar-left">
+                    <button
+                        type="button"
+                        className="btn btn--ghost btn--sm td-topbar-back"
+                        onClick={() => navigate(-1)}
+                        aria-label="Назад"
+                    >
+                        <ArrowLeft size={16} />
+                        Назад
+                    </button>
+
+                    <span className="td-topbar-divider" />
+
+                    <h1 className="td-topbar-title" title={task.title}>
+                        {task.title}
+                    </h1>
+                </div>
+
+                {/* ─── Правая часть: приоритет + дата ─── */}
+                <div className="td-topbar-right">
+                    {task.priority && task.priority !== 'None' && PriorityIcon && (
+                        <span
+                            className="td-topbar-priority"
+                            style={{
+                                color: priorityInfo.color,
+                                background: `${priorityInfo.color}15`,
+                                borderColor: `${priorityInfo.color}40`,
+                            }}
+                        >
+                            <PriorityIcon size={12} />
+                            {priorityInfo.label}
+                        </span>
+                    )}
+
+                    {task.effectiveDueDate && (
+                        <span className={`td-topbar-date td-chip--${deadlineStatus}`}>
+                            <Calendar size={12} />
+                            {formatDateTime(task.effectiveDueDate)}
+                            {!task.isDueDateFixed && ' (по проекту)'}
+                        </span>
+                    )}
+                </div>
+            </header>
+
 
             {isArchived && (
-                <div className="archive-banner">
+                <div className="td-archive-banner">
                     <Archive size={16} />
                     Этот проект в архиве. Задача доступна только для просмотра.
                 </div>
             )}
 
             {actionError && (
-                <div className="tasks-action-error">
+                <div className="td-action-error">
                     <AlertTriangle size={14} />
-                    {actionError}
+                    <span>{actionError}</span>
                     <button
                         type="button"
                         className="btn btn--ghost btn--icon btn--sm"
@@ -712,434 +760,461 @@ export default function TaskDetailsPage() {
 
             {!isEditing ? (
                 <>
-                    <header className="task-details-header">
-                        <h1>
-                            {task.priority && task.priority !== 'None' && PriorityIcon && (
-                                <span
-                                    className="task-priority-icon-lg"
-                                    title={priorityInfo.label}
-                                    style={{ color: priorityInfo.color }}
-                                >
-                                    <PriorityIcon size={20} />
-                                </span>
-                            )}
-                            {task.title}
-                        </h1>
+                    {/* ══════════ КАРТОЧКИ ══════════ */}
+                    <div className="td-content">
 
-                        <div className="task-details-actions">
-                            {canEdit && (
-                                <button
-                                    type="button"
-                                    className="btn btn--secondary"
-                                    onClick={() => setIsEditing(true)}
-                                >
-                                    <Pencil size={16} />
-                                    Редактировать
-                                </button>
-                            )}
+                        {/* ── 1. ИНФОРМАЦИЯ (с действиями) ── */}
+                        <section className="td-card">
+                            <header className="td-card-header">
+                                <ClipboardList size={16} />
+                                <h2>Информация</h2>
 
-                            {canComment && (
-                                <button
-                                    type="button"
-                                    className="btn btn--secondary"
-                                    onClick={scrollToComments}
-                                    title="К комментариям"
-                                >
-                                    <MessageCircle size={16} />
-                                    Комментировать
-                                </button>
-                            )}
+                                {/* Кнопки действий справа в шапке карточки */}
+                                <div className="td-card-actions">
+                                    {canEdit && (
+                                        <button
+                                            type="button"
+                                            className="btn btn--secondary btn--sm"
+                                            onClick={() => setIsEditing(true)}
+                                        >
+                                            <Pencil size={14} />
+                                            Редактировать
+                                        </button>
+                                    )}
 
-                            {canDeleteTask && (
-                                <button
-                                    type="button"
-                                    className="btn btn--danger-outline"
-                                    onClick={handleDelete}
-                                    title="Удалить задачу"
-                                >
-                                    <Trash2 size={16} />
-                                    Удалить
-                                </button>
-                            )}
+                                    {canComment && (
+                                        <button
+                                            type="button"
+                                            className="btn btn--secondary btn--sm"
+                                            onClick={scrollToComments}
+                                        >
+                                            <MessageCircle size={14} />
+                                            Комментировать
+                                        </button>
+                                    )}
 
-                            {canTake && (
-                                <button
-                                    type="button"
-                                    className="btn btn--primary"
-                                    onClick={handleTake}
-                                    title={isTaken ? 'Присоединиться к задаче' : 'Взять задачу'}
-                                >
-                                    <UserPlus size={16} />
-                                    {isTaken ? 'Присоединиться' : 'Взять задачу'}
-                                </button>
-                            )}
-                        </div>
-                    </header>
+                                    {canTake && (
+                                        <button
+                                            type="button"
+                                            className="btn btn--primary btn--sm"
+                                            onClick={handleTake}
+                                        >
+                                            <UserPlus size={14} />
+                                            {isTaken ? 'Присоединиться' : 'Взять задачу'}
+                                        </button>
+                                    )}
 
-                    <section className="task-details-body">
-                        <div className="task-details-meta">
-                            <span><b>Блок:</b> {task.columnName}</span>
-                            <span>
-                                <b>Приоритет:</b>{' '}
-                                {PriorityIcon && (
-                                    <PriorityIcon
-                                        size={14}
-                                        style={{
-                                            color: priorityInfo.color,
-                                            display: 'inline',
-                                            verticalAlign: 'middle',
-                                            marginRight: 4,
-                                        }}
-                                    />
-                                )}
-                                {priorityInfo.label}
-                            </span>
-                            <span>
-                                <b>Начало:</b>{' '}
-                                {task.startDate ? formatDateTime(task.startDate) : 'Не задано'}
-                            </span>
-                            <span>
-                                <b>Дедлайн:</b>{' '}
-                                {task.effectiveDueDate ? (
-                                    <span className={deadlineStatus}>
-                                        {formatDateTime(task.effectiveDueDate)}
-                                        {!task.isDueDateFixed && ' (по проекту)'}
-                                        {deadlineStatus === 'overdue' && (
-                                            <>
-                                                {' '}
-                                                <AlertTriangle
-                                                    size={14}
-                                                    style={{ display: 'inline', verticalAlign: 'middle' }}
-                                                />
-                                            </>
-                                        )}
-                                    </span>
-                                ) : (
-                                    'Без дедлайна'
-                                )}
-                            </span>
-                            <span>
-                                <b>Создал:</b>{' '}
-                                {task.createdByName || task.createdByEmail}
-                            </span>
-                            <span>
-                                <b>Создано:</b>{' '}
-                                {new Date(task.createdAt).toLocaleString('ru-RU')}
-                            </span>
-                            {task.updatedAt && (
-                                <span>
-                                    <b>Обновлено:</b>{' '}
-                                    {new Date(task.updatedAt).toLocaleString('ru-RU')}
-                                </span>
-                            )}
-                            {task.completedAt && (
-                                <span>
-                                    <b>Завершено:</b>{' '}
-                                    {new Date(task.completedAt).toLocaleString('ru-RU')}
-                                </span>
-                            )}
-                        </div>
+                                    {canDeleteTask && (
+                                        <button
+                                            type="button"
+                                            className="btn btn--danger-outline btn--icon btn--sm"
+                                            onClick={handleDelete}
+                                            title="Удалить задачу"
+                                            aria-label="Удалить задачу"
+                                        >
+                                            <Trash2 size={14} />
+                                        </button>
+                                    )}
+                                </div>
+                            </header>
 
-                        <div className="task-details-description">
-                            <h3>Описание</h3>
-                            <p>{task.description || '—'}</p>
-                        </div>
+                            <div className="td-card-body">
+                                <div className="td-field">
+                                    <span className="td-field-label">Описание</span>
+                                    {task.description ? (
+                                        <p className="td-description">{task.description}</p>
+                                    ) : (
+                                        <p className="td-empty">Описание не добавлено</p>
+                                    )}
+                                </div>
 
-                        <div className="task-details-assignees">
-                            <h3>Исполнители</h3>
+                                <div className="td-divider" />
 
-                            {assignees.length === 0 ? (
-                                <p>Пока никто не взял</p>
-                            ) : (
-                                <ul className="assignees-list">
-                                    {assignees.map(a => {
-                                        const isSelf =
-                                            (a.email || '').toLowerCase() === emailLower;
-                                        const canRemove = !isArchived && (isOwnerUser || isSelf);
+                                <dl className="td-meta-grid">
+                                    <div className="td-meta-row">
+                                        <dt><Folder size={12} /> Блок</dt>
+                                        <dd>{task.columnName}</dd>
+                                    </div>
 
-                                        return (
-                                            <li key={a.email} className="assignee-row">
-                                                <span className="assignee-info">
-                                                    {a.name}{' '}
-                                                    <span className="assignee-email">
-                                                        ({a.email})
-                                                    </span>
-                                                    {a.specialization && (
-                                                        <span className="assignee-spec">
-                                                            {' '}— {a.specialization}
-                                                        </span>
-                                                    )}
+                                    <div className="td-meta-row">
+                                        <dt><BarChart3 size={12} /> Приоритет</dt>
+                                        <dd>
+                                            {PriorityIcon && (
+                                                <span
+                                                    className="td-priority-inline"
+                                                    style={{ color: priorityInfo.color }}
+                                                >
+                                                    <PriorityIcon size={12} />
+                                                    {priorityInfo.label}
                                                 </span>
+                                            )}
+                                        </dd>
+                                    </div>
 
-                                                {canRemove && (
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn--ghost btn--icon btn--sm"
-                                                        title={isSelf ? 'Снять задачу' : 'Снять исполнителя'}
-                                                        onClick={() => handleRemoveAssignee(a.email)}
-                                                        aria-label={isSelf ? 'Снять задачу' : 'Снять исполнителя'}
-                                                    >
-                                                        <X size={14} />
-                                                    </button>
-                                                )}
-                                            </li>
-                                        );
-                                    })}
-                                </ul>
-                            )}
-                        </div>
+                                    <div className="td-meta-row">
+                                        <dt><Calendar size={12} /> Начало</dt>
+                                        <dd>
+                                            {task.startDate
+                                                ? formatDateTime(task.startDate)
+                                                : 'Не задано'}
+                                        </dd>
+                                    </div>
 
-                        {/* ── Теги ── */}
-                        <div className="task-details-tags">
-                            <div className="tags-header">
-                                <h3>Теги ({taskTags.length}/10)</h3>
+                                    <div className="td-meta-row">
+                                        <dt><Calendar size={12} /> Дедлайн</dt>
+                                        <dd className={deadlineStatus}>
+                                            {task.effectiveDueDate
+                                                ? formatDateTime(task.effectiveDueDate)
+                                                : 'Без дедлайна'}
+                                        </dd>
+                                    </div>
 
+                                    <div className="td-meta-row">
+                                        <dt><User size={12} /> Создал</dt>
+                                        <dd>{task.createdByName || task.createdByEmail}</dd>
+                                    </div>
+
+                                    <div className="td-meta-row">
+                                        <dt><Calendar size={12} /> Создано</dt>
+                                        <dd>
+                                            {new Date(task.createdAt).toLocaleString('ru-RU')}
+                                        </dd>
+                                    </div>
+
+                                    {task.updatedAt && (
+                                        <div className="td-meta-row">
+                                            <dt><RefreshCw size={12} /> Обновлено</dt>
+                                            <dd>
+                                                {new Date(task.updatedAt).toLocaleString('ru-RU')}
+                                            </dd>
+                                        </div>
+                                    )}
+
+                                    {task.completedAt && (
+                                        <div className="td-meta-row">
+                                            <dt><Check size={12} /> Завершено</dt>
+                                            <dd>
+                                                {new Date(task.completedAt).toLocaleString('ru-RU')}
+                                            </dd>
+                                        </div>
+                                    )}
+                                </dl>
+                            </div>
+                        </section>
+
+                        {/* ── 2. ИСПОЛНИТЕЛИ ── */}
+                        <section className="td-card">
+                            <header className="td-card-header">
+                                <Users size={16} />
+                                <h2>Исполнители</h2>
+                                <span className="td-card-count">{assignees.length}</span>
+                            </header>
+                            <div className="td-card-body">
+                                {assignees.length === 0 ? (
+                                    <p className="td-empty">Пока никто не взял задачу</p>
+                                ) : (
+                                    <ul className="td-assignees">
+                                        {assignees.map(a => {
+                                            const isSelf =
+                                                (a.email || '').toLowerCase() === emailLower;
+                                            const canRemove = !isArchived && (isOwnerUser || isSelf);
+
+                                            return (
+                                                <li key={a.email} className="td-assignee">
+                                                    <span className="td-assignee-avatar">
+                                                        {(a.name || a.email || '?')[0].toUpperCase()}
+                                                    </span>
+                                                    <div className="td-assignee-info">
+                                                        <span className="td-assignee-name">
+                                                            {a.name}
+                                                            {isSelf && (
+                                                                <span className="td-assignee-self">вы</span>
+                                                            )}
+                                                        </span>
+                                                        <span className="td-assignee-email">{a.email}</span>
+                                                        {a.specialization && (
+                                                            <span className="td-assignee-spec">
+                                                                {a.specialization}
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    {canRemove && (
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn--ghost btn--icon btn--sm"
+                                                            title={isSelf ? 'Снять задачу' : 'Снять исполнителя'}
+                                                            onClick={() => handleRemoveAssignee(a.email)}
+                                                            aria-label="Снять исполнителя"
+                                                        >
+                                                            <X size={14} />
+                                                        </button>
+                                                    )}
+                                                </li>
+                                            );
+                                        })}
+                                    </ul>
+                                )}
+                            </div>
+                        </section>
+
+                        {/* ── 3. ТЕГИ ── */}
+                        <section className="td-card">
+                            <header className="td-card-header">
+                                <TagIcon size={16} />
+                                <h2>Теги</h2>
+                                <span className="td-card-count">{taskTags.length}/10</span>
                                 {canEdit && (
                                     <button
                                         type="button"
-                                        className="btn btn--ghost btn--sm"
+                                        className="btn btn--ghost btn--sm td-card-action"
                                         onClick={() => setShowTagPicker(v => !v)}
                                     >
-                                        <TagIcon size={14} />
-                                        {showTagPicker ? 'Скрыть' : 'Управлять тегами'}
+                                        {showTagPicker ? 'Скрыть' : 'Управлять'}
                                     </button>
                                 )}
-                            </div>
-
-                            {taskTags.length === 0 ? (
-                                <p className="no-tags">Тегов пока нет</p>
-                            ) : (
-                                <div className="task-tags-list">
-                                    {taskTags.map(t => (
-                                        <span
-                                            key={t.id}
-                                            className="task-tag-chip"
-                                            style={{
-                                                backgroundColor: t.color ? `${t.color}22` : '#eef2ff',
-                                                color: t.color || '#4f46e5',
-                                                borderColor: t.color || '#c7d2fe'
-                                            }}
-                                        >
-                                            {t.name}
-                                            {canEdit && (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn--ghost btn--icon btn--sm task-tag-remove"
-                                                    title="Снять тег"
-                                                    onClick={() => handleToggleTag(t.id)}
-                                                    aria-label="Снять тег"
-                                                >
-                                                    <X size={12} />
-                                                </button>
-                                            )}
-                                        </span>
-                                    ))}
-                                </div>
-                            )}
-
-                            {showTagPicker && canEdit && (
-                                <div className="tags-picker">
-                                    <div className="tags-picker-list">
-                                        {allTags.length === 0 ? (
-                                            <p className="no-tags-available">
-                                                В проекте ещё нет тегов
-                                            </p>
-                                        ) : (
-                                            allTags.map(t => {
-                                                const isChecked = taskTags.some(tt => tt.id === t.id);
-                                                return (
-                                                    <label
-                                                        key={t.id}
-                                                        className={`tag-picker-item ${isChecked ? 'checked' : ''}`}
+                            </header>
+                            <div className="td-card-body">
+                                {taskTags.length === 0 ? (
+                                    <p className="td-empty">Тегов пока нет</p>
+                                ) : (
+                                    <div className="td-tag-list">
+                                        {taskTags.map(t => (
+                                            <span
+                                                key={t.id}
+                                                className="td-tag"
+                                                style={{
+                                                    backgroundColor: t.color ? `${t.color}1a` : '#eef2ff',
+                                                    color: t.color || '#4f46e5',
+                                                    borderColor: t.color ? `${t.color}55` : '#c7d2fe',
+                                                }}
+                                            >
+                                                <span
+                                                    className="td-tag-dot"
+                                                    style={{ backgroundColor: t.color || '#4f46e5' }}
+                                                />
+                                                {t.name}
+                                                {canEdit && (
+                                                    <button
+                                                        type="button"
+                                                        className="td-tag-remove"
+                                                        title="Снять тег"
+                                                        onClick={() => handleToggleTag(t.id)}
+                                                        aria-label="Снять тег"
                                                     >
-                                                        <input
-                                                            type="checkbox"
-                                                            checked={isChecked}
-                                                            onChange={() => handleToggleTag(t.id)}
-                                                        />
-                                                        <span
-                                                            className="tag-picker-dot"
-                                                            style={{ backgroundColor: t.color || '#9ca3af' }}
-                                                        />
-                                                        <span className="tag-picker-name">{t.name}</span>
-                                                        <span className="tag-picker-count">
-                                                            {t.tasksCount} задач
-                                                        </span>
-                                                        {task.isOwner && !isArchived && (
-                                                            <button
-                                                                type="button"
-                                                                className="btn btn--ghost btn--icon btn--sm"
-                                                                title="Удалить тег из проекта"
-                                                                onClick={(e) => {
-                                                                    e.preventDefault();
-                                                                    handleDeleteTag(t);
-                                                                }}
-                                                                aria-label="Удалить тег из проекта"
-                                                            >
-                                                                <Trash2 size={14} />
-                                                            </button>
-                                                        )}
-                                                    </label>
-                                                );
-                                            })
-                                        )}
+                                                        <X size={10} />
+                                                    </button>
+                                                )}
+                                            </span>
+                                        ))}
                                     </div>
+                                )}
 
-                                    <form className="tag-create-form" onSubmit={handleCreateTag}>
-                                        <input
-                                            type="color"
-                                            value={newTagColor}
-                                            onChange={e => setNewTagColor(e.target.value)}
-                                            title="Цвет тега"
+                                {showTagPicker && canEdit && (
+                                    <div className="td-tags-picker">
+                                        <div className="td-tags-picker-list">
+                                            {allTags.length === 0 ? (
+                                                <p className="td-empty">В проекте ещё нет тегов</p>
+                                            ) : (
+                                                allTags.map(t => {
+                                                    const isChecked = taskTags.some(tt => tt.id === t.id);
+                                                    return (
+                                                        <label
+                                                            key={t.id}
+                                                            className={`td-tag-option ${isChecked ? 'checked' : ''}`}
+                                                        >
+                                                            <input
+                                                                type="checkbox"
+                                                                checked={isChecked}
+                                                                onChange={() => handleToggleTag(t.id)}
+                                                            />
+                                                            <span
+                                                                className="td-tag-dot"
+                                                                style={{ backgroundColor: t.color || '#9ca3af' }}
+                                                            />
+                                                            <span className="td-tag-option-name">{t.name}</span>
+                                                            <span className="td-tag-option-count">
+                                                                {t.tasksCount} задач
+                                                            </span>
+                                                            {task.isOwner && !isArchived && (
+                                                                <button
+                                                                    type="button"
+                                                                    className="btn btn--ghost btn--icon btn--sm"
+                                                                    title="Удалить тег из проекта"
+                                                                    onClick={(e) => {
+                                                                        e.preventDefault();
+                                                                        handleDeleteTag(t);
+                                                                    }}
+                                                                    aria-label="Удалить тег из проекта"
+                                                                >
+                                                                    <Trash2 size={12} />
+                                                                </button>
+                                                            )}
+                                                        </label>
+                                                    );
+                                                })
+                                            )}
+                                        </div>
+
+                                        <form className="td-tag-create" onSubmit={handleCreateTag}>
+                                            <input
+                                                type="color"
+                                                value={newTagColor}
+                                                onChange={e => setNewTagColor(e.target.value)}
+                                                title="Цвет тега"
+                                            />
+                                            <input
+                                                type="text"
+                                                placeholder="Новый тег…"
+                                                value={newTagName}
+                                                onChange={e => setNewTagName(e.target.value)}
+                                                maxLength={50}
+                                                disabled={tagSubmitting}
+                                            />
+                                            <button
+                                                type="submit"
+                                                className="btn btn--primary btn--sm"
+                                                disabled={tagSubmitting || !newTagName.trim()}
+                                            >
+                                                {tagSubmitting ? (
+                                                    <Loader2 size={14} className="icon-spin" />
+                                                ) : (
+                                                    <>
+                                                        <Plus size={14} />
+                                                        Создать
+                                                    </>
+                                                )}
+                                            </button>
+                                        </form>
+                                    </div>
+                                )}
+                            </div>
+                        </section>
+
+                        {/* ── 4. ПОДЗАДАЧИ ── */}
+                        <section className="td-card">
+                            <header className="td-card-header">
+                                <Check size={16} />
+                                <h2>Подзадачи</h2>
+                                <span className="td-card-count">
+                                    {task.completedSubtasksCount || 0}/{task.totalSubtasksCount || 0}
+                                </span>
+                            </header>
+                            <div className="td-card-body">
+                                {task.subtasks?.length > 0 && (
+                                    <div className="td-subtasks-progress">
+                                        <div
+                                            className="td-subtasks-progress-fill"
+                                            style={{
+                                                width: `${(task.completedSubtasksCount / task.totalSubtasksCount) * 100}%`,
+                                            }}
                                         />
+                                    </div>
+                                )}
+
+                                {(!task.subtasks || task.subtasks.length === 0) ? (
+                                    <p className="td-empty">Подзадач пока нет</p>
+                                ) : (
+                                    <ul className="td-subtasks">
+                                        {task.subtasks.map(s => (
+                                            <li
+                                                key={s.id}
+                                                className={`td-subtask ${s.isCompleted ? 'completed' : ''}`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={s.isCompleted}
+                                                    disabled={!canEdit || subtaskBusyId === s.id}
+                                                    onChange={() => handleToggleSubtask(s)}
+                                                />
+
+                                                {editingSubtaskId === s.id ? (
+                                                    <input
+                                                        type="text"
+                                                        className="td-subtask-input"
+                                                        value={editingSubtaskTitle}
+                                                        onChange={e => setEditingSubtaskTitle(e.target.value)}
+                                                        onKeyDown={e => {
+                                                            if (e.key === 'Enter') handleSaveSubtask(s.id);
+                                                            if (e.key === 'Escape') handleCancelEditSubtask();
+                                                        }}
+                                                        onBlur={() => handleSaveSubtask(s.id)}
+                                                        autoFocus
+                                                        maxLength={255}
+                                                    />
+                                                ) : (
+                                                    <span
+                                                        className="td-subtask-title"
+                                                        onDoubleClick={() =>
+                                                            canEdit && handleStartEditSubtask(s)
+                                                        }
+                                                        title={canEdit ? 'Двойной клик — редактировать' : ''}
+                                                    >
+                                                        {s.title}
+                                                    </span>
+                                                )}
+
+                                                {canEdit && editingSubtaskId !== s.id && (
+                                                    <div className="td-subtask-actions">
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn--ghost btn--icon btn--sm"
+                                                            title="Редактировать"
+                                                            onClick={() => handleStartEditSubtask(s)}
+                                                            aria-label="Редактировать подзадачу"
+                                                        >
+                                                            <Pencil size={12} />
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            className="btn btn--ghost btn--icon btn--sm"
+                                                            title="Удалить"
+                                                            onClick={() => handleDeleteSubtask(s)}
+                                                            aria-label="Удалить подзадачу"
+                                                        >
+                                                            <X size={12} />
+                                                        </button>
+                                                    </div>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+
+                                {canEdit && (
+                                    <form className="td-subtask-add" onSubmit={handleAddSubtask}>
                                         <input
                                             type="text"
-                                            placeholder="Новый тег…"
-                                            value={newTagName}
-                                            onChange={e => setNewTagName(e.target.value)}
-                                            maxLength={50}
-                                            disabled={tagSubmitting}
+                                            placeholder="Новая подзадача…"
+                                            value={newSubtaskTitle}
+                                            onChange={e => setNewSubtaskTitle(e.target.value)}
+                                            maxLength={255}
+                                            disabled={subtaskAdding}
                                         />
                                         <button
                                             type="submit"
                                             className="btn btn--primary btn--sm"
-                                            disabled={tagSubmitting || !newTagName.trim()}
+                                            disabled={subtaskAdding || !newSubtaskTitle.trim()}
                                         >
-                                            {tagSubmitting ? (
+                                            {subtaskAdding ? (
                                                 <Loader2 size={14} className="icon-spin" />
                                             ) : (
                                                 <>
                                                     <Plus size={14} />
-                                                    Создать
+                                                    Добавить
                                                 </>
                                             )}
                                         </button>
                                     </form>
-                                </div>
-                            )}
-                        </div>
-
-                        {/* ── Подзадачи ── */}
-                        <div className="task-details-subtasks">
-                            <div className="subtasks-header">
-                                <h3>
-                                    Подзадачи ({task.completedSubtasksCount || 0}/{task.totalSubtasksCount || 0})
-                                </h3>
-
-                                {task.subtasks?.length > 0 && (
-                                    <div className="subtasks-mini-progress">
-                                        <div
-                                            className="subtasks-mini-progress-fill"
-                                            style={{
-                                                width: `${(task.completedSubtasksCount / task.totalSubtasksCount) * 100}%`
-                                            }}
-                                        />
-                                    </div>
                                 )}
                             </div>
+                        </section>
 
-                            {(!task.subtasks || task.subtasks.length === 0) ? (
-                                <p className="no-subtasks">Подзадач пока нет</p>
-                            ) : (
-                                <ul className="subtasks-list">
-                                    {task.subtasks.map(s => (
-                                        <li
-                                            key={s.id}
-                                            className={`subtask-item ${s.isCompleted ? 'completed' : ''}`}
-                                        >
-                                            <input
-                                                type="checkbox"
-                                                checked={s.isCompleted}
-                                                disabled={!canEdit || subtaskBusyId === s.id}
-                                                onChange={() => handleToggleSubtask(s)}
-                                            />
-
-                                            {editingSubtaskId === s.id ? (
-                                                <input
-                                                    type="text"
-                                                    className="subtask-edit-input"
-                                                    value={editingSubtaskTitle}
-                                                    onChange={e => setEditingSubtaskTitle(e.target.value)}
-                                                    onKeyDown={e => {
-                                                        if (e.key === 'Enter') handleSaveSubtask(s.id);
-                                                        if (e.key === 'Escape') handleCancelEditSubtask();
-                                                    }}
-                                                    onBlur={() => handleSaveSubtask(s.id)}
-                                                    autoFocus
-                                                    maxLength={255}
-                                                />
-                                            ) : (
-                                                <span
-                                                    className="subtask-title"
-                                                    onDoubleClick={() =>
-                                                        canEdit && handleStartEditSubtask(s)
-                                                    }
-                                                    title={canEdit ? 'Двойной клик — редактировать' : ''}
-                                                >
-                                                    {s.title}
-                                                </span>
-                                            )}
-
-                                            {canEdit && editingSubtaskId !== s.id && (
-                                                <div className="subtask-actions">
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn--ghost btn--icon btn--sm"
-                                                        title="Редактировать"
-                                                        onClick={() => handleStartEditSubtask(s)}
-                                                        aria-label="Редактировать подзадачу"
-                                                    >
-                                                        <Pencil size={14} />
-                                                    </button>
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn--ghost btn--icon btn--sm"
-                                                        title="Удалить"
-                                                        onClick={() => handleDeleteSubtask(s)}
-                                                        aria-label="Удалить подзадачу"
-                                                    >
-                                                        <X size={14} />
-                                                    </button>
-                                                </div>
-                                            )}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-
-                            {canEdit && (
-                                <form className="subtask-add-form" onSubmit={handleAddSubtask}>
-                                    <input
-                                        type="text"
-                                        placeholder="Новая подзадача…"
-                                        value={newSubtaskTitle}
-                                        onChange={e => setNewSubtaskTitle(e.target.value)}
-                                        maxLength={255}
-                                        disabled={subtaskAdding}
-                                    />
-                                    <button
-                                        type="submit"
-                                        className="btn btn--primary btn--sm"
-                                        disabled={subtaskAdding || !newSubtaskTitle.trim()}
-                                    >
-                                        {subtaskAdding ? (
-                                            <Loader2 size={14} className="icon-spin" />
-                                        ) : (
-                                            <>
-                                                <Plus size={14} />
-                                                Добавить
-                                            </>
-                                        )}
-                                    </button>
-                                </form>
-                            )}
-                        </div>
-
-                        {/* ── Вложения ── */}
-                        <div className="task-details-attachments">
-                            <div className="attachments-header">
-                                <h3>Вложения ({attachments.length})</h3>
-
+                        {/* ── 5. ВЛОЖЕНИЯ ── */}
+                        <section className="td-card">
+                            <header className="td-card-header">
+                                <Paperclip size={16} />
+                                <h2>Вложения</h2>
+                                <span className="td-card-count">{attachments.length}</span>
                                 {canUpload && (
                                     <>
                                         <input
@@ -1150,83 +1225,85 @@ export default function TaskDetailsPage() {
                                         />
                                         <button
                                             type="button"
-                                            className="btn btn--secondary btn--sm"
+                                            className="btn btn--secondary btn--sm td-card-action"
                                             onClick={() => fileInputRef.current?.click()}
                                             disabled={uploading}
                                         >
                                             {uploading ? (
                                                 <>
-                                                    <Loader2 size={14} className="icon-spin" />
+                                                    <Loader2 size={12} className="icon-spin" />
                                                     Загрузка…
                                                 </>
                                             ) : (
                                                 <>
-                                                    <Paperclip size={14} />
-                                                    Прикрепить файл
+                                                    <Paperclip size={12} />
+                                                    Прикрепить
                                                 </>
                                             )}
                                         </button>
                                     </>
                                 )}
-                            </div>
-
-                            {attachments.length === 0 ? (
-                                <p className="no-attachments">Файлов пока нет</p>
-                            ) : (
-                                <ul className="attachments-list">
-                                    {attachments.map(att => (
-                                        <li key={att.id} className="attachment-item">
-                                            <span className="attachment-icon">
-                                                <FileText size={18} />
-                                            </span>
-                                            <div className="attachment-info">
-                                                <button
-                                                    type="button"
-                                                    className="attachment-name"
-                                                    onClick={() => handleDownloadFile(att)}
-                                                    title="Скачать"
-                                                >
-                                                    {att.fileName}
-                                                </button>
-                                                <span className="attachment-meta">
-                                                    {formatSize(att.sizeBytes)} ·{' '}
-                                                    {att.uploadedByName || att.uploadedByEmail} ·{' '}
-                                                    {new Date(att.uploadedAt).toLocaleString('ru-RU')}
+                            </header>
+                            <div className="td-card-body">
+                                {attachments.length === 0 ? (
+                                    <p className="td-empty">Файлов пока нет</p>
+                                ) : (
+                                    <ul className="td-attachments">
+                                        {attachments.map(att => (
+                                            <li key={att.id} className="td-attachment">
+                                                <span className="td-attachment-icon">
+                                                    <FileText size={18} />
                                                 </span>
-                                            </div>
-                                            {att.canDelete && !isArchived && (
-                                                <button
-                                                    type="button"
-                                                    className="btn btn--ghost btn--icon btn--sm"
-                                                    title="Удалить файл"
-                                                    onClick={() => handleDeleteFile(att)}
-                                                    aria-label="Удалить файл"
-                                                >
-                                                    <X size={14} />
-                                                </button>
-                                            )}
-                                        </li>
-                                    ))}
-                                </ul>
-                            )}
-                        </div>
+                                                <div className="td-attachment-info">
+                                                    <button
+                                                        type="button"
+                                                        className="td-attachment-name"
+                                                        onClick={() => handleDownloadFile(att)}
+                                                        title="Скачать"
+                                                    >
+                                                        {att.fileName}
+                                                    </button>
+                                                    <span className="td-attachment-meta">
+                                                        {formatSize(att.sizeBytes)} ·{' '}
+                                                        {att.uploadedByName || att.uploadedByEmail} ·{' '}
+                                                        {new Date(att.uploadedAt).toLocaleString('ru-RU')}
+                                                    </span>
+                                                </div>
+                                                {att.canDelete && !isArchived && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn--ghost btn--icon btn--sm"
+                                                        title="Удалить файл"
+                                                        onClick={() => handleDeleteFile(att)}
+                                                        aria-label="Удалить файл"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
+                            </div>
+                        </section>
 
-                        {/* 🆕 ── Комментарии ── */}
-                        <div ref={commentsRef}>
+                        {/* ── 6. КОММЕНТАРИИ ── */}
+                        <section className="td-card td-card--comments" ref={commentsRef}>
                             <TaskComments
                                 projectCode={code}
                                 taskId={taskId}
                                 isArchived={isArchived}
                             />
-                        </div>
-                    </section>
+                        </section>
+                    </div>
                 </>
             ) : (
-                <form className="task-edit-form" onSubmit={handleSave}>
+                /* ══════════ ФОРМА РЕДАКТИРОВАНИЯ ══════════ */
+                <form className="td-edit-form" onSubmit={handleSave}>
                     <h2>Редактирование задачи</h2>
 
-                    <label>
-                        Название *
+                    <label className="td-form-field">
+                        <span>Название *</span>
                         <input
                             type="text"
                             value={form.title}
@@ -1236,8 +1313,8 @@ export default function TaskDetailsPage() {
                         />
                     </label>
 
-                    <label>
-                        Описание
+                    <label className="td-form-field">
+                        <span>Описание</span>
                         <textarea
                             rows={6}
                             value={form.description}
@@ -1245,49 +1322,49 @@ export default function TaskDetailsPage() {
                         />
                     </label>
 
-                    <label>
-                        Блок
-                        <select
-                            value={form.columnId}
-                            onChange={e => setForm({ ...form, columnId: e.target.value })}
-                        >
-                            {columns.map(c => (
-                                <option key={c.id} value={c.id}>{c.name}</option>
-                            ))}
-                        </select>
-                    </label>
+                    <div className="td-form-row">
+                        <label className="td-form-field">
+                            <span>Блок</span>
+                            <select
+                                value={form.columnId}
+                                onChange={e => setForm({ ...form, columnId: e.target.value })}
+                            >
+                                {columns.map(c => (
+                                    <option key={c.id} value={c.id}>{c.name}</option>
+                                ))}
+                            </select>
+                        </label>
 
-                    <label>
-                        Приоритет
-                        <select
-                            value={form.priority}
-                            onChange={e => setForm({ ...form, priority: e.target.value })}
-                        >
-                            {TASK_PRIORITIES.map(p => (
-                                <option key={p.value} value={p.value}>
-                                    {p.label}
-                                </option>
-                            ))}
-                        </select>
-                    </label>
+                        <label className="td-form-field">
+                            <span>Приоритет</span>
+                            <select
+                                value={form.priority}
+                                onChange={e => setForm({ ...form, priority: e.target.value })}
+                            >
+                                {TASK_PRIORITIES.map(p => (
+                                    <option key={p.value} value={p.value}>{p.label}</option>
+                                ))}
+                            </select>
+                        </label>
+                    </div>
 
-                    <div className="form-group">
-                        <label className="checkbox-label">
+                    <div className="td-form-fieldset">
+                        <label className="td-checkbox">
                             <input
                                 type="checkbox"
                                 checked={form.noStartDate}
                                 onChange={e => setForm({
                                     ...form,
                                     noStartDate: e.target.checked,
-                                    startDate: e.target.checked ? '' : form.startDate
+                                    startDate: e.target.checked ? '' : form.startDate,
                                 })}
                             />
-                            Без даты начала
+                            <span>Без даты начала</span>
                         </label>
 
                         {!form.noStartDate && (
-                            <label>
-                                Дата начала
+                            <label className="td-form-field">
+                                <span>Дата начала</span>
                                 <input
                                     type="datetime-local"
                                     value={form.startDate}
@@ -1301,7 +1378,7 @@ export default function TaskDetailsPage() {
                                     required
                                 />
                                 {task.projectDeadline && (
-                                    <small className="form-hint">
+                                    <small className="td-form-hint">
                                         Не позднее: {formatDateTime(task.projectDeadline)}
                                     </small>
                                 )}
@@ -1309,23 +1386,23 @@ export default function TaskDetailsPage() {
                         )}
                     </div>
 
-                    <div className="form-group">
-                        <label className="checkbox-label">
+                    <div className="td-form-fieldset">
+                        <label className="td-checkbox">
                             <input
                                 type="checkbox"
                                 checked={form.noDueDate}
                                 onChange={e => setForm({
                                     ...form,
                                     noDueDate: e.target.checked,
-                                    dueDate: e.target.checked ? '' : form.dueDate
+                                    dueDate: e.target.checked ? '' : form.dueDate,
                                 })}
                             />
-                            Без дедлайна (до конца проекта)
+                            <span>Без дедлайна (до конца проекта)</span>
                         </label>
 
                         {!form.noDueDate && (
-                            <label>
-                                Дедлайн задачи
+                            <label className="td-form-field">
+                                <span>Дедлайн задачи</span>
                                 <input
                                     type="datetime-local"
                                     value={form.dueDate}
@@ -1344,7 +1421,7 @@ export default function TaskDetailsPage() {
                                     required
                                 />
                                 {task.projectDeadline && (
-                                    <small className="form-hint">
+                                    <small className="td-form-hint">
                                         Не позднее: {formatDateTime(task.projectDeadline)}
                                     </small>
                                 )}
@@ -1352,7 +1429,7 @@ export default function TaskDetailsPage() {
                         )}
                     </div>
 
-                    <div className="modal-actions">
+                    <div className="td-form-actions">
                         <button
                             type="button"
                             className="btn btn--secondary"

@@ -1,0 +1,188 @@
+/* projecthub.client/src/styles/components/SettingsPrivacy.css */
+
+/* ═══════════════════════════════════════════════════════════
+   РАЗДЕЛ «ПРИВАТНОСТЬ И БЕЗОПАСНОСТЬ»
+   ═══════════════════════════════════════════════════════════ */
+
+.settings-privacy {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+/* ── Радио-карточки (вертикальные) ── */
+.privacy-options-vertical {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-2);
+}
+
+.privacy-option-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+    .privacy-option-card:hover {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+    }
+
+    .privacy-option-card.selected {
+        border-color: var(--accent);
+        background: var(--accent-soft);
+        box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    /* Скрываем нативный radio — но оставляем для accessibility */
+    .privacy-option-card input[type="radio"] {
+        position: absolute;
+        opacity: 0;
+        pointer-events: none;
+    }
+
+.privacy-option-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    background: var(--color-gray-100);
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.privacy-option-card.selected .privacy-option-icon {
+    background: var(--accent);
+    color: var(--accent-text-on);
+}
+
+.privacy-option-text {
+    flex: 1;
+    min-width: 0;
+}
+
+.privacy-option-title {
+    font-size: var(--text-base);
+    font-weight: var(--font-medium);
+    color: var(--color-text);
+    line-height: var(--leading-tight);
+    margin-bottom: 2px;
+}
+
+.privacy-option-description {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    line-height: var(--leading-normal);
+}
+
+.privacy-option-check {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border-radius: var(--radius-full);
+    background: var(--accent);
+    color: var(--accent-text-on);
+    flex-shrink: 0;
+}
+
+/* ── Кнопки сохранения приватности ── */
+.settings-privacy-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--space-3);
+}
+
+    .settings-privacy-actions .btn {
+        align-self: flex-end;
+    }
+
+/* ── Форма смены пароля ── */
+.settings-card--password {
+    background: var(--color-bg);
+}
+
+.password-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    margin-top: var(--space-2);
+}
+
+    .password-form .form-group {
+        display: flex;
+        flex-direction: column;
+        gap: var(--space-2);
+    }
+
+    .password-form .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: var(--space-4);
+    }
+
+    .password-form label {
+        font-size: var(--text-sm);
+        font-weight: var(--font-medium);
+        color: var(--color-text);
+    }
+
+    .password-form input {
+        padding: 10px 12px;
+        background: var(--color-bg);
+        border: 1px solid var(--color-border-strong);
+        border-radius: var(--radius-md);
+        font-size: var(--text-base);
+        color: var(--color-text);
+        transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+    }
+
+        .password-form input:hover:not(:disabled) {
+            border-color: var(--color-border-strong);
+        }
+
+        .password-form input:focus {
+            outline: none;
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-soft);
+        }
+
+        .password-form input:disabled {
+            background: var(--color-gray-100);
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+
+.password-form-actions {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--space-2);
+}
+
+/* ── Адаптив ── */
+@media (max-width: 600px) {
+    .password-form .form-row {
+        grid-template-columns: 1fr;
+    }
+
+    .settings-privacy-actions .btn,
+    .password-form-actions .btn {
+        width: 100%;
+    }
+
+    .settings-privacy-actions {
+        align-items: stretch;
+    }
+}

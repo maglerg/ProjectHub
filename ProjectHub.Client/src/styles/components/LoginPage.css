@@ -1,141 +1,235 @@
 /* projecthub.client/src/styles/LoginPage.css */
 
+/* ═══════════════════════════════════════════════════════════
+   СТРАНИЦА ЛОГИНА
+   ═══════════════════════════════════════════════════════════ */
+
 .login-page {
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    padding: var(--space-5);
+    /* Градиент делаем через токены primary — работает в обеих темах */
+    background: linear-gradient( 135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100% );
+    font-family: var(--font-sans);
+    color: var(--color-text);
 }
 
 .login-container {
     width: 100%;
     max-width: 400px;
-    padding: 20px;
 }
 
 .login-box {
-    background: white;
-    border-radius: 16px;
-    padding: 40px 32px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    padding: var(--space-10) var(--space-8);
+    box-shadow: var(--shadow-xl);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   ЗАГОЛОВОК
+   ═══════════════════════════════════════════════════════════ */
 
 .login-header {
     text-align: center;
-    margin-bottom: 32px;
+    margin-bottom: var(--space-8);
 }
 
     .login-header h1 {
-        font-size: 28px;
-        color: #333;
-        margin: 0 0 8px 0;
+        font-size: var(--text-3xl);
+        color: var(--color-text);
+        margin: 0 0 var(--space-2) 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
     }
+
+        .login-header h1 > svg {
+            color: var(--color-primary-500);
+        }
 
     .login-header p {
-        color: #666;
+        color: var(--color-text-secondary);
         margin: 0;
+        font-size: var(--text-base);
     }
 
+/* ═══════════════════════════════════════════════════════════
+   ФОРМА
+   ═══════════════════════════════════════════════════════════ */
+
 .login-form .form-group {
-    margin-bottom: 20px;
+    margin-bottom: var(--space-5);
 }
 
 .login-form label {
     display: block;
-    font-size: 14px;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 6px;
+    font-size: var(--text-sm);
+    font-weight: var(--font-semibold);
+    color: var(--color-text);
+    margin-bottom: var(--space-1);
 }
 
 .login-form input {
     width: 100%;
-    padding: 12px 14px;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    font-size: 16px;
-    transition: border-color 0.3s;
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 1px solid var(--color-border-strong);
+    border-radius: var(--radius-md);
+    font-size: var(--text-lg);
+    font-family: inherit;
+    transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
     box-sizing: border-box;
 }
 
+    .login-form input::placeholder {
+        color: var(--color-text-tertiary);
+    }
+
     .login-form input:focus {
         outline: none;
-        border-color: #667eea;
+        border-color: var(--color-primary-500);
+        box-shadow: 0 0 0 3px var(--color-primary-100);
     }
 
     .login-form input:disabled {
-        opacity: 0.6;
+        background: var(--color-bg-secondary);
+        color: var(--color-text-tertiary);
+        opacity: 0.7;
         cursor: not-allowed;
     }
 
+/* ═══════════════════════════════════════════════════════════
+   СООБЩЕНИЕ ОБ ОШИБКЕ
+   ═══════════════════════════════════════════════════════════ */
+
 .error-message {
-    background: #fee;
-    color: #c0392b;
-    padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 14px;
-    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
+    padding: var(--space-3) var(--space-4);
+    border: 1px solid rgba(239, 68, 68, 0.3);
+    border-radius: var(--radius-md);
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    margin-bottom: var(--space-4);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   КНОПКА ВХОДА
+   ═══════════════════════════════════════════════════════════ */
 
 .btn-login {
     width: 100%;
-    padding: 14px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    padding: var(--space-3) var(--space-4);
+    background: linear-gradient( 135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100% );
+    color: var(--accent-text-on);
     border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
+    border-radius: var(--radius-md);
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    font-family: inherit;
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
 }
 
     .btn-login:hover:not(:disabled) {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        transform: translateY(-1px);
+        box-shadow: 0 8px 25px rgba(99, 102, 241, 0.4);
     }
 
     .btn-login:disabled {
         opacity: 0.6;
         cursor: not-allowed;
+        transform: none;
     }
+
+/* ═══════════════════════════════════════════════════════════
+   ПОДВАЛ ФОРМЫ
+   ═══════════════════════════════════════════════════════════ */
 
 .login-footer {
     text-align: center;
-    margin-top: 20px;
-    color: #666;
+    margin-top: var(--space-5);
+    color: var(--color-text-secondary);
+    font-size: var(--text-base);
 }
+
+    .login-footer p {
+        margin: 0;
+    }
 
     .login-footer .link-btn {
         background: none;
         border: none;
-        color: #667eea;
-        font-weight: 600;
+        color: var(--color-primary-500);
+        font-weight: var(--font-semibold);
         cursor: pointer;
-        font-size: 14px;
+        font-size: inherit;
+        font-family: inherit;
         padding: 0;
+        text-decoration: none;
+        transition: color var(--transition-fast);
     }
 
         .login-footer .link-btn:hover {
+            color: var(--color-primary-600);
             text-decoration: underline;
         }
 
+/* ═══════════════════════════════════════════════════════════
+   БЛОК С ДЕМО-АККАУНТОМ
+   ═══════════════════════════════════════════════════════════ */
+
 .login-demo {
-    margin-top: 24px;
-    padding: 16px;
-    background: #f8f9fa;
-    border-radius: 8px;
-    border: 1px dashed #ccc;
+    margin-top: var(--space-6);
+    padding: var(--space-4);
+    background: var(--color-bg-secondary);
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--radius-md);
 }
 
     .login-demo p {
-        margin: 4px 0;
-        font-size: 13px;
-        color: #555;
+        margin: var(--space-1) 0;
+        font-size: var(--text-sm);
+        color: var(--color-text-secondary);
+        display: flex;
+        align-items: center;
+        gap: var(--space-2);
     }
 
+        .login-demo p > svg {
+            color: var(--color-text-tertiary);
+            flex-shrink: 0;
+        }
+
     .login-demo strong {
-        color: #333;
+        color: var(--color-text);
+        font-weight: var(--font-semibold);
     }
+
+/* ═══════════════════════════════════════════════════════════
+   АДАПТИВ
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 480px) {
+    .login-box {
+        padding: var(--space-8) var(--space-5);
+        border-radius: var(--radius-lg);
+    }
+
+    .login-header h1 {
+        font-size: var(--text-2xl);
+    }
+}

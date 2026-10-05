@@ -1,71 +1,90 @@
+/* projecthub.client/src/styles/components/VotingPage.css */
+
+/* ═══════════════════════════════════════════════════════════
+   СТРАНИЦА ГОЛОСОВАНИЯ
+   ═══════════════════════════════════════════════════════════ */
+
 .voting-page-card {
     max-width: 720px;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   ВОПРОС И МЕТА
+   ═══════════════════════════════════════════════════════════ */
+
 .voting-question {
-    font-size: 20px;
-    font-weight: 600;
-    color: #222;
-    margin: 0 0 12px;
-    line-height: 1.35;
+    font-size: var(--text-xl);
+    font-weight: var(--font-semibold);
+    color: var(--color-text);
+    margin: 0 0 var(--space-3);
+    line-height: var(--leading-tight);
 }
 
 .voting-meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 10px;
-    font-size: 12px;
-    color: #777;
+    gap: var(--space-2);
+    font-size: var(--text-xs);
+    color: var(--color-text-secondary);
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: var(--space-5);
 }
 
     .voting-meta .badge {
         font-size: 11px;
         padding: 3px 9px;
-        border-radius: 10px;
-        font-weight: 600;
+        border-radius: var(--radius-md);
+        font-weight: var(--font-semibold);
     }
 
         .voting-meta .badge.closed {
-            background: #e2e3e5;
-            color: #383d41;
+            background: var(--color-gray-200);
+            color: var(--color-text-secondary);
         }
 
         .voting-meta .badge.expired {
-            background: #fff3cd;
-            color: #856404;
+            background: var(--color-warning-bg);
+            color: var(--color-warning);
         }
 
         .voting-meta .badge.info {
-            background: #cce5ff;
-            color: #004085;
+            background: var(--color-info-bg);
+            color: var(--color-info);
         }
+
+        .voting-meta .badge.anonymous {
+            background: var(--accent-soft);
+            color: var(--accent);
+        }
+
+/* ═══════════════════════════════════════════════════════════
+   ВАРИАНТЫ ОТВЕТА
+   ═══════════════════════════════════════════════════════════ */
 
 .voting-options {
     display: flex;
     flex-direction: column;
-    gap: 10px;
-    margin-bottom: 18px;
+    gap: var(--space-2);
+    margin-bottom: var(--space-5);
 }
 
 .voting-option {
-    border: 1.5px solid #e0e6ed;
-    border-radius: 10px;
-    padding: 12px 14px;
+    border: 1.5px solid var(--color-border);
+    border-radius: var(--radius-md);
+    padding: var(--space-3) var(--space-4);
     cursor: pointer;
-    transition: all 0.15s;
-    background: #fff;
+    transition: all var(--transition-fast);
+    background: var(--color-bg);
 }
 
     .voting-option:hover:not(.disabled) {
-        border-color: #4a90e2;
-        background: #f8fbff;
+        border-color: var(--accent);
+        background: var(--accent-soft);
     }
 
     .voting-option.selected {
-        border-color: #4a90e2;
-        background: #eef5ff;
+        border-color: var(--accent);
+        background: var(--accent-soft);
     }
 
     .voting-option.disabled {
@@ -76,7 +95,7 @@
 .option-control {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: var(--space-2);
 }
 
 .option-checkbox {
@@ -86,47 +105,51 @@
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    font-size: 14px;
-    color: #4a90e2;
-    font-weight: 700;
+    font-size: var(--text-base);
+    color: var(--accent);
+    font-weight: var(--font-bold);
 }
 
     .option-checkbox.single {
-        border: 2px solid #c0c8d4;
-        border-radius: 50%;
+        border: 2px solid var(--color-border-strong);
+        border-radius: var(--radius-full);
     }
 
     .option-checkbox.multi {
-        border: 2px solid #c0c8d4;
-        border-radius: 5px;
+        border: 2px solid var(--color-border-strong);
+        border-radius: var(--radius-sm);
     }
 
 .voting-option.selected .option-checkbox {
-    border-color: #4a90e2;
+    border-color: var(--accent);
 }
 
 .option-text {
-    font-size: 15px;
-    color: #222;
+    font-size: var(--text-base);
+    color: var(--color-text);
     flex: 1;
     word-break: break-word;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   РЕЗУЛЬТАТЫ
+   ═══════════════════════════════════════════════════════════ */
+
 .option-results {
-    margin-top: 10px;
+    margin-top: var(--space-2);
 }
 
 .results-bar {
     height: 6px;
-    background: #eef1f5;
-    border-radius: 3px;
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-sm);
     overflow: hidden;
 }
 
 .results-fill {
     height: 100%;
-    background: linear-gradient(90deg, #4a90e2, #6aa9ff);
-    border-radius: 3px;
+    background: var(--accent);
+    border-radius: var(--radius-sm);
     transition: width 0.3s ease;
 }
 
@@ -134,33 +157,41 @@
     display: flex;
     justify-content: space-between;
     font-size: 11px;
-    color: #777;
-    margin-top: 4px;
+    color: var(--color-text-secondary);
+    margin-top: var(--space-1);
 }
 
 .results-percent {
-    font-weight: 600;
-    color: #4a90e2;
+    font-weight: var(--font-semibold);
+    color: var(--accent);
 }
 
+/* ═══════════════════════════════════════════════════════════
+   ИТОГИ ГОЛОСОВАНИЯ
+   ═══════════════════════════════════════════════════════════ */
+
 .voting-summary {
-    font-size: 13px;
-    color: #555;
-    padding: 12px;
-    background: #f8f9fb;
-    border-radius: 8px;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    padding: var(--space-3);
+    background: var(--color-bg-secondary);
+    border-radius: var(--radius-sm);
     text-align: center;
-    margin-bottom: 18px;
+    margin-bottom: var(--space-5);
 }
 
     .voting-summary.muted {
-        color: #999;
+        color: var(--color-text-tertiary);
         font-style: italic;
     }
 
+/* ═══════════════════════════════════════════════════════════
+   ДЕЙСТВИЯ
+   ═══════════════════════════════════════════════════════════ */
+
 .voting-actions {
     display: flex;
-    gap: 10px;
+    gap: var(--space-2);
     flex-wrap: wrap;
 }
 
@@ -169,20 +200,24 @@
         min-width: 130px;
     }
 
+/* ═══════════════════════════════════════════════════════════
+   КНОПКИ
+   ═══════════════════════════════════════════════════════════ */
+
 .btn-primary {
     padding: 11px 18px;
-    background: #4a90e2;
-    color: #fff;
+    background: var(--accent);
+    color: var(--accent-text-on);
     border: none;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    font-weight: 600;
-    font-size: 14px;
-    transition: background 0.2s;
+    font-weight: var(--font-semibold);
+    font-size: var(--text-base);
+    transition: background var(--transition-base);
 }
 
     .btn-primary:hover:not(:disabled) {
-        background: #357abd;
+        background: var(--accent-hover);
     }
 
     .btn-primary:disabled {
@@ -192,17 +227,18 @@
 
 .btn-secondary {
     padding: 11px 18px;
-    background: #fff;
-    color: #4a90e2;
-    border: 1.5px solid #4a90e2;
-    border-radius: 8px;
+    background: var(--color-bg);
+    color: var(--accent);
+    border: 1.5px solid var(--accent);
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    font-weight: 600;
-    font-size: 14px;
+    font-weight: var(--font-semibold);
+    font-size: var(--text-base);
+    transition: background var(--transition-fast);
 }
 
     .btn-secondary:hover:not(:disabled) {
-        background: #f0f7ff;
+        background: var(--accent-soft);
     }
 
     .btn-secondary:disabled {
@@ -212,58 +248,66 @@
 
 .btn-danger {
     padding: 11px 18px;
-    background: #fff;
-    color: #c33;
-    border: 1.5px solid #c33;
-    border-radius: 8px;
+    background: var(--color-bg);
+    color: var(--color-danger);
+    border: 1.5px solid var(--color-danger);
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    font-weight: 600;
-    font-size: 14px;
+    font-weight: var(--font-semibold);
+    font-size: var(--text-base);
+    transition: background var(--transition-fast);
 }
 
     .btn-danger:hover:not(:disabled) {
-        background: #fff0f0;
+        background: var(--color-danger-bg);
     }
 
     .btn-danger:disabled {
         opacity: 0.5;
         cursor: not-allowed;
     }
-/* 📌 Кнопка «Показать, кто голосовал» */
+
+/* ═══════════════════════════════════════════════════════════
+   КНОПКА «ПОКАЗАТЬ, КТО ГОЛОСОВАЛ»
+   ═══════════════════════════════════════════════════════════ */
+
 .btn-show-voters {
     display: block;
-    margin: 0 auto 16px;
+    margin: 0 auto var(--space-4);
     padding: 9px 16px;
-    background: #fff;
-    color: #4a90e2;
-    border: 1.5px solid #4a90e2;
-    border-radius: 8px;
+    background: var(--color-bg);
+    color: var(--accent);
+    border: 1.5px solid var(--accent);
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    font-weight: 600;
-    font-size: 13px;
-    transition: background 0.15s;
+    font-weight: var(--font-semibold);
+    font-size: var(--text-sm);
+    transition: background var(--transition-fast);
 }
 
     .btn-show-voters:hover {
-        background: #f0f7ff;
+        background: var(--accent-soft);
     }
 
-/* 📌 Список проголосовавших под опцией */
+/* ═══════════════════════════════════════════════════════════
+   СПИСОК ПРОГОЛОСОВАВШИХ
+   ═══════════════════════════════════════════════════════════ */
+
 .option-voters {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px dashed #e0e6ed;
+    margin-top: var(--space-2);
+    padding-top: var(--space-2);
+    border-top: 1px dashed var(--color-border);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--space-1);
     animation: fadeIn 0.2s ease;
 }
 
     .option-voters.empty {
-        color: #aaa;
-        font-size: 12px;
+        color: var(--color-text-tertiary);
+        font-size: var(--text-xs);
         font-style: italic;
-        padding: 8px 0 0;
+        padding: var(--space-2) 0 0;
     }
 
 @keyframes fadeIn {
@@ -281,18 +325,18 @@
 .voter-item {
     display: flex;
     align-items: center;
-    gap: 8px;
-    font-size: 13px;
-    color: #444;
+    gap: var(--space-2);
+    font-size: var(--text-sm);
+    color: var(--color-text);
 }
 
 .voter-avatar {
     width: 24px;
     height: 24px;
-    border-radius: 50%;
-    background: #e8f1ff;
-    color: #4a90e2;
-    font-weight: 700;
+    border-radius: var(--radius-full);
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-weight: var(--font-bold);
     font-size: 11px;
     display: flex;
     align-items: center;
@@ -302,56 +346,56 @@
 
 .voter-name {
     flex: 1;
-    color: #222;
-    font-weight: 500;
+    color: var(--color-text);
+    font-weight: var(--font-medium);
     word-break: break-word;
 }
 
 .voter-date {
     font-size: 11px;
-    color: #999;
+    color: var(--color-text-tertiary);
     flex-shrink: 0;
 }
-.voting-meta .badge.anonymous {
-    background: #ede7f6;
-    color: #5e35b1;
-}
-/* ── Модальное окно просмотра голосования ── */
+
+/* ═══════════════════════════════════════════════════════════
+   МОДАЛЬНОЕ ОКНО ПРОСМОТРА ГОЛОСОВАНИЯ
+   ═══════════════════════════════════════════════════════════ */
+
 .modal-content--voting-view {
     max-width: 720px;
     max-height: 90vh;
     overflow-y: auto;
-    padding: 20px 24px 24px;
+    padding: var(--space-5) var(--space-6) var(--space-6);
 }
 
 .modal-header-row {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 16px;
+    margin-bottom: var(--space-4);
 }
 
     .modal-header-row h3 {
         margin: 0;
-        font-size: 18px;
-        color: #222;
+        font-size: var(--text-xl);
+        color: var(--color-text);
     }
 
 .modal-close-x {
     background: transparent;
     border: none;
     cursor: pointer;
-    font-size: 18px;
-    color: #9ca3af;
-    padding: 4px 8px;
-    border-radius: 6px;
-    transition: background 0.15s, color 0.15s;
+    font-size: var(--text-xl);
+    color: var(--color-text-tertiary);
+    padding: var(--space-1) var(--space-2);
+    border-radius: var(--radius-sm);
+    transition: background var(--transition-fast), color var(--transition-fast);
     line-height: 1;
 }
 
     .modal-close-x:hover {
-        background: #f3f4f6;
-        color: #ef4444;
+        background: var(--color-gray-100);
+        color: var(--color-danger);
     }
 
 .voting-page-card--modal {

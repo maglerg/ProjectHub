@@ -19,7 +19,12 @@ public interface IUserService
     Task LogoutUserAsync(Guid userId);
 
     Task<UserResponseDto> UpdateUserAsync(Guid userId, UpdateUserDto dto);
-    Task<UserResponseDto?> GetUserProfileByEmailAsync(string email);
+
+    // 🆕 Добавлен viewerId — чей контекст
+    Task<UserResponseDto?> GetUserProfileByEmailAsync(string email, Guid? viewerId);
+
     Task<UserResponseDto> UploadAvatarAsync(Guid userId, IFormFile file);
     Task<UserResponseDto> DeleteAvatarAsync(Guid userId);
+
+    Task ChangePasswordAsync(Guid userId, ChangePasswordDto dto);
 }

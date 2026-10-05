@@ -7,7 +7,7 @@
 .filter-section {
     display: flex;
     align-items: flex-end;
-    gap: var(--space-3, 12px);
+    gap: var(--space-3);
     flex-wrap: wrap;
 }
 
@@ -18,16 +18,15 @@
     .filter-section .filter-group {
         display: flex;
         flex-direction: column;
-        gap: var(--space-2, 8px);
-        /* компактнее: не на всю ширину */
+        gap: var(--space-2);
         flex: 0 1 320px;
         min-width: 220px;
     }
 
         .filter-section .filter-group label {
-            font-size: var(--text-sm, 13px);
-            font-weight: var(--font-medium, 500);
-            color: var(--color-text, #374151);
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
+            color: var(--color-text);
         }
 
         /* ═══════════════════════════════════════════════════════════
@@ -37,13 +36,13 @@
         .filter-section .filter-group select {
             width: 100%;
             padding: 10px 40px 10px 14px;
-            background: var(--color-bg, #ffffff);
-            color: var(--color-text, #111827);
-            border: 1px solid var(--color-border-strong, #d1d5db);
-            border-radius: var(--radius-md, 10px);
+            background: var(--color-bg);
+            color: var(--color-text);
+            border: 1px solid var(--color-border-strong);
+            border-radius: var(--radius-md);
             font-family: inherit;
-            font-size: var(--text-sm, 13px);
-            font-weight: var(--font-medium, 500);
+            font-size: var(--text-sm);
+            font-weight: var(--font-medium);
             line-height: 1.4;
             outline: none;
             cursor: pointer;
@@ -54,35 +53,48 @@
             background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%236b7280' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
             background-repeat: no-repeat;
             background-position: right 12px center;
-            transition: border-color var(--transition-fast, 150ms) ease, box-shadow var(--transition-fast, 150ms) ease, background-color var(--transition-fast, 150ms) ease;
+            transition: border-color var(--transition-fast) ease, box-shadow var(--transition-fast) ease, background-color var(--transition-fast) ease;
         }
 
             .filter-section .filter-group select:hover:not(:disabled) {
-                border-color: var(--color-gray-400, #9ca3af);
+                border-color: var(--color-gray-400);
             }
 
             .filter-section .filter-group select:focus {
-                border-color: var(--color-primary-500, #4f46e5);
-                box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+                border-color: var(--color-primary-500);
+                box-shadow: 0 0 0 3px var(--color-primary-100);
             }
 
             .filter-section .filter-group select:disabled {
-                background-color: var(--color-bg-secondary, #f9fafb);
-                color: var(--color-text-tertiary, #9ca3af);
+                background-color: var(--color-bg-secondary);
+                color: var(--color-text-tertiary);
                 cursor: not-allowed;
             }
 
     /* ═══════════════════════════════════════════════════════════
-   КНОПКИ — с нормальным расстоянием друг от друга
+   КНОПКИ
    ═══════════════════════════════════════════════════════════ */
 
     .filter-section .btn {
         flex-shrink: 0;
-        height: 40px; /* одинаковая высота с select */
+        height: 40px;
         padding: 0 18px;
     }
 
-/* ── Адаптив ── */
+/* ═══════════════════════════════════════════════════════════
+   ТЁМНАЯ ТЕМА — доводка SVG-стрелки
+   ═══════════════════════════════════════════════════════════ */
+
+/* SVG-стрелка в background-image не подхватывает var().
+   Поэтому переопределяем её для тёмной темы более светлым цветом. */
+[data-theme="dark"] .filter-section .filter-group select {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23cbd5e1' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+}
+
+/* ═══════════════════════════════════════════════════════════
+   АДАПТИВ
+   ═══════════════════════════════════════════════════════════ */
+
 @media (max-width: 600px) {
     .filter-section {
         flex-direction: column;

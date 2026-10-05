@@ -72,7 +72,8 @@ export const updateUser = async (userData) => {
                 name: userData.name,
                 specialization: userData.specialization,
                 description: userData.description,
-                chatPrivacy: userData.chatPrivacy  // ← ДОБАВЛЕНО
+                chatPrivacy: userData.chatPrivacy,
+                onlineVisibility: userData.onlineVisibility,   // 🆕
             })
         });
 
@@ -97,4 +98,40 @@ export const updateUser = async (userData) => {
         console.error('❌ Ошибка в updateUser:', error);
         throw error;
     }
+};
+// ═══════════════════════════════════════════════════════════
+//  🆕 СМЕНА ПАРОЛЯ
+// ═══════════════════════════════════════════════════════════
+
+/**
+ * Смена пароля.
+ * @param {{ currentPassword: string, newPassword: string, confirmPassword: string }} dto
+ */
+export const changePassword = async (dto) => {
+    const token = getToken();
+    const response = await fetch(`${API_BASE_URL}/users/password`, {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(dto),
+    });
+
+    if (!response.ok) {
+        let message = 'Не удалось сменить пароль';
+        try {
+            const body = await response.json();
+            if (body?.error) message = body.error;
+            else if (body?.message) message = body.message;
+        } catch { /* ignore */ }
+
+        // 401 — обычно «неверный текущий пароль». Прокинем как есть,
+        // чтобы в форме можно было показать понятное сообщение.
+        const error = new Error(message);
+        error.status = response.status;
+        throw error;
+    }
+
+    return await response.json();
 };

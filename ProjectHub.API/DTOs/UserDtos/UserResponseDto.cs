@@ -17,6 +17,7 @@ namespace ProjectHub.API.DTOs.UserDtos
         public int CompletedProjectsCount { get; set; }
         public string ChatPrivacy { get; set; } = "Everyone";
         public string? AvatarUrl { get; set; }
+        public string OnlineVisibility { get; set; } = "Everyone";
     }
 }
 

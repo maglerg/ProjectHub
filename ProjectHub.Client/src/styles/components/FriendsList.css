@@ -1,78 +1,99 @@
 /* projecthub.client/src/styles/components/FriendsList.css */
 
+/* ═══════════════════════════════════════════════════════════
+   ОБЩИЙ КОНТЕЙНЕР
+   ═══════════════════════════════════════════════════════════ */
+
 .friends-container {
     max-width: 800px;
     margin: 0 auto;
-    padding: 20px 0;
+    padding: var(--space-5) 0;
 }
 
 .friends-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    margin-bottom: 20px;
+    margin-bottom: var(--space-5);
     flex-wrap: wrap;
-    gap: 10px;
+    gap: var(--space-3);
 }
 
     .friends-header h2 {
-        font-size: 22px;
-        color: #333;
+        font-size: var(--text-2xl);
+        color: var(--color-text);
         margin: 0;
     }
 
 .friends-count {
-    padding: 4px 14px;
-    background: #f0f0f0;
-    border-radius: 20px;
-    font-size: 13px;
-    color: #666;
+    padding: var(--space-1) var(--space-3);
+    background: var(--color-bg-tertiary);
+    border-radius: var(--radius-full);
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
 }
 
-/* 📌 ПОИСК */
+/* ═══════════════════════════════════════════════════════════
+   ПОИСК
+   ═══════════════════════════════════════════════════════════ */
+
 .search-user-form {
-    margin-bottom: 20px;
+    margin-bottom: var(--space-5);
 }
 
 .search-user-input-group {
     display: flex;
-    gap: 10px;
+    gap: var(--space-3);
 }
 
     .search-user-input-group input {
         flex: 1;
-        padding: 10px 16px;
-        border: 2px solid #e0e0e0;
-        border-radius: 8px;
-        font-size: 14px;
-        transition: border-color 0.2s;
+        padding: 10px var(--space-4);
+        background: var(--color-bg);
+        color: var(--color-text);
+        border: 1px solid var(--color-border-strong);
+        border-radius: var(--radius-md);
+        font-size: var(--text-base);
+        font-family: inherit;
+        transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
     }
+
+        .search-user-input-group input::placeholder {
+            color: var(--color-text-tertiary);
+        }
 
         .search-user-input-group input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: var(--color-primary-500);
+            box-shadow: 0 0 0 3px var(--color-primary-100);
         }
 
         .search-user-input-group input:disabled {
-            background: #f8f9fa;
+            background: var(--color-bg-secondary);
+            color: var(--color-text-tertiary);
             cursor: not-allowed;
         }
 
     .search-user-input-group button {
-        padding: 10px 24px;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-        color: white;
+        padding: 10px var(--space-6);
+        background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
+        color: var(--accent-text-on);
         border: none;
-        border-radius: 8px;
-        font-weight: 600;
+        border-radius: var(--radius-md);
+        font-weight: var(--font-semibold);
+        font-family: inherit;
         cursor: pointer;
-        transition: all 0.2s;
+        transition: transform var(--transition-fast), box-shadow var(--transition-fast), filter var(--transition-fast);
         white-space: nowrap;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: var(--space-2);
     }
 
         .search-user-input-group button:hover:not(:disabled) {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 15px rgba(99, 102, 241, 0.35);
         }
 
         .search-user-input-group button:disabled {
@@ -82,19 +103,26 @@
         }
 
 .search-error {
-    margin-top: 8px;
-    color: #e74c3c;
-    font-size: 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-top: var(--space-2);
+    color: var(--color-danger);
+    font-size: var(--text-sm);
 }
 
-/* 📌 РЕЗУЛЬТАТ ПОИСКА */
+/* ═══════════════════════════════════════════════════════════
+   РЕЗУЛЬТАТ ПОИСКА
+   ═══════════════════════════════════════════════════════════ */
+
 .search-result {
-    background: white;
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 24px;
-    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
-    border: 2px solid #667eea;
+    background: var(--color-bg);
+    color: var(--color-text);
+    border-radius: var(--radius-lg);
+    padding: var(--space-5);
+    margin-bottom: var(--space-6);
+    box-shadow: var(--shadow-md);
+    border: 2px solid var(--color-primary-500);
     animation: slideDown 0.3s ease;
 }
 
@@ -114,106 +142,127 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 12px;
-    padding-bottom: 10px;
-    border-bottom: 1px solid #f0f0f0;
+    margin-bottom: var(--space-3);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-border);
 }
 
     .search-result-header span {
-        font-size: 14px;
-        font-weight: 600;
-        color: #667eea;
+        font-size: var(--text-sm);
+        font-weight: var(--font-semibold);
+        color: var(--color-primary-500);
     }
 
 .clear-search-btn {
     background: none;
     border: none;
-    font-size: 18px;
-    color: #ccc;
+    color: var(--color-text-tertiary);
     cursor: pointer;
-    padding: 0 4px;
+    padding: 0 var(--space-1);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color var(--transition-fast);
 }
 
     .clear-search-btn:hover {
-        color: #e74c3c;
+        color: var(--color-danger);
     }
 
 .search-result-card {
     display: flex;
     align-items: center;
-    gap: 16px;
-    padding: 8px 0;
+    gap: var(--space-4);
+    padding: var(--space-2) 0;
 }
 
+/* ── Аватар результата ── */
 .search-result-avatar {
     width: 56px;
     height: 56px;
     border-radius: 50%;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: linear-gradient(135deg, var(--color-primary-500) 0%, var(--color-primary-600) 100%);
+    color: var(--accent-text-on);
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 22px;
-    font-weight: 600;
+    font-size: var(--text-2xl);
+    font-weight: var(--font-semibold);
     flex-shrink: 0;
+    text-transform: uppercase;
 }
 
 .search-result-info {
     flex: 1;
+    min-width: 0;
 }
 
 .search-result-name {
-    font-size: 17px;
-    font-weight: 600;
-    color: #333;
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    color: var(--color-text);
 }
 
 .search-result-email {
-    font-size: 14px;
-    color: #888;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-1);
 }
 
 .search-result-specialization {
-    font-size: 13px;
-    color: #4a6fa5;
-    background: #e8eefd;
-    padding: 2px 12px;
-    border-radius: 12px;
+    font-size: var(--text-sm);
+    color: var(--color-primary-500);
+    background: var(--color-primary-50);
+    padding: 2px var(--space-3);
+    border-radius: var(--radius-full);
     display: inline-block;
-    margin-top: 2px;
+    margin-top: var(--space-1);
+    font-weight: var(--font-medium);
 }
 
 .search-result-status {
-    font-size: 13px;
+    font-size: var(--text-sm);
     margin-top: 2px;
+    color: var(--color-text-secondary);
 }
 
 .search-result-actions {
     display: flex;
-    gap: 10px;
-    margin-top: 14px;
-    padding-top: 14px;
-    border-top: 1px solid #f0f0f0;
+    gap: var(--space-3);
+    margin-top: var(--space-4);
+    padding-top: var(--space-4);
+    border-top: 1px solid var(--color-border);
     flex-wrap: wrap;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   КНОПКИ ДЕЙСТВИЙ В РЕЗУЛЬТАТЕ ПОИСКА
+   ═══════════════════════════════════════════════════════════ */
+
 .btn-send-request {
-    padding: 8px 24px;
-    background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
-    color: #1a1a1a;
+    padding: var(--space-2) var(--space-6);
+    background: var(--color-success);
+    color: var(--accent-text-on);
     border: none;
-    border-radius: 8px;
-    font-weight: 600;
+    border-radius: var(--radius-md);
+    font-weight: var(--font-semibold);
+    font-family: inherit;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: filter var(--transition-fast), transform var(--transition-fast), box-shadow var(--transition-fast);
     flex: 1;
     min-width: 140px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
 }
 
     .btn-send-request:hover:not(:disabled) {
-        transform: translateY(-2px);
-        box-shadow: 0 4px 15px rgba(67, 233, 123, 0.3);
+        transform: translateY(-1px);
+        filter: brightness(0.92);
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.3);
     }
 
     .btn-send-request:disabled {
@@ -223,113 +272,144 @@
     }
 
 .btn-view-profile {
-    padding: 8px 24px;
-    background: #f0f0f0;
-    color: #555;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    font-weight: 500;
+    padding: var(--space-2) var(--space-6);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    font-weight: var(--font-medium);
+    font-family: inherit;
     cursor: pointer;
-    transition: all 0.2s;
+    transition: background var(--transition-fast), border-color var(--transition-fast), color var(--transition-fast);
     flex: 1;
     min-width: 140px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
 }
 
     .btn-view-profile:hover {
-        background: #e8e8e8;
-        border-color: #667eea;
-        color: #667eea;
+        background: var(--color-bg);
+        border-color: var(--color-primary-500);
+        color: var(--color-primary-500);
     }
 
-.already-friend {
-    padding: 8px 24px;
-    background: #e8f8ee;
-    color: #27ae60;
-    border-radius: 8px;
-    font-weight: 500;
+/* ── Статусные плашки ── */
+.already-friend,
+.request-pending,
+.request-received {
+    padding: var(--space-2) var(--space-6);
+    border-radius: var(--radius-md);
+    font-weight: var(--font-medium);
     text-align: center;
     flex: 1;
     min-width: 140px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    font-size: var(--text-base);
+}
+
+.already-friend {
+    background: var(--color-success-bg);
+    color: var(--color-success);
 }
 
 .request-pending {
-    padding: 8px 24px;
-    background: #fef3e2;
-    color: #e67e22;
-    border-radius: 8px;
-    font-weight: 500;
-    text-align: center;
-    flex: 1;
-    min-width: 140px;
+    background: var(--color-warning-bg);
+    color: var(--color-warning);
 }
 
 .request-received {
-    padding: 8px 24px;
-    background: #e8eefd;
-    color: #4a6fa5;
-    border-radius: 8px;
-    font-weight: 500;
-    text-align: center;
-    flex: 1;
-    min-width: 140px;
+    background: var(--color-info-bg);
+    color: var(--color-info);
 }
 
+/* ═══════════════════════════════════════════════════════════
+   УВЕДОМЛЕНИЯ ПОД ФОРМОЙ ПОИСКА
+   ═══════════════════════════════════════════════════════════ */
+
 .search-notification {
-    margin-top: 10px;
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-weight: 500;
+    margin-top: var(--space-3);
+    padding: var(--space-2) var(--space-4);
+    border-radius: var(--radius-md);
+    font-weight: var(--font-medium);
+    font-size: var(--text-sm);
     animation: slideDown 0.3s ease;
 }
 
     .search-notification.success {
-        background: #e8f8ee;
-        color: #27ae60;
-        border: 1px solid #b8e6c8;
+        background: var(--color-success-bg);
+        color: var(--color-success);
+        border: 1px solid rgba(16, 185, 129, 0.3);
     }
 
     .search-notification.error {
-        background: #fee;
-        color: #c0392b;
-        border: 1px solid #fcc;
+        background: var(--color-danger-bg);
+        color: var(--color-danger);
+        border: 1px solid rgba(239, 68, 68, 0.3);
     }
 
-/* 📌 СПИСОК ДРУЗЕЙ */
+    .search-notification.info {
+        background: var(--color-info-bg);
+        color: var(--color-info);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+    }
+
+/* ═══════════════════════════════════════════════════════════
+   СПИСОК ДРУЗЕЙ
+   ═══════════════════════════════════════════════════════════ */
+
 .friends-grid {
     display: grid;
     grid-template-columns: 1fr;
-    gap: 12px;
+    gap: var(--space-3);
 }
 
+/* ── Пустое состояние ── */
 .no-friends {
     text-align: center;
-    padding: 60px 20px;
-    background: white;
-    border-radius: 16px;
+    padding: var(--space-12) var(--space-5);
+    background: var(--color-bg);
+    border: 1px dashed var(--color-border-strong);
+    border-radius: var(--radius-xl);
 }
 
 .no-friends-icon {
-    font-size: 64px;
-    margin-bottom: 16px;
+    display: block;
+    margin: 0 auto var(--space-4);
+    color: var(--color-text-tertiary);
 }
 
 .no-friends h3 {
-    font-size: 22px;
-    color: #333;
-    margin-bottom: 8px;
+    font-size: var(--text-2xl);
+    color: var(--color-text);
+    margin: 0 0 var(--space-2);
 }
 
 .no-friends p {
-    color: #888;
-    font-size: 16px;
+    color: var(--color-text-secondary);
+    font-size: var(--text-lg);
+    margin: 0;
 }
 
+/* ── Загрузка ── */
 .friends-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
     text-align: center;
-    padding: 40px;
-    color: #888;
-    font-size: 18px;
+    padding: var(--space-10);
+    color: var(--color-text-secondary);
+    font-size: var(--text-lg);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   АДАПТИВ
+   ═══════════════════════════════════════════════════════════ */
 
 @media (min-width: 600px) {
     .friends-grid {

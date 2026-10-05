@@ -90,4 +90,84 @@ public class NotificationsController : ControllerBase
             return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
         }
     }
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 НАСТРОЙКИ УВЕДОМЛЕНИЙ
+    // ═══════════════════════════════════════════════════════════
+
+    // 📌 GET /api/notifications/settings — получить настройки
+    [HttpGet("settings")]
+    public async Task<IActionResult> GetSettings()
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+            }
+
+            var settings = await _notificationService.GetSettingsAsync(userId);
+            return Ok(settings);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка получения настроек уведомлений");
+            return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+        }
+    }
+
+    // 📌 PUT /api/notifications/settings — обновить настройки
+    [HttpPut("settings")]
+    public async Task<IActionResult> UpdateSettings(
+        [FromBody] UpdateNotificationSettingsDto dto)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+            }
+
+            var settings = await _notificationService.UpdateSettingsAsync(userId, dto);
+            return Ok(settings);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка обновления настроек уведомлений");
+            return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+        }
+    }
+
+    // 📌 POST /api/notifications/settings/dnd — «Не беспокоить»
+    [HttpPost("settings/dnd")]
+    public async Task<IActionResult> SetDoNotDisturb([FromBody] DoNotDisturbDto dto)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+            }
+
+            var settings = await _notificationService.SetDoNotDisturbAsync(
+                userId, dto.Duration);
+
+            return Ok(settings);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка установки DND");
+            return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+        }
+    }
 }

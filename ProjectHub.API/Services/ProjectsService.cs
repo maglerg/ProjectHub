@@ -20,6 +20,7 @@ namespace ProjectHub.API.Services
         private readonly ActivityService _activity;
         private readonly ProjectTagsService _projectTags;
         private readonly FileStorageService _fileStorage;
+        private readonly IPresenceService _presence;   // 🆕
 
         private const int MaxAttempts = 100;
 
@@ -30,7 +31,8 @@ namespace ProjectHub.API.Services
             NotificationService notificationService,
             ActivityService activity,
             ProjectTagsService projectTags,
-            FileStorageService fileStorage)
+            FileStorageService fileStorage,
+            IPresenceService presence)                 // 🆕
         {
             _dbContext = dbContext;
             _logger = logger;
@@ -39,6 +41,7 @@ namespace ProjectHub.API.Services
             _activity = activity;
             _projectTags = projectTags;
             _fileStorage = fileStorage;
+            _presence = presence;                      // 🆕
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -90,7 +93,7 @@ namespace ProjectHub.API.Services
 
             _dbContext.TaskColumns.AddRange(defaultColumns);
 
-            // 🆕 Сохраняем activity для эмита
+            // Сохраняем activity для эмита
             var activity = await _activity.LogAsync(
                 projectEntity.Id,
                 userId,
@@ -102,7 +105,7 @@ namespace ProjectHub.API.Services
 
             await _dbContext.SaveChangesAsync();
 
-            // 🆕 ── SignalR: событие истории ──
+            // SignalR: событие истории
             await _activity.EmitActivityAsync(activity, projectEntity.PublicCode);
 
             _logger.LogInformation($"Создан проект с кодом: {publicCode}");
@@ -112,7 +115,7 @@ namespace ProjectHub.API.Services
                 .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .FirstAsync(p => p.Id == projectEntity.Id);
 
-            return MapToResponse(projectWithMembers);
+            return await MapToResponseAsync(projectWithMembers, userId);
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -154,7 +157,6 @@ namespace ProjectHub.API.Services
 
             _dbContext.ProjectMembers.Add(member);
 
-            // 🆕 Сохраняем activity
             var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
@@ -166,10 +168,12 @@ namespace ProjectHub.API.Services
 
             await _dbContext.SaveChangesAsync();
 
-            // 🆕 ── SignalR: событие истории ──
             await _activity.EmitActivityAsync(activity, project.PublicCode);
 
-            // 🆕 ── SignalR: UI-событие — новый участник ──
+            // SignalR: UI-событие — новый участник
+            // Здесь IsOnline отдаём честно, потому что событие про СЕБЯ
+            // (о том, что кто-то вошёл в проект). Это не «слежка за юзером»,
+            // а факт «он сейчас присоединился» — он по определению онлайн.
             var joinedUser = await _dbContext.Users
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == userId);
@@ -177,19 +181,23 @@ namespace ProjectHub.API.Services
             if (joinedUser != null)
             {
                 await _activity.EmitToProjectAsync(
-                    project.PublicCode,
-                    "MemberAdded",
-                    new
-                    {
-                        UserId = joinedUser.Id,
-                        Name = joinedUser.Name,
-                        Email = joinedUser.Email,
-                        Specialization = joinedUser.Specialization.ToString(),
-                        Role = ProjectMemberRole.Member.ToString(),
-                        JoinedAt = member.JoinedAt,
-                        AvatarUrl = joinedUser.AvatarUrl,
-                        IsOnline = joinedUser.IsOnline
-                    });
+    project.PublicCode,
+    "MemberAdded",
+    new
+    {
+        UserId = joinedUser.Id,
+        Name = joinedUser.Name,
+        Email = joinedUser.Email,
+        Specialization = joinedUser.Specialization.ToString(),
+        Role = ProjectMemberRole.Member.ToString(),
+        JoinedAt = member.JoinedAt,
+        AvatarUrl = joinedUser.AvatarUrl,
+
+        // 🆕 Онлайн-статус не передаём: его смотрящий определит сам
+        //    через отдельные запросы / real-time события UserOnline.
+        //    Факт «присоединился к проекту» ≠ «сейчас онлайн».
+        IsOnline = false
+    });
             }
 
             _logger.LogInformation($"Пользователь {userId} успешно присоединился к проекту {publicCode}");
@@ -248,11 +256,12 @@ namespace ProjectHub.API.Services
                 .OrderByDescending(p => p.FavoritesCount)
                 .ToListAsync();
 
-            var responses = favoriteProjects.Select(MapToResponse).ToList();
-
-            foreach (var response in responses)
+            var responses = new List<ProjectResponse>();
+            foreach (var project in favoriteProjects)
             {
+                var response = await MapToResponseAsync(project, userId);
                 response.IsFavorite = true;
+                responses.Add(response);
             }
 
             return responses;
@@ -295,7 +304,7 @@ namespace ProjectHub.API.Services
 
             foreach (var project in allProjects)
             {
-                var response = MapToResponse(project);
+                var response = await MapToResponseAsync(project, userId);
                 response.IsFavorite = await IsProjectFavoriteAsync(project.Id, userId);
                 response.UserStatus = await GetUserProjectStatusAsync(project.Id, userId);
                 responses.Add(response);
@@ -339,12 +348,13 @@ namespace ProjectHub.API.Services
             query = query.OrderByDescending(p => p.CreatedAt);
 
             var projects = await query.ToListAsync();
-            var responses = projects.Select(MapToResponse).ToList();
 
-            if (favoritesOnly)
+            var responses = new List<ProjectResponse>();
+            foreach (var project in projects)
             {
-                foreach (var r in responses)
-                    r.IsFavorite = true;
+                var response = await MapToResponseAsync(project, userId);
+                if (favoritesOnly) response.IsFavorite = true;
+                responses.Add(response);
             }
 
             return responses;
@@ -379,22 +389,20 @@ namespace ProjectHub.API.Services
                 .OrderByDescending(p => p.CreatedAt)
                 .ToListAsync();
 
-            var responses = projects.Select(MapToResponse).ToList();
-
-            if (currentUserId.HasValue)
+            var responses = new List<ProjectResponse>();
+            foreach (var project in projects)
             {
-                foreach (var project in projects)
+                var response = await MapToResponseAsync(project, currentUserId);
+
+                if (currentUserId.HasValue)
                 {
-                    var response = responses.FirstOrDefault(
-                        r => r.PublicCode == project.PublicCode);
-
-                    if (response == null) continue;
-
                     response.IsFavorite = await IsProjectFavoriteAsync(
                         project.Id, currentUserId.Value);
                     response.UserStatus = await GetUserProjectStatusAsync(
                         project.Id, currentUserId.Value);
                 }
+
+                responses.Add(response);
             }
 
             return responses;
@@ -417,7 +425,7 @@ namespace ProjectHub.API.Services
             if (projectEntity == null)
                 return null;
 
-            var response = MapToResponse(projectEntity);
+            var response = await MapToResponseAsync(projectEntity, currentUserId);
 
             if (currentUserId.HasValue)
             {
@@ -447,7 +455,7 @@ namespace ProjectHub.API.Services
             if (!isMember && !isOwner)
                 return null;
 
-            var response = MapToResponse(projectEntity);
+            var response = await MapToResponseAsync(projectEntity, userId);
             response.IsFavorite = await IsProjectFavoriteAsync(projectEntity.Id, userId);
             response.UserStatus = await GetUserProjectStatusAsync(projectEntity.Id, userId);
 
@@ -485,7 +493,6 @@ namespace ProjectHub.API.Services
             var oldRole = member.Role;
             member.Role = role;
 
-            // 🆕 Сохраняем activity
             var activity = await _activity.LogAsync(
                 project.Id,
                 ownerId,
@@ -497,10 +504,8 @@ namespace ProjectHub.API.Services
 
             await _dbContext.SaveChangesAsync();
 
-            // 🆕 ── SignalR: событие истории ──
             await _activity.EmitActivityAsync(activity, project.PublicCode);
 
-            // 🆕 ── SignalR: UI-событие — смена роли ──
             await _activity.EmitToProjectAsync(
                 project.PublicCode,
                 "MemberRoleChanged",
@@ -589,7 +594,6 @@ namespace ProjectHub.API.Services
 
             project.UpdatedAt = DateTime.UtcNow;
 
-            // 🆕 Собираем все activity для эмита (их может быть несколько)
             var activities = new List<ProjectActivity?>();
 
             if (oldName != project.Name)
@@ -639,7 +643,6 @@ namespace ProjectHub.API.Services
 
             await _dbContext.SaveChangesAsync();
 
-            // 🆕 ── SignalR: эмитим все накопленные activity ──
             foreach (var a in activities)
             {
                 await _activity.EmitActivityAsync(a, project.PublicCode);
@@ -647,7 +650,7 @@ namespace ProjectHub.API.Services
 
             _logger.LogInformation($"Проект {code} обновлен пользователем {userId}");
 
-            return MapToResponse(project);
+            return await MapToResponseAsync(project, userId);
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -674,7 +677,6 @@ namespace ProjectHub.API.Services
             project.ArchivedById = userId;
             project.UpdatedAt = now;
 
-            // ── Отменяем pending-заявки ──
             var pendingApplications = await _dbContext.Applications
                 .Where(a => a.ProjectId == project.Id
                             && a.Status == ApplicationStatus.Pending)
@@ -702,7 +704,6 @@ namespace ProjectHub.API.Services
             if (pendingApplications.Any())
                 _dbContext.Applications.RemoveRange(pendingApplications);
 
-            // ── Отменяем pending-приглашения ──
             var pendingInvitations = await _dbContext.Invitations
                 .Where(i => i.ProjectId == project.Id
                             && i.Status == InvitationStatus.Pending)
@@ -730,7 +731,6 @@ namespace ProjectHub.API.Services
             if (pendingInvitations.Any())
                 _dbContext.Invitations.RemoveRange(pendingInvitations);
 
-            // ── Закрываем активные голосования ──
             var activeVotings = await _dbContext.Votings
                 .Where(v => v.ProjectId == project.Id && !v.IsClosed)
                 .ToListAsync();
@@ -740,7 +740,6 @@ namespace ProjectHub.API.Services
                 v.IsClosed = true;
             }
 
-            // 🆕 Сохраняем activity
             var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
@@ -752,7 +751,6 @@ namespace ProjectHub.API.Services
 
             await _dbContext.SaveChangesAsync();
 
-            // 🆕 ── SignalR ──
             await _activity.EmitActivityAsync(activity, project.PublicCode);
 
             _logger.LogInformation(
@@ -766,7 +764,7 @@ namespace ProjectHub.API.Services
                 .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .FirstAsync(p => p.Id == project.Id);
 
-            return MapToResponse(withMembers);
+            return await MapToResponseAsync(withMembers, userId);
         }
 
         public async Task<ProjectResponse> UnarchiveProjectAsync(string code, Guid userId)
@@ -787,7 +785,6 @@ namespace ProjectHub.API.Services
             project.ArchivedById = null;
             project.UpdatedAt = DateTime.UtcNow;
 
-            // 🆕 Сохраняем activity
             var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
@@ -799,11 +796,8 @@ namespace ProjectHub.API.Services
 
             await _dbContext.SaveChangesAsync();
 
-            // 🆕 ── SignalR: событие истории ──
             await _activity.EmitActivityAsync(activity, project.PublicCode);
 
-            // 🆕 ── SignalR: главное событие — проект восстановлен ──
-            // Все, кто на дашборде, снимают read-only.
             await _activity.EmitToProjectAsync(
                 project.PublicCode,
                 "ProjectUnarchived",
@@ -821,7 +815,7 @@ namespace ProjectHub.API.Services
                 .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .FirstAsync(p => p.Id == project.Id);
 
-            return MapToResponse(withMembers);
+            return await MapToResponseAsync(withMembers, userId);
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -875,7 +869,6 @@ namespace ProjectHub.API.Services
 
             _dbContext.ProjectMembers.Remove(member);
 
-            // 🆕 Сохраняем activity
             var activity = await _activity.LogAsync(
                 project.Id,
                 userId,
@@ -887,10 +880,8 @@ namespace ProjectHub.API.Services
 
             await _dbContext.SaveChangesAsync();
 
-            // 🆕 ── SignalR: событие истории ──
             await _activity.EmitActivityAsync(activity, project.PublicCode);
 
-            // 🆕 ── SignalR: UI-событие — участник удалён ──
             await _activity.EmitToProjectAsync(
                 project.PublicCode,
                 "MemberRemoved",
@@ -1007,7 +998,7 @@ namespace ProjectHub.API.Services
                 .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .FirstAsync(p => p.Id == project.Id);
 
-            return MapToResponse(withAll);
+            return await MapToResponseAsync(withAll, userId);
         }
 
         public async Task<ProjectResponse> DeleteCoverAsync(
@@ -1050,7 +1041,7 @@ namespace ProjectHub.API.Services
                 .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
                 .FirstAsync(p => p.Id == project.Id);
 
-            return MapToResponse(withAll);
+            return await MapToResponseAsync(withAll, userId);
         }
 
         // ═══════════════════════════════════════════════════════════
@@ -1103,8 +1094,26 @@ namespace ProjectHub.API.Services
                 $"Не удалось сгенерировать уникальный код после {MaxAttempts} попыток");
         }
 
-        private ProjectResponse MapToResponse(Project entity)
+        /// <summary>
+        /// Маппинг Project → ProjectResponse с фильтрацией IsOnline
+        /// по приватности (OnlineVisibility) каждого участника.
+        ///
+        /// viewerId — id смотрящего. Может быть null (гость).
+        /// Один SQL на весь список участников (через IPresenceService).
+        /// </summary>
+        private async Task<ProjectResponse> MapToResponseAsync(
+            Project entity, Guid? viewerId)
         {
+            // 🆕 Все ID, чей онлайн-статус надо отфильтровать
+            var memberUserIds = entity.Members
+                .Select(m => m.UserId)
+                .Append(entity.OwnerId)
+                .Distinct()
+                .ToList();
+
+            var visibleOnline = await _presence
+                .FilterVisibleOnlineUsersAsync(memberUserIds, viewerId);
+
             return new ProjectResponse
             {
                 PublicCode = entity.PublicCode,
@@ -1130,7 +1139,7 @@ namespace ProjectHub.API.Services
                     Role = m.Role.ToString(),
                     JoinedAt = m.JoinedAt,
                     AvatarUrl = m.User.AvatarUrl,
-                    IsOnline = m.User.IsOnline    // 🆕
+                    IsOnline = visibleOnline.Contains(m.UserId)   // 🆕
                 }).ToList(),
 
                 Tags = entity.TagLinks?

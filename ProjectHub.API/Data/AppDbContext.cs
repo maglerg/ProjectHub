@@ -46,6 +46,7 @@ namespace ProjectHub.API.Data
 
         public DbSet<ProjectTag> ProjectTags { get; set; }
         public DbSet<ProjectTagLink> ProjectTagLinks { get; set; }
+        public DbSet<UserNotificationSettings> UserNotificationSettings { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -394,6 +395,33 @@ namespace ProjectHub.API.Data
                     .WithMany()
                     .HasForeignKey(l => l.AddedById)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+            // ── Настройки уведомлений: 1:1 с User ──
+            modelBuilder.Entity<UserNotificationSettings>(entity =>
+            {
+                entity.HasKey(s => s.Id);
+
+                entity.HasOne(s => s.User)
+                      .WithOne(u => u.NotificationSettings)
+                      .HasForeignKey<UserNotificationSettings>(s => s.UserId)
+                      .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasIndex(s => s.UserId).IsUnique();
+
+                // Значения по умолчанию — на случай, если строка создаётся
+                // в обход сервиса (миграции, ручные вставки).
+                entity.Property(s => s.Enabled).HasDefaultValue(true);
+                entity.Property(s => s.NewMessages).HasDefaultValue(true);
+                entity.Property(s => s.FriendRequests).HasDefaultValue(true);
+                entity.Property(s => s.ProjectInvitations).HasDefaultValue(true);
+                entity.Property(s => s.ProjectChanges).HasDefaultValue(true);
+                entity.Property(s => s.TaskComments).HasDefaultValue(true);
+                entity.Property(s => s.Votings).HasDefaultValue(true);
+                entity.Property(s => s.TaskDeadlines).HasDefaultValue(true);
+                entity.Property(s => s.Applications).HasDefaultValue(true);
+                entity.Property(s => s.DeadlineDaysBefore).HasDefaultValue(3);
+                entity.Property(s => s.InAppEnabled).HasDefaultValue(true);
+                entity.Property(s => s.EmailEnabled).HasDefaultValue(false);
             });
         }
     }

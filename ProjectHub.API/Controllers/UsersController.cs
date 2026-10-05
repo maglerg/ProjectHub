@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using ProjectHub.API.DTOs.UserDtos;
 using ProjectHub.API.Services;
+using ProjectHub.Models;
 using System.Security.Claims;
 
 namespace ProjectHub.API.Controllers;
@@ -69,32 +70,32 @@ public class UsersController : ControllerBase
     [HttpPut]
     public async Task<IActionResult> UpdateUser([FromBody] UpdateUserDto dto)
     {
+        var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+        if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+        {
+            return Unauthorized(new { error = "Пользователь не авторизован" });
+        }
+
         try
         {
-            _logger.LogInformation("PUT /api/users CALLED");
-
-            // Получаем ID пользователя из токена
-            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
-            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
-            {
-                return Unauthorized(new { error = "Пользователь не авторизован" });
-            }
+            _logger.LogInformation("PUT /api/users CALLED. DTO = {@Dto}", dto);
 
             var updatedUser = await _userService.UpdateUserAsync(userId, dto);
             return Ok(updatedUser);
         }
         catch (KeyNotFoundException ex)
         {
-            _logger.LogWarning($"Пользователь не найден: {ex.Message}");
+            _logger.LogWarning(ex, "Пользователь {UserId} не найден", userId);
             return NotFound(new { error = ex.Message });
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Ошибка при обновлении пользователя: {ex.Message}");
+            _logger.LogError(ex, "Ошибка при обновлении пользователя {UserId}", userId);
             return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
         }
     }
     // 📌 GET /api/users/email/{email} - получить профиль пользователя по email
+    // 📌 GET /api/users/email/{email}
     [HttpGet("email/{email}")]
     public async Task<IActionResult> GetUserByEmail(string email)
     {
@@ -102,18 +103,64 @@ public class UsersController : ControllerBase
         {
             _logger.LogInformation($"GET /api/users/email/{email} CALLED");
 
-            var user = await _userService.GetUserProfileByEmailAsync(email);
+            // 🆕 Кто смотрит
+            Guid? viewerId = null;
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim != null && Guid.TryParse(userIdClaim.Value, out var uid))
+            {
+                viewerId = uid;
+            }
+
+            var user = await _userService.GetUserProfileByEmailAsync(email, viewerId);
 
             if (user == null)
-            {
                 return NotFound(new { error = "Пользователь не найден" });
-            }
 
             return Ok(user);
         }
         catch (Exception ex)
         {
-            _logger.LogError($"Ошибка при получении пользователя: {ex.Message}");
+            _logger.LogError(ex, "Ошибка при получении пользователя");
+            return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+        }
+    }
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 СМЕНА ПАРОЛЯ
+    // ═══════════════════════════════════════════════════════════
+
+    // 📌 POST /api/users/password - смена пароля
+    [HttpPost("password")]
+    public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto dto)
+    {
+        try
+        {
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+            {
+                return Unauthorized(new { error = "Пользователь не авторизован" });
+            }
+
+            await _userService.ChangePasswordAsync(userId, dto);
+
+            return Ok(new { message = "Пароль успешно изменён" });
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return NotFound(new { error = ex.Message });
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            // ⚠️ 401, а не 403 — это не «нет прав», это «неверный текущий пароль».
+            //    Фронт покажет сообщение в форме.
+            return Unauthorized(new { error = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Ошибка смены пароля");
             return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
         }
     }

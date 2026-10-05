@@ -1,37 +1,50 @@
+/* projecthub.client/src/styles/components/ProjectHistoryPage.css */
+
+/* ═══════════════════════════════════════════════════════════
+   СТРАНИЦА ИСТОРИИ ПРОЕКТА
+   ═══════════════════════════════════════════════════════════ */
+
 .project-history-page {
     max-width: 900px;
     margin: 0 auto;
-    padding: 24px;
+    padding: var(--space-6);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   ШАПКА
+   ═══════════════════════════════════════════════════════════ */
 
 .history-header {
     display: flex;
     align-items: center;
-    gap: 16px;
-    margin-bottom: 20px;
+    gap: var(--space-4);
+    margin-bottom: var(--space-5);
     flex-wrap: wrap;
 }
 
     .history-header h1 {
         margin: 0;
-        font-size: 22px;
-        color: #111827;
+        font-size: var(--text-2xl);
+        color: var(--color-text);
     }
 
 .history-total {
     margin-left: auto;
-    font-size: 13px;
-    color: #6b7280;
-    background: #f3f4f6;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    background: var(--color-gray-100);
     padding: 4px 10px;
-    border-radius: 6px;
+    border-radius: var(--radius-sm);
 }
 
-/* ── Фильтры ── */
+/* ═══════════════════════════════════════════════════════════
+   ФИЛЬТРЫ
+   ═══════════════════════════════════════════════════════════ */
+
 .history-filters {
     display: flex;
     gap: 6px;
-    margin-bottom: 20px;
+    margin-bottom: var(--space-5);
     flex-wrap: wrap;
 }
 
@@ -39,46 +52,49 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    color: #374151;
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    color: var(--color-text);
     padding: 6px 12px;
-    border-radius: 8px;
-    font-size: 12px;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xs);
     cursor: pointer;
-    transition: all 0.15s;
+    transition: all var(--transition-fast);
 }
 
     .history-filter-btn:hover {
-        background: #f9fafb;
-        border-color: #d1d5db;
+        background: var(--color-bg-secondary);
+        border-color: var(--color-border-strong);
     }
 
     .history-filter-btn.active {
-        background: #4f46e5;
-        color: #fff;
-        border-color: #4f46e5;
+        background: var(--accent);
+        color: var(--accent-text-on);
+        border-color: var(--accent);
     }
 
 .history-filter-icon {
-    font-size: 13px;
+    font-size: var(--text-sm);
 }
 
-/* ── Лента ── */
+/* ═══════════════════════════════════════════════════════════
+   ЛЕНТА
+   ═══════════════════════════════════════════════════════════ */
+
 .history-list {
     display: flex;
     flex-direction: column;
-    gap: 8px;
+    gap: var(--space-2);
 }
 
 .history-item {
     display: flex;
-    gap: 12px;
-    padding: 12px 14px;
-    background: #fff;
-    border-radius: 10px;
-    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
-    transition: box-shadow 0.15s, transform 0.1s;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-xs);
+    transition: box-shadow var(--transition-fast), transform var(--transition-fast);
 }
 
     .history-item[role="button"] {
@@ -86,7 +102,7 @@
     }
 
         .history-item[role="button"]:hover {
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+            box-shadow: var(--shadow-md);
             transform: translateY(-1px);
         }
 
@@ -97,9 +113,9 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    background: #f3f4f6;
-    border-radius: 8px;
-    font-size: 18px;
+    background: var(--color-gray-100);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-xl);
 }
 
 .history-content {
@@ -110,102 +126,112 @@
 .history-row {
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--space-2);
     flex-wrap: wrap;
-    font-size: 13px;
-    margin-bottom: 4px;
+    font-size: var(--text-sm);
+    margin-bottom: var(--space-1);
 }
 
 .history-user {
-    font-weight: 600;
-    color: #111827;
+    font-weight: var(--font-semibold);
+    color: var(--color-text);
 }
 
 .history-label {
-    color: #4b5563;
+    color: var(--color-text-secondary);
 }
 
 .history-date {
     margin-left: auto;
-    color: #9ca3af;
-    font-size: 12px;
+    color: var(--color-text-tertiary);
+    font-size: var(--text-xs);
     white-space: nowrap;
 }
 
 .history-summary {
-    font-size: 13px;
-    color: #6b7280;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
     word-break: break-word;
 }
 
-/* Цветные подложки иконок по группам */
+/* ═══════════════════════════════════════════════════════════
+   ЦВЕТНЫЕ ПОДЛОЖКИ ИКОНОК ПО ГРУППАМ
+   ═══════════════════════════════════════════════════════════ */
+
 .history-item-tasks .history-icon {
-    background: #eef2ff;
+    background: var(--accent-soft);
 }
 
 .history-item-members .history-icon {
-    background: #ecfdf5;
+    background: var(--color-success-bg);
 }
 
 .history-item-invitations .history-icon {
-    background: #fef3c7;
+    background: var(--color-warning-bg);
 }
 
 .history-item-applications .history-icon {
-    background: #fef3c7;
+    background: var(--color-warning-bg);
 }
 
 .history-item-comments .history-icon {
-    background: #fdf2f8;
+    background: var(--color-info-bg);
 }
 
 .history-item-attachments .history-icon {
-    background: #f3f4f6;
+    background: var(--color-gray-100);
 }
 
 .history-item-tags .history-icon {
-    background: #fce7f3;
+    background: var(--color-danger-bg);
 }
 
 .history-item-votings .history-icon {
-    background: #e0f2fe;
+    background: var(--color-info-bg);
 }
 
 .history-item-project .history-icon {
-    background: #eef2ff;
+    background: var(--accent-soft);
 }
 
 .history-item-chat .history-icon {
-    background: #f0fdf4;
+    background: var(--color-success-bg);
 }
 
-/* ── Пустое состояние ── */
+/* ═══════════════════════════════════════════════════════════
+   ПУСТОЕ СОСТОЯНИЕ
+   ═══════════════════════════════════════════════════════════ */
+
 .history-empty {
-    padding: 40px 20px;
+    padding: var(--space-10) var(--space-5);
     text-align: center;
-    color: #9ca3af;
-    font-size: 14px;
-    background: #f9fafb;
-    border: 1px dashed #e5e7eb;
-    border-radius: 10px;
+    color: var(--color-text-tertiary);
+    font-size: var(--text-base);
+    background: var(--color-bg-secondary);
+    border: 1px dashed var(--color-border);
+    border-radius: var(--radius-md);
 }
 
-/* ── Пагинация ── */
+/* ═══════════════════════════════════════════════════════════
+   ПАГИНАЦИЯ
+   ═══════════════════════════════════════════════════════════ */
+
 .btn-load-more {
     display: block;
-    margin: 20px auto 0;
+    margin: var(--space-5) auto 0;
     padding: 10px 24px;
-    background: #4f46e5;
-    color: #fff;
+    background: var(--accent);
+    color: var(--accent-text-on);
     border: none;
-    border-radius: 8px;
+    border-radius: var(--radius-sm);
     cursor: pointer;
-    font-weight: 500;
-    font-size: 13px;
+    font-weight: var(--font-medium);
+    font-size: var(--text-sm);
+    transition: background var(--transition-fast);
 }
 
     .btn-load-more:hover:not(:disabled) {
-        background: #4338ca;
+        background: var(--accent-hover);
     }
 
     .btn-load-more:disabled {
@@ -213,15 +239,18 @@
         cursor: not-allowed;
     }
 
-/* ── Загрузка / ошибка ── */
+/* ═══════════════════════════════════════════════════════════
+   ЗАГРУЗКА / ОШИБКА
+   ═══════════════════════════════════════════════════════════ */
+
 .history-loading,
 .history-error {
-    padding: 40px 20px;
+    padding: var(--space-10) var(--space-5);
     text-align: center;
-    color: #6b7280;
-    font-size: 14px;
+    color: var(--color-text-secondary);
+    font-size: var(--text-base);
 }
 
 .history-error {
-    color: #dc2626;
+    color: var(--color-danger);
 }

@@ -1,13 +1,17 @@
 /* projecthub.client/src/styles/RegisterPage.css */
 
+/* ═══════════════════════════════════════════════════════════
+   СТРАНИЦА РЕГИСТРАЦИИ
+   ═══════════════════════════════════════════════════════════ */
+
 .register-page {
     display: flex;
     justify-content: center;
     align-items: center;
     min-height: 100vh;
     background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    padding: 20px;
+    font-family: var(--font-sans);
+    padding: var(--space-5);
 }
 
 .register-container {
@@ -16,10 +20,10 @@
 }
 
 .register-box {
-    background: white;
-    border-radius: 16px;
+    background: var(--color-bg);
+    border-radius: var(--radius-lg);
     padding: 40px 32px;
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    box-shadow: var(--shadow-xl);
     max-height: 90vh;
     overflow-y: auto;
 }
@@ -30,26 +34,30 @@
 }
 
     .register-header h1 {
-        font-size: 28px;
-        color: #333;
-        margin: 0 0 8px 0;
+        font-size: var(--text-3xl);
+        color: var(--color-text);
+        margin: 0 0 var(--space-2) 0;
     }
 
     .register-header p {
-        color: #666;
+        color: var(--color-text-secondary);
         margin: 0;
     }
 
+/* ═══════════════════════════════════════════════════════════
+   ФОРМА
+   ═══════════════════════════════════════════════════════════ */
+
 .register-form .form-group {
-    margin-bottom: 16px;
+    margin-bottom: var(--space-4);
 }
 
 .register-form label {
     display: block;
-    font-size: 14px;
-    font-weight: 600;
-    color: #333;
-    margin-bottom: 4px;
+    font-size: var(--text-base);
+    font-weight: var(--font-semibold);
+    color: var(--color-text);
+    margin-bottom: var(--space-1);
 }
 
 .register-form input,
@@ -57,19 +65,26 @@
 .register-form textarea {
     width: 100%;
     padding: 10px 14px;
-    border: 2px solid #e0e0e0;
-    border-radius: 8px;
-    font-size: 15px;
-    transition: border-color 0.3s;
+    background: var(--color-bg);
+    color: var(--color-text);
+    border: 2px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    font-size: var(--text-lg);
+    transition: border-color var(--transition-slow);
     box-sizing: border-box;
     font-family: inherit;
 }
+
+    .register-form input::placeholder,
+    .register-form textarea::placeholder {
+        color: var(--color-text-tertiary);
+    }
 
     .register-form input:focus,
     .register-form select:focus,
     .register-form textarea:focus {
         outline: none;
-        border-color: #667eea;
+        border-color: var(--accent);
     }
 
     .register-form input:disabled,
@@ -84,31 +99,40 @@
     min-height: 60px;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   СООБЩЕНИЕ ОБ ОШИБКЕ
+   ═══════════════════════════════════════════════════════════ */
+
 .error-message {
-    background: #fee;
-    color: #c0392b;
+    background: var(--color-danger-bg);
+    color: var(--color-danger);
     padding: 10px 14px;
-    border-radius: 8px;
-    font-size: 14px;
-    margin-bottom: 16px;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-base);
+    margin-bottom: var(--space-4);
 }
+
+/* ═══════════════════════════════════════════════════════════
+   КНОПКА РЕГИСТРАЦИИ
+   ═══════════════════════════════════════════════════════════ */
 
 .btn-register {
     width: 100%;
     padding: 14px;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
+    background: var(--accent);
+    color: var(--accent-text-on);
     border: none;
-    border-radius: 8px;
-    font-size: 16px;
-    font-weight: 600;
+    border-radius: var(--radius-sm);
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
     cursor: pointer;
-    transition: transform 0.2s, box-shadow 0.2s;
+    transition: transform var(--transition-base), box-shadow var(--transition-base), background var(--transition-base);
 }
 
     .btn-register:hover:not(:disabled) {
+        background: var(--accent-hover);
         transform: translateY(-2px);
-        box-shadow: 0 8px 25px rgba(102, 126, 234, 0.4);
+        box-shadow: var(--shadow-md);
     }
 
     .btn-register:disabled {
@@ -116,19 +140,23 @@
         cursor: not-allowed;
     }
 
+/* ═══════════════════════════════════════════════════════════
+   ФУТЕР
+   ═══════════════════════════════════════════════════════════ */
+
 .register-footer {
     text-align: center;
-    margin-top: 20px;
-    color: #666;
+    margin-top: var(--space-5);
+    color: var(--color-text-secondary);
 }
 
     .register-footer .link-btn {
         background: none;
         border: none;
-        color: #667eea;
-        font-weight: 600;
+        color: var(--accent);
+        font-weight: var(--font-semibold);
         cursor: pointer;
-        font-size: 14px;
+        font-size: var(--text-base);
         padding: 0;
     }
 

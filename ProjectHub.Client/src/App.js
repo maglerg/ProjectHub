@@ -3,6 +3,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { ThemeProvider } from './context/ThemeContext';
 import ProtectedRoute from './components/ProtectedRoute';
 
 import LoginPage from './components/LoginPage';
@@ -28,119 +29,130 @@ import TaskDetailsPage from './components/tasks/TaskDetailsPage';
 import ProjectHistoryPage from './components/ProjectHistoryPage';
 import './index.css';
 import NotesPage from './components/notes/NotesPage';
+import SettingsPage from './components/settings/SettingsPage';
 
 function App() {
     return (
-        <Router>
-            <AuthProvider>
-                <Routes>
-                    {/* ─── Публичные маршруты ─── */}
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={<RegisterPage />} />
+        <ThemeProvider>
+            <Router>
+                <AuthProvider>
+                    <Routes>
+                        {/* ─── Публичные маршруты ─── */}
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/register" element={<RegisterPage />} />
 
-                    {/* ─── Защищённые маршруты ─── */}
-                    <Route path="/" element={
-                        <ProtectedRoute>
-                            <ProjectsPage />
-                        </ProtectedRoute>
-                    } />
+                        {/* ─── Защищённые маршруты ─── */}
+                        <Route path="/" element={
+                            <ProtectedRoute>
+                                <ProjectsPage />
+                            </ProtectedRoute>
+                        } />
 
-                    <Route path="/projects" element={
-                        <ProtectedRoute>
-                            <ProjectsPage />
-                        </ProtectedRoute>
-                    } />
+                        <Route path="/projects" element={
+                            <ProtectedRoute>
+                                <ProjectsPage />
+                            </ProtectedRoute>
+                        } />
 
-                    <Route path="/projects/:code" element={
-                        <ProtectedRoute>
-                            <ProjectDetailsPage />
-                        </ProtectedRoute>
-                    } />
+                        <Route path="/projects/:code" element={
+                            <ProtectedRoute>
+                                <ProjectDetailsPage />
+                            </ProtectedRoute>
+                        } />
 
-                    <Route path="/projects/:code/dashboard" element={
-                        <ProtectedRoute>
-                            <ProjectDashboardPage />
-                        </ProtectedRoute>
-                    } />
+                        <Route path="/projects/:code/dashboard" element={
+                            <ProtectedRoute>
+                                <ProjectDashboardPage />
+                            </ProtectedRoute>
+                        } />
 
-                    <Route path="/projects/:code/applications" element={
-                        <ProtectedRoute>
-                            <ApplicationsPage />
-                        </ProtectedRoute>
-                    } />
+                        <Route path="/projects/:code/applications" element={
+                            <ProtectedRoute>
+                                <ApplicationsPage />
+                            </ProtectedRoute>
+                        } />
 
-                    {/* ─── Задачи ─── */}
-                    <Route path="/projects/:code/tasks/:taskId" element={
-                        <ProtectedRoute>
-                            <TaskDetailsPage />
-                        </ProtectedRoute>
-                    } />
+                        {/* ─── Задачи ─── */}
+                        <Route path="/projects/:code/tasks/:taskId" element={
+                            <ProtectedRoute>
+                                <TaskDetailsPage />
+                            </ProtectedRoute>
+                        } />
 
-                    {/* ─── Голосования ─── */}
-                    <Route path="/projects/:code/votings" element={
-                        <ProtectedRoute>
-                            <VotingsListPage />
-                        </ProtectedRoute>
-                    } />
-                    <Route path="/projects/:code/votings/new" element={
-                        <ProtectedRoute>
-                            <CreateVotingPage />
-                        </ProtectedRoute>
-                    } />
-                    <Route path="/projects/:code/votings/:votingId" element={
-                        <ProtectedRoute>
-                            <VotingPage />
-                        </ProtectedRoute>
-                    } />
+                        {/* ─── Голосования ─── */}
+                        <Route path="/projects/:code/votings" element={
+                            <ProtectedRoute>
+                                <VotingsListPage />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/projects/:code/votings/new" element={
+                            <ProtectedRoute>
+                                <CreateVotingPage />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/projects/:code/votings/:votingId" element={
+                            <ProtectedRoute>
+                                <VotingPage />
+                            </ProtectedRoute>
+                        } />
 
-                    {/* ─── Чаты ─── */}
-                    <Route path="/chats" element={
-                        <ProtectedRoute>
-                            <ChatsListPage />
-                        </ProtectedRoute>
-                    } />
-                    <Route path="/chats/:chatId" element={
-                        <ProtectedRoute>
-                            <ChatPage />
-                        </ProtectedRoute>
-                    } />
+                        {/* ─── Чаты ─── */}
+                        <Route path="/chats" element={
+                            <ProtectedRoute>
+                                <ChatsListPage />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/chats/:chatId" element={
+                            <ProtectedRoute>
+                                <ChatPage />
+                            </ProtectedRoute>
+                        } />
 
-                    {/* ─── Профиль и социальное ─── */}
-                    <Route path="/profile" element={
-                        <ProtectedRoute>
-                            <ProfilePage />
-                        </ProtectedRoute>
-                    } />
-                    <Route path="/users/:email" element={
-                        <ProtectedRoute>
-                            <UserProfilePage />
-                        </ProtectedRoute>
-                    } />
-                    <Route path="/friends/requests" element={
-                        <ProtectedRoute>
-                            <FriendRequestsPage />
-                        </ProtectedRoute>
-                    } />
-                    <Route path="/invitations" element={
-                        <ProtectedRoute>
-                            <InvitationsPage />
-                        </ProtectedRoute>
-                    } />
-                    <Route path="/projects/:code/history" element={
-                        <ProtectedRoute>
-                            <ProjectHistoryPage />
-                        </ProtectedRoute>
-                    } />
-                    {/* ─── Fallback ─── */}
-                    <Route path="*" element={<Navigate to="/projects" replace />} />
-                    <Route path="/notes" element={
-                        <ProtectedRoute>
-                            <NotesPage />
-                        </ProtectedRoute>
-                    } />
-                </Routes>
-            </AuthProvider>
-        </Router>
+                        {/* ─── Профиль и социальное ─── */}
+                        <Route path="/profile" element={
+                            <ProtectedRoute>
+                                <ProfilePage />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/users/:email" element={
+                            <ProtectedRoute>
+                                <UserProfilePage />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/friends/requests" element={
+                            <ProtectedRoute>
+                                <FriendRequestsPage />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/invitations" element={
+                            <ProtectedRoute>
+                                <InvitationsPage />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/projects/:code/history" element={
+                            <ProtectedRoute>
+                                <ProjectHistoryPage />
+                            </ProtectedRoute>
+                        } />
+
+                        {/* ─── Прочее ─── */}
+                        <Route path="/notes" element={
+                            <ProtectedRoute>
+                                <NotesPage />
+                            </ProtectedRoute>
+                        } />
+                        <Route path="/settings" element={
+                            <ProtectedRoute>
+                                <SettingsPage />
+                            </ProtectedRoute>
+                        } />
+
+                        {/* ─── Fallback — всегда последним ─── */}
+                        <Route path="*" element={<Navigate to="/projects" replace />} />
+                    </Routes>
+                </AuthProvider>
+            </Router>
+        </ThemeProvider>
     );
 }
 

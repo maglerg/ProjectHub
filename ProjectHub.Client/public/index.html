@@ -1,14 +1,42 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru" data-theme="light">
 <head>
     <meta charset="utf-8" />
     <link rel="icon" href="%PUBLIC_URL%/favicon.ico" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="Web site created using create-react-app" />
+    <meta name="theme-color" content="#ffffff" />
+    <meta name="description" content="ProjectHub — управление проектами" />
     <link rel="apple-touch-icon" href="%PUBLIC_URL%/logo192.png" />
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
-    <title>React App</title>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         INLINE-СКРИПТ: ставим data-theme ДО загрузки React,
+         чтобы не было мигания белым фоном при тёмной теме.
+         ═══════════════════════════════════════════════════════════ -->
+    <script>
+        (function () {
+            try {
+                var stored = localStorage.getItem('projecthub.theme') || 'system';
+                var effective = stored;
+                if (stored === 'system') {
+                    effective = window.matchMedia('(prefers-color-scheme: dark)').matches
+                        ? 'dark'
+                        : 'light';
+                }
+                document.documentElement.setAttribute('data-theme', effective);
+
+                // Обновляем meta theme-color под текущую тему
+                var meta = document.querySelector('meta[name="theme-color"]');
+                if (meta) {
+                    meta.setAttribute('content', effective === 'dark' ? '#0f172a' : '#ffffff');
+                }
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+
+    <title>ProjectHub</title>
 </head>
 <body>
     <noscript>You need to enable JavaScript to run this app.</noscript>

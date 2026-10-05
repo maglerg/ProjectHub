@@ -18,7 +18,8 @@ public class ChatService
     private readonly NotificationService _notificationService;
     private readonly ActivityService _activity;
     private readonly FileStorageService _fileStorage;
-    private readonly IHubContext<ChatHub> _hubContext;   // 🆕
+    private readonly IHubContext<ChatHub> _hubContext;
+    private readonly IPresenceService _presence;
 
     public ChatService(
         AppDbContext dbContext,
@@ -26,14 +27,16 @@ public class ChatService
         NotificationService notificationService,
         ActivityService activity,
         FileStorageService fileStorage,
-        IHubContext<ChatHub> hubContext)                 // 🆕
+        IHubContext<ChatHub> hubContext,
+        IPresenceService presence)
     {
         _dbContext = dbContext;
         _logger = logger;
         _notificationService = notificationService;
         _activity = activity;
         _fileStorage = fileStorage;
-        _hubContext = hubContext;                        // 🆕
+        _hubContext = hubContext;
+        _presence = presence;
     }
 
     // 📌 Получить все чаты пользователя
@@ -46,6 +49,18 @@ public class ChatService
             .Include(c => c.Project)
             .OrderByDescending(c => c.LastMessageAt ?? c.CreatedAt)
             .ToListAsync();
+
+        // 🆕 Собираем всех «других» пользователей из личных чатов
+        var otherUserIds = chats
+            .Where(c => c.Type == ChatType.Personal)
+            .SelectMany(c => c.Participants.Where(p => p.UserId != userId))
+            .Select(p => p.UserId)
+            .Distinct()
+            .ToList();
+
+        // 🆕 Один SQL: кто из них виден мне как онлайн?
+        var visibleOnline = await _presence
+            .FilterVisibleOnlineUsersAsync(otherUserIds, userId);
 
         var result = new List<ChatListDto>();
 
@@ -79,7 +94,11 @@ public class ChatService
                 Id = chat.Id,
                 Type = chat.Type.ToString(),
                 Name = chat.Name,
-                OtherUser = otherParticipant != null ? MapUserToDto(otherParticipant.User) : null,
+                OtherUser = otherParticipant != null
+                    ? MapUserToDto(
+                        otherParticipant.User,
+                        visibleOnline.Contains(otherParticipant.UserId))
+                    : null,
                 LastMessage = lastMessage != null ? MapMessageToDto(lastMessage) : null,
                 UnreadCount = unreadCount,
                 LastMessageAt = chat.LastMessageAt,
@@ -271,7 +290,7 @@ public class ChatService
             .Take(take)
             .ToListAsync();
 
-        // 🆕 Запоминаем ID непрочитанных ДО того, как пометим их прочитанными.
+        // Запоминаем ID непрочитанных ДО того, как пометим их прочитанными.
         var unreadMessageIds = new HashSet<Guid>();
         foreach (var m in messages)
         {
@@ -317,14 +336,13 @@ public class ChatService
 
         await _dbContext.SaveChangesAsync();
 
-        // 🆕 ── SignalR: кто-то прочитал чат ──
+        // SignalR: кто-то прочитал чат
         if (unreadMessages.Any())
         {
             await _hubContext.Clients
                 .Group($"chat:{chatId}")
                 .SendAsync("MessagesRead", chatId, userId);
 
-            // Сбрасываем badge у этого пользователя
             await _hubContext.Clients
                 .Group($"user:{userId}")
                 .SendAsync("UnreadCountChanged", chatId, 0);
@@ -360,7 +378,7 @@ public class ChatService
         if (!chat.Participants.Any(p => p.UserId == senderId))
             throw new UnauthorizedAccessException("У вас нет доступа к этому чату");
 
-        // 📌 Архив — блокируем отправку в чат проекта
+        // Архив — блокируем отправку в чат проекта
         if (chat.Type == ChatType.Project && chat.ProjectId.HasValue)
         {
             var project = await _dbContext.Projects
@@ -433,11 +451,7 @@ public class ChatService
 
         // Уведомления активным участникам + сбор данных для SignalR
         var activeThreshold = DateTime.UtcNow.AddSeconds(-10);
-        var preview = message.Text?.Length > 50
-            ? message.Text.Substring(0, 50) + "..."
-            : message.Text;
 
-        // 🆕 Словарь unreadCount'ов для переиспользования в SignalR-эмите
         var unreadCounts = new Dictionary<Guid, int>();
 
         foreach (var participant in chat.Participants.Where(p => p.UserId != senderId))
@@ -454,8 +468,6 @@ public class ChatService
 
             if (unreadCount == 0) continue;
 
-            // 🆕 Не создаём уведомление, если пользователь только что был активен в чате
-            //    (LastReadAt обновляется при получении сообщений, даже если он не писал)
             if (participant.LastReadAt.HasValue
                 && participant.LastReadAt.Value >= activeThreshold)
             {
@@ -476,12 +488,10 @@ public class ChatService
 
         var messageDto = MapMessageToDto(message, senderRoles, totalParticipants);
 
-        // 🆕 ── SignalR: новое сообщение всем в чате ──
         await _hubContext.Clients
             .Group($"chat:{chatId}")
             .SendAsync("ReceiveMessage", messageDto);
 
-        // 🆕 ── SignalR: обновление счётчика непрочитанных ──
         foreach (var (participantId, count) in unreadCounts)
         {
             await _hubContext.Clients
@@ -551,14 +561,19 @@ public class ChatService
         };
     }
 
-    private ChatUserDto MapUserToDto(User user)
+    /// <summary>
+    /// Маппинг User → ChatUserDto.
+    /// Параметр isOnlineVisible приходит уже отфильтрованным:
+    /// true — если смотрящий вправе видеть онлайн-статус этого пользователя.
+    /// </summary>
+    private ChatUserDto MapUserToDto(User user, bool isOnlineVisible)
     {
         return new ChatUserDto
         {
             Name = user.Name,
             Email = user.Email,
             Specialization = user.Specialization.ToString(),
-            IsOnline = user.IsOnline,
+            IsOnline = isOnlineVisible,
             AvatarUrl = user.AvatarUrl
         };
     }
@@ -569,6 +584,14 @@ public class ChatService
         var otherParticipant = chat.Type == ChatType.Personal
             ? chat.Participants.FirstOrDefault(p => p.UserId != currentUserId)
             : null;
+
+        // 🆕 Онлайн-статус собеседника — с учётом его приватности
+        bool otherOnlineVisible = false;
+        if (otherParticipant != null)
+        {
+            otherOnlineVisible = await _presence
+                .CanSeeOnlineStatusAsync(otherParticipant.UserId, currentUserId);
+        }
 
         var lastMessage = chat.Messages
             .OrderByDescending(m => m.CreatedAt)
@@ -613,7 +636,9 @@ public class ChatService
             ProjectId = chat.ProjectId,
             CreatedAt = chat.CreatedAt,
             LastMessageAt = chat.LastMessageAt,
-            OtherUser = otherParticipant != null ? MapUserToDto(otherParticipant.User) : null,
+            OtherUser = otherParticipant != null
+                ? MapUserToDto(otherParticipant.User, otherOnlineVisible)
+                : null,
             LastMessage = lastMessage != null ? MapMessageToDto(lastMessage) : null,
             UnreadCount = unreadCount,
             ParticipantsCount = chat.Participants.Count,
@@ -650,12 +675,9 @@ public class ChatService
 
     private static readonly string[] AllowedFileExtensions =
     {
-        // Изображения
         ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg",
-        // Документы
         ".pdf", ".doc", ".docx", ".xls", ".xlsx", ".ppt", ".pptx",
         ".txt", ".md", ".csv", ".json", ".xml", ".yaml", ".yml",
-        // Архивы
         ".zip", ".rar", ".7z"
     };
 
@@ -683,7 +705,6 @@ public class ChatService
         if (!chat.Participants.Any(p => p.UserId == senderId))
             throw new UnauthorizedAccessException("У вас нет доступа к этому чату");
 
-        // 📌 Архив — блокируем отправку в чат проекта
         if (chat.Type == ChatType.Project && chat.ProjectId.HasValue)
         {
             var project = await _dbContext.Projects
@@ -694,7 +715,6 @@ public class ChatService
                     "Чат проекта находится в архиве, отправка файлов недоступна");
         }
 
-        // Проверка приватности для личных чатов
         if (chat.Type == ChatType.Personal)
         {
             var otherParticipant = chat.Participants.FirstOrDefault(p => p.UserId != senderId);
@@ -719,10 +739,8 @@ public class ChatService
             }
         }
 
-        // ── Сохраняем файл на диск ──
         var storedName = await _fileStorage.SaveAsync(file.OpenReadStream(), ext);
 
-        // ── Определяем тип сообщения ──
         var isImage = new[] { ".png", ".jpg", ".jpeg", ".gif", ".webp", ".svg" }
             .Contains(ext);
 
@@ -748,7 +766,6 @@ public class ChatService
         _dbContext.ChatMessages.Add(message);
         chat.LastMessageAt = message.CreatedAt;
 
-        // Логируем только в проектном чате
         if (chat.Type == ChatType.Project && chat.ProjectId.HasValue)
         {
             await _activity.LogAsync(
@@ -769,18 +786,15 @@ public class ChatService
         _logger.LogInformation(
             $"Файл {message.AttachmentFileName} отправлен в чат {chatId} от {senderId}");
 
-        // Уведомления — те же, что и для текста
         var activeThreshold = DateTime.UtcNow.AddSeconds(-10);
         var preview = message.Text?.Length > 50
             ? message.Text.Substring(0, 50) + "..."
             : message.AttachmentFileName;
 
-        // 🆕 Словарь unreadCount'ов для SignalR
         var unreadCounts = new Dictionary<Guid, int>();
 
         foreach (var participant in chat.Participants.Where(p => p.UserId != senderId))
         {
-            // Считаем unreadCount всегда — нужно и для сигнала, и для уведомления
             var unreadCount = await _dbContext.ChatMessages
                 .Where(m => m.ChatId == chatId
                             && m.SenderId != participant.UserId
@@ -791,7 +805,6 @@ public class ChatService
 
             unreadCounts[participant.UserId] = unreadCount;
 
-            // Уведомление создаём только если пользователь не сидит в чате сейчас
             if (participant.LastReadAt.HasValue
                 && participant.LastReadAt.Value >= activeThreshold)
             {
@@ -813,12 +826,10 @@ public class ChatService
 
         var messageDto = MapMessageToDto(message, senderRoles, totalParticipants);
 
-        // 🆕 ── SignalR: новое сообщение с файлом всем в чате ──
         await _hubContext.Clients
             .Group($"chat:{chatId}")
             .SendAsync("ReceiveMessage", messageDto);
 
-        // 🆕 ── SignalR: обновление счётчика непрочитанных ──
         foreach (var (participantId, count) in unreadCounts)
         {
             await _hubContext.Clients

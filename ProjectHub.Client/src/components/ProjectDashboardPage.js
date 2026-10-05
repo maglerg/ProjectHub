@@ -501,7 +501,12 @@ const ProjectDashboardPage = () => {
 
             setMembers((prev) => {
                 if (prev.some((m) => m.userId === member.userId)) return prev;
-                return [...prev, member];
+
+                // 🆕 Принудительно ставим isOnline: false —
+                //    сервер в MemberAdded может отдать честный статус,
+                //    но по факту "присоединился" ≠ "сейчас онлайн".
+                //    Реальный статус придёт через UserOnline, если разрешено.
+                return [...prev, { ...member, isOnline: false }];
             });
 
             setNotification({

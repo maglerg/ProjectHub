@@ -80,3 +80,80 @@ export const markAsRead = async (notificationId = null) => {
         throw error;
     }
 };
+// ═══════════════════════════════════════════════════════════
+//  🆕 НАСТРОЙКИ УВЕДОМЛЕНИЙ
+// ═══════════════════════════════════════════════════════════
+
+// 📌 Получить настройки уведомлений
+export const getNotificationSettings = async () => {
+    try {
+        const token = getToken();
+        const response = await fetch(`${API_BASE_URL}/notifications/settings`, {
+            method: 'GET',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error('Ошибка получения настроек уведомлений');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('❌ Ошибка в getNotificationSettings:', error);
+        throw error;
+    }
+};
+
+// 📌 Обновить настройки (частичное обновление)
+export const updateNotificationSettings = async (dto) => {
+    try {
+        const token = getToken();
+        const response = await fetch(`${API_BASE_URL}/notifications/settings`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(dto)
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.json().catch(() => ({}));
+            throw new Error(errorBody.error || 'Ошибка сохранения настроек');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('❌ Ошибка в updateNotificationSettings:', error);
+        throw error;
+    }
+};
+
+// 📌 Установить режим «Не беспокоить»
+// duration: 'off' | 'hour' | 'untilMorning' | 'day' | 'week'
+export const setDoNotDisturb = async (duration) => {
+    try {
+        const token = getToken();
+        const response = await fetch(`${API_BASE_URL}/notifications/settings/dnd`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ duration })
+        });
+
+        if (!response.ok) {
+            const errorBody = await response.json().catch(() => ({}));
+            throw new Error(errorBody.error || 'Ошибка изменения режима');
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error('❌ Ошибка в setDoNotDisturb:', error);
+        throw error;
+    }
+};

@@ -232,4 +232,20 @@ public class FriendService
                 eventName, userId);
         }
     }
+    // FriendService.cs
+
+    /// <summary>
+    /// Есть ли между двумя пользователями двусторонняя дружба.
+    /// </summary>
+    public async Task<bool> IsFriendAsync(Guid userId, Guid otherUserId)
+    {
+        if (userId == otherUserId) return false;
+
+        // В БД дружба хранится двумя записями (A→B и B→A).
+        // Достаточно проверить одну, но проверим, что есть обе — на всякий случай.
+        return await _dbContext.Friends
+            .AnyAsync(f => f.UserId == userId
+                           && f.FriendId == otherUserId
+                           && f.Status == FriendStatus.Accepted);
+    }
 }

@@ -4,6 +4,8 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using ProjectHub.API.Data;
+using ProjectHub.API.Models;
+using ProjectHub.API.Models.Enums;
 using ProjectHub.API.Services;
 using System.Security.Claims;
 
@@ -48,7 +50,7 @@ public class ChatHub : Hub
         if (becameOnline)
         {
             await UpdateUserOnlineStatusAsync(userId, true);
-            await Clients.Others.SendAsync("UserOnline", userId);
+            await EmitPresenceAsync(userId, isOnline: true);
         }
 
         await base.OnConnectedAsync();
@@ -66,7 +68,7 @@ public class ChatHub : Hub
         {
             var lastActive = DateTime.UtcNow;
             await UpdateUserOnlineStatusAsync(userId, false, lastActive);
-            await Clients.Others.SendAsync("UserOffline", userId, lastActive);
+            await EmitPresenceAsync(userId, isOnline: false, lastActive);
         }
 
         await base.OnDisconnectedAsync(exception);
@@ -188,6 +190,84 @@ public class ChatHub : Hub
         {
             _logger.LogWarning(ex,
                 "Не удалось обновить онлайн-статус пользователя {UserId}", userId);
+        }
+    }
+    // ═══════════════════════════════════════════════════════════
+    //  🆕 РАССЫЛКА PRESENCE С УЧЁТОМ OnlineVisibility
+    // ═══════════════════════════════════════════════════════════
+
+    /// <summary>
+    /// Эмитит UserOnline / UserOffline, соблюдая настройку приватности
+    /// пользователя, чей статус изменился.
+    ///
+    ///   • Everyone    — всем (как раньше);
+    ///   • FriendsOnly — только его друзьям;
+    ///   • Nobody      — никому (событие не эмитится вообще).
+    /// </summary>
+    private async Task EmitPresenceAsync(
+        Guid userId, bool isOnline, DateTime? lastActiveAt = null)
+    {
+        try
+        {
+            using var scope = Context.GetHttpContext()!.RequestServices.CreateScope();
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var user = await db.Users
+                .AsNoTracking()
+                .Where(u => u.Id == userId)
+                .Select(u => new { u.OnlineVisibility })
+                .FirstOrDefaultAsync();
+
+            if (user == null) return;
+
+            // Никто не должен видеть статус — вообще ничего не эмитим.
+            if (user.OnlineVisibility == OnlineVisibility.Nobody)
+                return;
+
+            // Всем — как было.
+            if (user.OnlineVisibility == OnlineVisibility.Everyone)
+            {
+                if (isOnline)
+                    await Clients.Others.SendAsync("UserOnline", userId);
+                else
+                    await Clients.Others.SendAsync("UserOffline", userId, lastActiveAt);
+                return;
+            }
+
+            // FriendsOnly — рассылаем только друзьям пользователя.
+            if (user.OnlineVisibility == OnlineVisibility.FriendsOnly)
+            {
+                // Двусторонняя дружба (в БД две записи Friend — в обе стороны).
+                // Нам нужны только те, у кого есть запись UserId=user, FriendId=friend.
+                var friendIds = await db.Friends
+                    .Where(f => f.UserId == userId
+                                && f.Status == FriendStatus.Accepted)
+                    .Select(f => f.FriendId)
+                    .ToListAsync();
+
+                if (friendIds.Count == 0) return;
+
+                foreach (var friendId in friendIds)
+                {
+                    if (isOnline)
+                    {
+                        await Clients
+                            .Group($"user:{friendId}")
+                            .SendAsync("UserOnline", userId);
+                    }
+                    else
+                    {
+                        await Clients
+                            .Group($"user:{friendId}")
+                            .SendAsync("UserOffline", userId, lastActiveAt);
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex,
+                "Не удалось эмитить presence для пользователя {UserId}", userId);
         }
     }
 }

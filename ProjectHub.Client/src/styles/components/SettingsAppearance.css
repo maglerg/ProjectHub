@@ -1,0 +1,170 @@
+/* src/styles/components/SettingsAppearance.css */
+
+/* ═══════════════════════════════════════════════════════════
+   НАСТРОЙКИ — ВНЕШНИЙ ВИД
+   ═══════════════════════════════════════════════════════════ */
+
+.settings-appearance {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+}
+
+/* ── Карточка-блок (общая для настроек) ── */
+.settings-card {
+    padding: var(--space-5);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-xs);
+}
+
+.settings-card-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-bottom: var(--space-3);
+}
+
+    .settings-card-header h3 {
+        margin: 0;
+        font-size: var(--text-lg);
+        font-weight: var(--font-semibold);
+        color: var(--color-text);
+    }
+
+    .settings-card-header svg {
+        color: var(--accent);
+    }
+
+.settings-card-hint {
+    margin: 0 0 var(--space-4) 0;
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+    line-height: var(--leading-normal);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ПЕРЕКЛЮЧАТЕЛЬ ТЕМЫ — ПОЛЗУНОК
+   ═══════════════════════════════════════════════════════════ */
+
+.theme-switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-4);
+    padding: var(--space-4);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+/* ── Левая часть: иконка + подпись ── */
+.theme-switch-label {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    min-width: 0;
+}
+
+.theme-switch-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-md);
+    background: var(--color-bg-tertiary);
+    color: var(--color-text-secondary);
+    flex-shrink: 0;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+    .theme-switch-icon.active {
+        background: var(--accent);
+        color: var(--accent-text-on);
+    }
+
+.theme-switch-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+}
+
+.theme-switch-title {
+    font-size: var(--text-base);
+    font-weight: var(--font-medium);
+    color: var(--color-text);
+    line-height: var(--leading-tight);
+}
+
+.theme-switch-description {
+    font-size: var(--text-xs);
+    color: var(--color-text-tertiary);
+    line-height: var(--leading-normal);
+}
+
+/* ── Правая часть: тумблер ── */
+.theme-switch-control {
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+    flex-shrink: 0;
+}
+
+.theme-switch-state {
+    font-size: var(--text-sm);
+    font-weight: var(--font-medium);
+    color: var(--color-text-secondary);
+    min-width: 68px;
+    text-align: right;
+}
+
+/* ═══════════════════════════════════════════════════════════
+   ПОДПИСЬ «ТЕКУЩАЯ ТЕМА»
+   ═══════════════════════════════════════════════════════════ */
+
+.theme-preview {
+    margin-top: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    background: var(--color-bg-secondary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.theme-preview-label {
+    font-size: var(--text-sm);
+    color: var(--color-text-secondary);
+}
+
+    .theme-preview-label b {
+        color: var(--color-text);
+        font-weight: var(--font-semibold);
+    }
+
+.theme-preview-hint {
+    color: var(--color-text-tertiary);
+    font-size: var(--text-xs);
+}
+
+/* ═══════════════════════════════════════════════════════════
+   АДАПТИВ
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 600px) {
+    .theme-switch-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: var(--space-3);
+    }
+
+    .theme-switch-control {
+        justify-content: space-between;
+    }
+
+    .theme-switch-state {
+        text-align: left;
+        min-width: auto;
+    }
+}

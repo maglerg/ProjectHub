@@ -8,6 +8,7 @@ namespace ProjectHub.API.DTOs.UserDtos
         public string Specialization { get; set; } = string.Empty;
         public string? Description { get; set; }
         public string? ChatPrivacy { get; set; }
+        public string? OnlineVisibility { get; set; }
     }
 }
 

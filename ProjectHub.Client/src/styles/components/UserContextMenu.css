@@ -7,11 +7,11 @@
 .user-context-menu {
     min-width: 240px;
     max-width: 320px;
-    background: var(--color-bg, #ffffff);
-    border: 1px solid var(--color-border, #e5e7eb);
-    border-radius: var(--radius-lg, 14px);
-    box-shadow: 0 12px 28px rgba(0, 0, 0, 0.12), 0 2px 6px rgba(0, 0, 0, 0.06);
-    padding: var(--space-2, 8px);
+    background: var(--color-bg);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-2);
     z-index: 10000;
     font-family: inherit;
     user-select: none;
@@ -49,14 +49,14 @@
     /* box */
     background: transparent !important;
     border: none !important;
-    border-radius: var(--radius-sm, 6px) !important;
+    border-radius: var(--radius-sm) !important;
     box-shadow: none !important;
     outline: none !important;
     /* text — фиксированная строка, без «плавания» */
-    color: var(--color-text, #111827);
+    color: var(--color-text);
     font-family: inherit !important;
-    font-size: 13px !important;
-    font-weight: 500 !important;
+    font-size: var(--text-sm) !important;
+    font-weight: var(--font-medium) !important;
     line-height: 20px !important;
     letter-spacing: 0 !important;
     text-align: left !important;
@@ -65,19 +65,19 @@
     vertical-align: middle !important;
     /* никаких трансформаций */
     transform: none !important;
-    transition: background-color 0.12s ease, color 0.12s ease;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
     cursor: pointer;
 }
 
     .user-context-menu .ucm-item:hover:not(:disabled),
     .user-context-menu button.ucm-item:hover:not(:disabled) {
-        background: var(--color-gray-100, #f3f4f6) !important;
+        background: var(--color-gray-100) !important;
         transform: none !important;
     }
 
     .user-context-menu .ucm-item:active:not(:disabled),
     .user-context-menu button.ucm-item:active:not(:disabled) {
-        background: var(--color-gray-200, #e5e7eb) !important;
+        background: var(--color-gray-200) !important;
         transform: none !important;
     }
 
@@ -89,12 +89,12 @@
     /* Красный пункт */
     .user-context-menu .ucm-item.danger,
     .user-context-menu .ucm-item--danger {
-        color: var(--color-danger, #dc2626) !important;
+        color: var(--color-danger) !important;
     }
 
         .user-context-menu .ucm-item.danger:hover:not(:disabled),
         .user-context-menu .ucm-item--danger:hover:not(:disabled) {
-            background: var(--color-danger-bg, #fef2f2) !important;
+            background: var(--color-danger-bg) !important;
         }
 
 /* ═══════════════════════════════════════════════════════════
@@ -110,7 +110,7 @@
     height: 18px !important;
     line-height: 1 !important;
     margin: 0 !important;
-    color: var(--color-text-secondary, #6b7280);
+    color: var(--color-text-secondary);
 }
 
     .user-context-menu .ucm-icon > svg {
@@ -120,7 +120,7 @@
     }
 
 .user-context-menu .ucm-item:hover:not(:disabled) .ucm-icon {
-    color: var(--color-text, #111827);
+    color: var(--color-text);
 }
 
 .user-context-menu .ucm-item.danger .ucm-icon,
@@ -129,24 +129,17 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
-   ТЕКСТ ПУНКТА — обёртка для ровного центрирования
-   ═══════════════════════════════════════════════════════════ */
-
-/* если текст лежит прямо в button — он уже строчный,
-   но на всякий случай выровняем через line-height (уже задан выше) */
-
-/* ═══════════════════════════════════════════════════════════
    ХИНТ (email справа)
    ═══════════════════════════════════════════════════════════ */
 
 .user-context-menu .ucm-hint {
     margin-left: auto !important;
     padding-left: 12px;
-    font-family: var(--font-mono, ui-monospace, monospace);
+    font-family: var(--font-mono);
     font-size: 11px !important;
-    font-weight: 400 !important;
+    font-weight: var(--font-normal) !important;
     line-height: 20px !important;
-    color: var(--color-text-tertiary, #9ca3af);
+    color: var(--color-text-tertiary);
     max-width: 140px;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -160,6 +153,6 @@
 .user-context-menu .ucm-divider {
     height: 1px;
     margin: 4px 8px;
-    background: var(--color-border, #e5e7eb);
+    background: var(--color-border);
     border: none;
 }

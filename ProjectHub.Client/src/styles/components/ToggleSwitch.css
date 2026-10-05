@@ -1,0 +1,95 @@
+/* projecthub.client/src/styles/components/ToggleSwitch.css */
+
+/* ═══════════════════════════════════════════════════════════
+   ТУМБЛЕР (TOGGLE SWITCH)
+   ═══════════════════════════════════════════════════════════ */
+
+.toggle-switch {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-full);
+    background: var(--color-gray-300);
+    cursor: pointer;
+    transition: background var(--transition-fast);
+}
+
+    .toggle-switch:hover:not(.disabled):not(.on) {
+        background: var(--color-gray-400);
+    }
+
+    .toggle-switch.on {
+        background: var(--accent);
+    }
+
+        .toggle-switch.on:hover:not(.disabled) {
+            background: var(--accent-hover);
+        }
+
+    .toggle-switch:focus-visible {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+    }
+
+    .toggle-switch.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+/* ── Размеры ── */
+.toggle-switch--sm {
+    width: 32px;
+    height: 18px;
+}
+
+.toggle-switch--md {
+    width: 42px;
+    height: 24px;
+}
+
+.toggle-switch--lg {
+    width: 52px;
+    height: 30px;
+}
+
+/* ── Thumb ── */
+.toggle-switch-thumb {
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    background: var(--color-bg);
+    border-radius: var(--radius-full);
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--transition-fast);
+}
+
+.toggle-switch--sm .toggle-switch-thumb {
+    width: 14px;
+    height: 14px;
+}
+
+.toggle-switch--md .toggle-switch-thumb {
+    width: 20px;
+    height: 20px;
+}
+
+.toggle-switch--lg .toggle-switch-thumb {
+    width: 26px;
+    height: 26px;
+}
+
+/* Смещение при включении */
+.toggle-switch--sm.on .toggle-switch-thumb {
+    transform: translateX(14px);
+}
+
+.toggle-switch--md.on .toggle-switch-thumb {
+    transform: translateX(18px);
+}
+
+.toggle-switch--lg.on .toggle-switch-thumb {
+    transform: translateX(22px);
+}

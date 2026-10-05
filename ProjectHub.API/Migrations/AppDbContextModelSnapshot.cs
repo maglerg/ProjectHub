@@ -910,6 +910,92 @@ namespace ProjectHub.API.Migrations
                     b.ToTable("TaskTagLinks");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.UserNotificationSettings", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Applications")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<int>("DeadlineDaysBefore")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer")
+                        .HasDefaultValue(3);
+
+                    b.Property<DateTime?>("DoNotDisturbUntil")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<bool>("EmailEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(false);
+
+                    b.Property<bool>("Enabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("FriendRequests")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("InAppEnabled")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("NewMessages")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("ProjectChanges")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("ProjectInvitations")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("TaskComments")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<bool>("TaskDeadlines")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid>("UserId")
+                        .HasColumnType("uuid");
+
+                    b.Property<bool>("Votings")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("boolean")
+                        .HasDefaultValue(true);
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .IsUnique();
+
+                    b.ToTable("UserNotificationSettings");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1043,6 +1129,9 @@ namespace ProjectHub.API.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasColumnType("text");
+
+                    b.Property<int>("OnlineVisibility")
+                        .HasColumnType("integer");
 
                     b.Property<string>("PasswordHash")
                         .IsRequired()
@@ -1527,6 +1616,17 @@ namespace ProjectHub.API.Migrations
                     b.Navigation("Task");
                 });
 
+            modelBuilder.Entity("ProjectHub.API.Models.UserNotificationSettings", b =>
+                {
+                    b.HasOne("ProjectHub.Models.User", "User")
+                        .WithOne("NotificationSettings")
+                        .HasForeignKey("ProjectHub.API.Models.UserNotificationSettings", "UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("ProjectHub.API.Models.Voting", b =>
                 {
                     b.HasOne("ProjectHub.Models.User", "CreatedBy")
@@ -1672,6 +1772,8 @@ namespace ProjectHub.API.Migrations
 
             modelBuilder.Entity("ProjectHub.Models.User", b =>
                 {
+                    b.Navigation("NotificationSettings");
+
                     b.Navigation("OwnedProjects");
 
                     b.Navigation("ProjectMemberships");

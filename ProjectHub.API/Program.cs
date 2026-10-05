@@ -101,6 +101,7 @@ builder.Services.AddScoped<ActivityService>();
 builder.Services.AddScoped<ProjectHistoryService>();
 builder.Services.AddScoped<NoteService>();
 builder.Services.AddScoped<ProjectTagsService>();
+builder.Services.AddScoped<IPresenceService, PresenceService>();
 builder.Services.AddSignalR(options =>
 {
     options.EnableDetailedErrors = builder.Environment.IsDevelopment();
@@ -110,6 +111,7 @@ builder.Services.AddSignalR(options =>
 
 // Singleton — трекер онлайн-присутствия
 builder.Services.AddSingleton<PresenceTracker>();
+builder.Services.AddHostedService<DeadlineNotificationWorker>();
 // JWT Authentication
 var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "your-super-secret-key-min-32-characters-long!";
 var key = Encoding.ASCII.GetBytes(jwtSecret);
