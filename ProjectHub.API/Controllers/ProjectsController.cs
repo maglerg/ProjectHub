@@ -500,6 +500,36 @@ namespace ProjectHub.API.Controllers
                 return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
             }
         }
+        // 📌 POST /api/projects/code/{code}/leave — покинуть проект
+        [HttpPost("code/{code}/leave")]
+        [Authorize]
+        public async Task<IActionResult> LeaveProject(string code)
+        {
+            try
+            {
+                _logger.LogInformation($"Пользователь покидает проект {code}");
+
+                var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+                if (userIdClaim == null || !Guid.TryParse(userIdClaim.Value, out var userId))
+                    return Unauthorized(new { error = "Пользователь не авторизован" });
+
+                await _projectsService.LeaveProjectAsync(code, userId);
+                return Ok(new { message = "Вы покинули проект" });
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { error = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { error = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Ошибка при выходе из проекта");
+                return StatusCode(500, new { error = "Внутренняя ошибка сервера" });
+            }
+        }
         [HttpGet("search/{code}")]
         public async Task<IActionResult> GetProjectByCode(string code)
         {

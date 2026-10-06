@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import UserAvatar from '../UserAvatar';
+import NotificationsDropdown from '../NotificationsDropdown';   // 🆕
 
 import NotificationsSettingsSection from './sections/NotificationsSettingsSection';
 import AppearanceSettingsSection from './sections/AppearanceSettingsSection';
@@ -107,6 +108,9 @@ export default function SettingsPage() {
                 </h1>
 
                 <div className="settings-header-actions">
+                    {/* 🆕 Колокольчик уведомлений */}
+                    <NotificationsDropdown />
+
                     <div className="settings-header-user">
                         <UserAvatar
                             avatarUrl={user?.avatarUrl}

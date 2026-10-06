@@ -10,30 +10,155 @@
     <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
 
     <!-- ═══════════════════════════════════════════════════════════
-         INLINE-СКРИПТ: ставим data-theme ДО загрузки React,
-         чтобы не было мигания белым фоном при тёмной теме.
+         INLINE-СКРИПТ №1: тема (light / dark / system)
+         Ставим data-theme ДО загрузки React, чтобы не было
+         мигания белым фоном при тёмной теме.
          ═══════════════════════════════════════════════════════════ -->
     <script>
-        (function () {
-            try {
-                var stored = localStorage.getItem('projecthub.theme') || 'system';
-                var effective = stored;
-                if (stored === 'system') {
-                    effective = window.matchMedia('(prefers-color-scheme: dark)').matches
-                        ? 'dark'
-                        : 'light';
-                }
-                document.documentElement.setAttribute('data-theme', effective);
+                // @ts-nocheck
+                (function () {
+                    try {
+                        var stored = localStorage.getItem('projecthub.theme') || 'system';
+                        var effective = stored;
 
-                // Обновляем meta theme-color под текущую тему
-                var meta = document.querySelector('meta[name="theme-color"]');
-                if (meta) {
-                    meta.setAttribute('content', effective === 'dark' ? '#0f172a' : '#ffffff');
-                }
-            } catch (e) {
-                document.documentElement.setAttribute('data-theme', 'light');
-            }
-        })();
+                        if (stored === 'system') {
+                            effective = window.matchMedia('(prefers-color-scheme: dark)').matches
+                                ? 'dark'
+                                : 'light';
+                        }
+
+                        document.documentElement.setAttribute('data-theme', effective);
+                    } catch (e) {
+                        document.documentElement.setAttribute('data-theme', 'light');
+                    }
+                })();
+    </script>
+
+    <!-- ═══════════════════════════════════════════════════════════
+         INLINE-СКРИПТ №2: акцентный цвет.
+         Применяем CSS-переменные --color-primary-* ДО загрузки React,
+         чтобы не было мигания фиолетовым при смене акцента.
+         Палитры синхронизированы с src/utils/accentThemes.js
+         ═══════════════════════════════════════════════════════════ -->
+    <script>
+                // @ts-nocheck
+                (function () {
+                    try {
+                        // ── Палитры (должны совпадать с accentThemes.js) ──
+                        var ACCENTS = {
+                            indigo: {
+                                light: ['#eef2ff', '#e0e7ff', '#c7d2fe', '#4f46e5', '#4338ca', '#3730a3'],
+                                dark:  ['#1e1b4b', '#312e81', '#4338ca', '#6366f1', '#818cf8', '#a5b4fc']
+                            },
+                            blue: {
+                                light: ['#eff6ff', '#dbeafe', '#bfdbfe', '#2563eb', '#1d4ed8', '#1e40af'],
+                                dark:  ['#172554', '#1e3a8a', '#1d4ed8', '#3b82f6', '#60a5fa', '#93c5fd']
+                            },
+                            emerald: {
+                                light: ['#ecfdf5', '#d1fae5', '#a7f3d0', '#059669', '#047857', '#065f46'],
+                                dark:  ['#022c22', '#064e3b', '#047857', '#10b981', '#34d399', '#6ee7b7']
+                            },
+                            rose: {
+                                light: ['#fff1f2', '#ffe4e6', '#fecdd3', '#e11d48', '#be123c', '#9f1239'],
+                                dark:  ['#4c0519', '#881337', '#be123c', '#f43f5e', '#fb7185', '#fda4af']
+                            },
+                            amber: {
+                                light: ['#fffbeb', '#fef3c7', '#fde68a', '#d97706', '#b45309', '#92400e'],
+                                dark:  ['#451a03', '#78350f', '#b45309', '#f59e0b', '#fbbf24', '#fcd34d']
+                            },
+                            violet: {
+                                light: ['#f5f3ff', '#ede9fe', '#ddd6fe', '#7c3aed', '#6d28d9', '#5b21b6'],
+                                dark:  ['#2e1065', '#4c1d95', '#6d28d9', '#8b5cf6', '#a78bfa', '#c4b5fd']
+                            }
+                        };
+
+                        // Порядок ключей совпадает с tokens.css
+                        var VARS = [
+                            '--color-primary-50',
+                            '--color-primary-100',
+                            '--color-primary-200',
+                            '--color-primary-500',
+                            '--color-primary-600',
+                            '--color-primary-700'
+                        ];
+
+                        var root = document.documentElement;
+
+                        // ── Текущая тема (её поставил скрипт №1) ──
+                        var theme = root.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+
+                        // ── Применяем акцент ──
+                        function applyAccent(accentId) {
+                            var entry = ACCENTS[accentId] || ACCENTS.indigo;
+                            var palette = entry[theme];
+                            for (var i = 0; i < VARS.length; i++) {
+                                root.style.setProperty(VARS[i], palette[i]);
+                            }
+                        }
+
+                        var accentId = localStorage.getItem('projecthub.accent') || 'indigo';
+                        applyAccent(accentId);
+
+                        // ── meta theme-color — под акцент и тему ──
+                        function updateMetaThemeColor() {
+                            var entry = ACCENTS[accentId] || ACCENTS.indigo;
+                            var palette = entry[theme];
+                            var meta = document.querySelector('meta[name="theme-color"]');
+                            if (meta) {
+                                // Берём 500-й оттенок акцента (индекс 3)
+                                meta.setAttribute('content', palette[3]);
+                            }
+                        }
+                        updateMetaThemeColor();
+
+                        // ── Реакция на смену системной темы (если stored === 'system') ──
+                        try {
+                            var mq = window.matchMedia('(prefers-color-scheme: dark)');
+                            mq.addEventListener('change', function (e) {
+                                var stored = localStorage.getItem('projecthub.theme') || 'system';
+                                if (stored !== 'system') return;
+
+                                theme = e.matches ? 'dark' : 'light';
+                                root.setAttribute('data-theme', theme);
+                                applyAccent(accentId);
+                                updateMetaThemeColor();
+                            });
+                        } catch (e) { /* старые браузеры — noop */ }
+
+                        // ── Слушаем смену акцента и темы из других вкладок ──
+                        window.addEventListener('storage', function (e) {
+                            if (e.key === 'projecthub.accent' && e.newValue) {
+                                accentId = e.newValue;
+                                applyAccent(accentId);
+                                updateMetaThemeColor();
+                            }
+                            if (e.key === 'projecthub.theme') {
+                                var stored = e.newValue || 'system';
+                                if (stored === 'system') {
+                                    theme = window.matchMedia('(prefers-color-scheme: dark)').matches
+                                        ? 'dark' : 'light';
+                                } else {
+                                    theme = stored;
+                                }
+                                root.setAttribute('data-theme', theme);
+                                applyAccent(accentId);
+                                updateMetaThemeColor();
+                            }
+                        });
+                    } catch (e) {
+                        // Fallback: акцент по умолчанию (индиго)
+                        try {
+                            var fallback = ['#eef2ff', '#e0e7ff', '#c7d2fe', '#4f46e5', '#4338ca', '#3730a3'];
+                            var fbVars = [
+                                '--color-primary-50', '--color-primary-100', '--color-primary-200',
+                                '--color-primary-500', '--color-primary-600', '--color-primary-700'
+                            ];
+                            for (var j = 0; j < fbVars.length; j++) {
+                                document.documentElement.style.setProperty(fbVars[j], fallback[j]);
+                            }
+                        } catch (_) { /* noop */ }
+                    }
+                })();
     </script>
 
     <title>ProjectHub</title>

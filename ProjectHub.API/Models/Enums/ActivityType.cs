@@ -17,6 +17,7 @@
         MemberInvited = 11,
         MemberRemoved = 12,
         MemberRoleChanged = 13,
+        MemberLeft = 14,
 
         // ── Приглашения / заявки ──
         InvitationSent = 20,

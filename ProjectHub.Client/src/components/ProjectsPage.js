@@ -39,6 +39,7 @@ import { signalr } from '../services/signalrService';   // 🆕
 import {
     fetchAllProjects,
     createProject,
+    fetchFavorites, 
     fetchMyProjects,
     fetchArchivedProjects,
     archiveProject,
@@ -134,15 +135,14 @@ const ProjectsPage = () => {
             let data;
             if (myProjectsOnly) {
                 data = await fetchMyProjects();
+            } else if (favoritesOnly) {
+                // 🆕 Используем явный эндпоинт избранного
+                data = await fetchFavorites();
             } else {
-                data = await fetchAllProjects(favoritesOnly, category);
+                data = await fetchAllProjects(false, category);
             }
 
-            if (Array.isArray(data)) {
-                setProjects(data);
-            } else {
-                setProjects([]);
-            }
+            setProjects(Array.isArray(data) ? data : []);
         } catch (error) {
             console.error('❌ Ошибка загрузки проектов:', error);
             setMessage(`❌ ${error.message || 'Ошибка загрузки проектов'}`);

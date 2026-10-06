@@ -463,3 +463,26 @@ export const deleteProject = async (id) => {
         throw error;
     }
 };
+// 📌 Покинуть проект (только для участника/админа, не для владельца)
+export const leaveProject = async (code) => {
+    try {
+        const token = getToken();
+        const response = await fetch(`${API_BASE_URL}/projects/code/${code}/leave`, {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            const error = await response.json().catch(() => ({}));
+            throw new Error(error.error || 'Ошибка выхода из проекта');
+        }
+
+        return response.json();
+    } catch (error) {
+        console.error('❌ Ошибка в leaveProject:', error);
+        throw error;
+    }
+};

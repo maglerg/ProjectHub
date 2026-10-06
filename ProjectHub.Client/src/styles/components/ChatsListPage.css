@@ -5,17 +5,51 @@
    ═══════════════════════════════════════════════════════════ */
 
 .chats-list-page {
-    min-height: 100vh;
-    background: var(--color-bg-secondary);
+    /* ─────────────────────────────────────────────
+       Переменные «окна чатов»
+       Меняются в одном месте — от них зависят
+       отступы и максимальная ширина списка.
+       ───────────────────────────────────────────── */
+    /* Максимальная ширина контента чатов.
+       100% = растянуть на всю ширину родителя.
+       Можно ограничить, например: 900px для standalone-страницы. */
+    --chats-window-max-width: 100%;
+    /* Небольшие отступы, чтобы список не прилипал к краям
+       родительского блока («окно в окне»). */
+    --chats-window-padding-x: var(--space-3);
+    --chats-window-padding-y: var(--space-3);
+    /* По умолчанию — встраиваемый режим: не отдельная страница,
+       а блок внутри родителя (.page-main или .chats-modal). */
     color: var(--color-text);
+    background: transparent;
 }
 
+/* Отдельная страница (роут /chats без встраивания) —
+   через модификатор класса. Если у вас есть такая страница,
+   добавьте ей className="chats-list-page chats-list-page--standalone". */
+.chats-list-page--standalone {
+    min-height: 100vh;
+    background: var(--color-bg-secondary);
+    --chats-window-max-width: 700px;
+    --chats-window-padding-x: var(--space-5);
+    --chats-window-padding-y: var(--space-6);
+}
+
+/* ── Шапка ── */
 .chats-header {
-    background: var(--color-bg);
-    padding: var(--space-4) var(--space-10);
     display: flex;
     align-items: center;
     gap: var(--space-4);
+    padding: var(--space-4) 0;
+    background: transparent;
+    box-shadow: none;
+    border-bottom: 1px solid var(--color-border);
+    position: static;
+}
+
+.chats-list-page--standalone .chats-header {
+    padding: var(--space-4) var(--space-10);
+    background: var(--color-bg);
     box-shadow: var(--shadow-sm);
     border-bottom: 1px solid var(--color-border);
     position: sticky;
@@ -23,12 +57,12 @@
     z-index: var(--z-sticky);
 }
 
-    .chats-header h1 {
-        font-size: var(--text-2xl);
-        color: var(--color-text);
-        margin: 0;
-        flex: 1;
-    }
+.chats-header h1 {
+    font-size: var(--text-2xl);
+    color: var(--color-text);
+    margin: 0;
+    flex: 1;
+}
 
 .chats-count {
     padding: var(--space-1) var(--space-3);
@@ -39,12 +73,15 @@
     font-weight: var(--font-semibold);
 }
 
+/* ── Обёртка списка — центрируется и ограничивается шириной ── */
 .chats-content {
-    max-width: 700px;
+    width: 100%;
+    max-width: var(--chats-window-max-width);
     margin: 0 auto;
-    padding: var(--space-6) var(--space-5);
+    padding: var(--chats-window-padding-y) var(--chats-window-padding-x);
 }
 
+/* ── Список ── */
 .chats-list {
     display: flex;
     flex-direction: column;
@@ -227,16 +264,22 @@
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    min-height: 100vh;
+    min-height: 320px;
     gap: var(--space-4);
     color: var(--color-text-secondary);
+    padding: var(--space-8) var(--space-5);
+}
+
+.chats-list-page--standalone .chats-loading,
+.chats-list-page--standalone .chats-error {
+    min-height: 100vh;
     background: var(--color-bg-secondary);
 }
 
-    .chats-loading .spinner {
-        color: var(--color-primary-500);
-        animation: spin 1s linear infinite;
-    }
+.chats-loading .spinner {
+    color: var(--color-primary-500);
+    animation: spin 1s linear infinite;
+}
 
 @keyframes spin {
     from {
@@ -309,6 +352,9 @@
     max-height: 85vh;
     overflow: hidden;
     background: transparent;
+    --chats-window-max-width: 100%;
+    --chats-window-padding-x: var(--space-4);
+    --chats-window-padding-y: var(--space-3);
 }
 
 .chats-modal .chats-header {
@@ -321,14 +367,59 @@
 .chats-modal .chats-content {
     flex: 1;
     overflow-y: auto;
-    padding: var(--space-4) var(--space-5);
+    padding: var(--chats-window-padding-y) var(--chats-window-padding-x);
 }
 
 .chats-modal-close {
     flex-shrink: 0;
 }
 
+/* ═══════════════════════════════════════════════════════════
+   АДАПТИВ
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 900px) {
+    .chats-list-page {
+        --chats-window-padding-x: var(--space-2);
+        --chats-window-padding-y: var(--space-2);
+    }
+
+    .chats-list-page--standalone {
+        --chats-window-padding-x: var(--space-4);
+        --chats-window-padding-y: var(--space-5);
+    }
+}
+
 @media (max-width: 600px) {
+    .chats-list-page {
+        --chats-window-padding-x: var(--space-1);
+        --chats-window-padding-y: var(--space-1);
+    }
+
+    .chats-list-page--standalone {
+        --chats-window-padding-x: var(--space-3);
+        --chats-window-padding-y: var(--space-4);
+    }
+
+    .chat-item {
+        padding: var(--space-2) var(--space-3);
+        gap: var(--space-3);
+    }
+
+    .chat-item-avatar-wrapper,
+    .chat-item-cover {
+        width: 42px;
+        height: 42px;
+    }
+
+    .chat-item-name {
+        font-size: var(--text-base);
+    }
+
+    .chat-item-last-message {
+        font-size: var(--text-xs);
+    }
+
     .chats-modal {
         max-width: 100%;
         max-height: 92vh;

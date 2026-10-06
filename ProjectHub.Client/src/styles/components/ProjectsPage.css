@@ -5,6 +5,11 @@
    ═══════════════════════════════════════════════════════════ */
 
 .projects-page {
+    /* Единая ширина контента для шапки и main — чтобы
+       их края визуально совпадали. Меняется в одном месте. */
+    --content-max-width: 1024px;
+    --content-padding-x: var(--space-8); /* боковые отступы от края экрана */
+
     min-height: 100vh;
     background: var(--color-bg-secondary);
 }
@@ -22,18 +27,11 @@
     align-items: center;
     gap: var(--space-4);
     flex-wrap: wrap;
-    padding: var(--space-3) var(--space-8);
+    /* Центрируем содержимое шапки по той же ширине, что и main */
+    padding: var(--space-3) max( var(--content-padding-x), calc((100vw - var(--content-max-width)) / 2) );
     background: var(--color-bg);
     border-bottom: 1px solid var(--color-border);
     box-shadow: var(--shadow-xs);
-}
-
-/* На широких экранах ограничим контент по центру */
-@media (min-width: 1400px) {
-    .page-header {
-        padding-left: calc((100vw - 1280px) / 2 + var(--space-8));
-        padding-right: calc((100vw - 1280px) / 2 + var(--space-8));
-    }
 }
 
 .header-left {
@@ -204,13 +202,18 @@
    ═══════════════════════════════════════════════════════════ */
 
 .page-main {
-    max-width: 1200px;
+    /* Ограничиваем ширину тем же значением, что и шапка */
+    width: 100%;
+    max-width: var(--content-max-width);
     margin: var(--space-6) auto 60px;
+    /* Внутренние отступы — контент не прилипает к краям карточки */
     padding: var(--space-6);
     background: var(--color-bg);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-xl);
     box-shadow: var(--shadow-sm);
+    /* Защита от «распирания» длинными словами и flex-детьми */
+    min-width: 0;
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -414,50 +417,6 @@
 }
 
 /* ═══════════════════════════════════════════════════════════
-   АДАПТИВ
-   ═══════════════════════════════════════════════════════════ */
-
-@media (max-width: 900px) {
-    .page-header {
-        padding: var(--space-3) var(--space-5);
-    }
-
-    .page-main {
-        padding: var(--space-5) var(--space-4) 40px;
-    }
-}
-
-@media (max-width: 600px) {
-    .page-header {
-        padding: var(--space-3) var(--space-4);
-        gap: var(--space-3);
-    }
-
-    .header-left h1 {
-        font-size: var(--text-base);
-    }
-
-    .tab-btn {
-        padding: 6px 12px;
-        font-size: var(--text-xs);
-    }
-
-    .user-menu-dropdown {
-        min-width: 200px;
-        right: -8px;
-    }
-
-    .empty-state {
-        padding: var(--space-8) var(--space-4);
-    }
-
-    .empty-state-icon {
-        width: 56px;
-        height: 56px;
-    }
-}
-
-/* ═══════════════════════════════════════════════════════════
    РАЗДЕЛ «НАЙТИ ПРОЕКТ» — 3 способа в 3 секциях
    ═══════════════════════════════════════════════════════════ */
 
@@ -501,7 +460,7 @@
         color: var(--color-text);
     }
 
-/* Номер шага — кружок с индиго-фоном */
+/* Номер шага — кружок с акцентным фоном */
 .search-method-number {
     display: inline-flex;
     align-items: center;
@@ -565,8 +524,65 @@
     font-weight: var(--font-semibold);
 }
 
-/* ── Адаптив ── */
-@media (max-width: 600px) {
+/* ═══════════════════════════════════════════════════════════
+   АДАПТИВ
+   ═══════════════════════════════════════════════════════════ */
+
+@media (max-width: 1200px) {
+    .projects-page {
+        --content-padding-x: var(--space-6);
+    }
+}
+
+@media (max-width: 900px) {
+    .projects-page {
+        --content-padding-x: var(--space-5);
+    }
+
+    .page-main {
+        padding: var(--space-5);
+        margin: var(--space-5) auto var(--space-10);
+    }
+}
+
+@media (max-width: 640px) {
+    .projects-page {
+        --content-padding-x: var(--space-4);
+    }
+
+    .page-header {
+        gap: var(--space-3);
+    }
+
+    .header-left h1 {
+        font-size: var(--text-base);
+    }
+
+    .page-main {
+        padding: var(--space-4);
+        margin: var(--space-4) auto var(--space-8);
+        border-radius: var(--radius-lg);
+    }
+
+    .tab-btn {
+        padding: 6px 12px;
+        font-size: var(--text-xs);
+    }
+
+    .user-menu-dropdown {
+        min-width: 200px;
+        right: -8px;
+    }
+
+    .empty-state {
+        padding: var(--space-8) var(--space-4);
+    }
+
+    .empty-state-icon {
+        width: 56px;
+        height: 56px;
+    }
+
     .search-method {
         padding: var(--space-4);
     }

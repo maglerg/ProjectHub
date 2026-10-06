@@ -89,6 +89,7 @@ import {
     unarchiveProject,
     changeMemberRoleByCodeAndEmail,
     removeMemberFromProject,
+    leaveProject,                                // 🆕
 } from '../services/projectsApi';
 
 import '../styles/components/ProjectDashboardPage.css';
@@ -129,6 +130,9 @@ const ProjectDashboardPage = () => {
 
     // ── Архивация ──
     const [isArchiving, setIsArchiving] = useState(false);
+
+    // 🆕 Выход из проекта
+    const [leavingProject, setLeavingProject] = useState(false);
 
     // ── Раздел ──
     const [activeSection, setActiveSection] = useState(
@@ -526,6 +530,12 @@ const ProjectDashboardPage = () => {
                 (payload.userId && payload.userId === user?.id) ||
                 (myEmail && payload.email?.toLowerCase() === myEmail);
 
+            // 🆕 Если это я сам вышел — не показываем «Вас удалили», редиректим тихо
+            if (removedMe && payload.selfLeft) {
+                navigate('/projects');
+                return;
+            }
+
             if (removedMe) {
                 setNotification({
                     type: 'error',
@@ -537,9 +547,12 @@ const ProjectDashboardPage = () => {
                 return;
             }
 
+            // 🆕 Для остальных — правильный текст
             setNotification({
                 type: 'info',
-                text: `${payload.name || 'Участник'} удалён из проекта`
+                text: payload.selfLeft
+                    ? `${payload.name || 'Участник'} покинул проект`
+                    : `${payload.name || 'Участник'} удалён из проекта`
             });
             setTimeout(() => setNotification(null), 3000);
         };
@@ -712,6 +725,36 @@ const ProjectDashboardPage = () => {
             setNotification({ type: 'error', text: e.message });
         } finally {
             setIsArchiving(false);
+        }
+    };
+
+    // 🆕 ── Покинуть проект ──
+    const handleLeaveProject = async () => {
+        if (!project?.publicCode || leavingProject) return;
+
+        if (!window.confirm(
+            `Покинуть проект «${project.name}»?\n\n` +
+            'Вы потеряете доступ к задачам, чату, голосованиям и материалам проекта. ' +
+            'Вернуться сможете только по приглашению владельца.'
+        )) return;
+
+        setLeavingProject(true);
+        try {
+            await leaveProject(project.publicCode);
+
+            setNotification({ type: 'success', text: '✅ Вы покинули проект' });
+
+            // Небольшая задержка, чтобы пользователь увидел сообщение
+            setTimeout(() => navigate('/projects'), 800);
+        } catch (err) {
+            console.error('❌ Ошибка выхода из проекта:', err);
+            setNotification({
+                type: 'error',
+                text: err.message || 'Не удалось покинуть проект'
+            });
+            setTimeout(() => setNotification(null), 3500);
+        } finally {
+            setLeavingProject(false);
         }
     };
 
@@ -1553,6 +1596,7 @@ const ProjectDashboardPage = () => {
                                             </span>
                                         )}
                                     </span>
+
                                     {canManageMembers && !project.isArchived && (
                                         <>
                                             <button
@@ -1589,6 +1633,29 @@ const ProjectDashboardPage = () => {
                                                 Пригласить
                                             </button>
                                         </>
+                                    )}
+
+                                    {/* 🆕 Покинуть проект — только для не-владельца, не в архиве */}
+                                    {!isOwnerUser && !project.isArchived && userStatus !== 'NotJoined' && (
+                                        <button
+                                            type="button"
+                                            className="btn btn--danger-outline btn--sm leave-project-btn"
+                                            onClick={handleLeaveProject}
+                                            disabled={leavingProject}
+                                            title="Покинуть проект"
+                                        >
+                                            {leavingProject ? (
+                                                <>
+                                                    <Loader2 size={14} className="icon-spin" />
+                                                    Выход…
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <LogOut size={14} />
+                                                    Покинуть проект
+                                                </>
+                                            )}
+                                        </button>
                                     )}
                                 </div>
                             </div>

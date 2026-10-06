@@ -171,9 +171,6 @@ namespace ProjectHub.API.Services
             await _activity.EmitActivityAsync(activity, project.PublicCode);
 
             // SignalR: UI-событие — новый участник
-            // Здесь IsOnline отдаём честно, потому что событие про СЕБЯ
-            // (о том, что кто-то вошёл в проект). Это не «слежка за юзером»,
-            // а факт «он сейчас присоединился» — он по определению онлайн.
             var joinedUser = await _dbContext.Users
                 .AsNoTracking()
                 .FirstOrDefaultAsync(u => u.Id == userId);
@@ -181,23 +178,22 @@ namespace ProjectHub.API.Services
             if (joinedUser != null)
             {
                 await _activity.EmitToProjectAsync(
-    project.PublicCode,
-    "MemberAdded",
-    new
-    {
-        UserId = joinedUser.Id,
-        Name = joinedUser.Name,
-        Email = joinedUser.Email,
-        Specialization = joinedUser.Specialization.ToString(),
-        Role = ProjectMemberRole.Member.ToString(),
-        JoinedAt = member.JoinedAt,
-        AvatarUrl = joinedUser.AvatarUrl,
+                    project.PublicCode,
+                    "MemberAdded",
+                    new
+                    {
+                        UserId = joinedUser.Id,
+                        Name = joinedUser.Name,
+                        Email = joinedUser.Email,
+                        Specialization = joinedUser.Specialization.ToString(),
+                        Role = ProjectMemberRole.Member.ToString(),
+                        JoinedAt = member.JoinedAt,
+                        AvatarUrl = joinedUser.AvatarUrl,
 
-        // 🆕 Онлайн-статус не передаём: его смотрящий определит сам
-        //    через отдельные запросы / real-time события UserOnline.
-        //    Факт «присоединился к проекту» ≠ «сейчас онлайн».
-        IsOnline = false
-    });
+                        // 🆕 Онлайн-статус не передаём: его смотрящий определит сам
+                        //    через отдельные запросы / real-time события UserOnline.
+                        IsOnline = false
+                    });
             }
 
             _logger.LogInformation($"Пользователь {userId} успешно присоединился к проекту {publicCode}");
@@ -210,8 +206,22 @@ namespace ProjectHub.API.Services
 
         public async Task<bool> IsProjectFavoriteAsync(Guid projectId, Guid userId)
         {
-            return await _dbContext.Favorites
+            var favorite = await _dbContext.Favorites
                 .AnyAsync(f => f.ProjectId == projectId && f.UserId == userId);
+
+            if (!favorite) return false;
+
+            var project = await _dbContext.Projects
+                .AsNoTracking()
+                .FirstOrDefaultAsync(p => p.Id == projectId);
+
+            if (project == null) return false;
+
+            if (project.Visibility == ProjectVisibility.Public) return true;
+            if (project.OwnerId == userId) return true;
+
+            return await _dbContext.ProjectMembers
+                .AnyAsync(pm => pm.ProjectId == projectId && pm.UserId == userId);
         }
 
         public async Task<bool> ToggleFavoriteAsync(Guid projectId, Guid userId)
@@ -246,13 +256,39 @@ namespace ProjectHub.API.Services
 
         public async Task<List<ProjectResponse>> GetUserFavoritesAsync(Guid userId)
         {
-            var favoriteProjects = await _dbContext.Favorites
+            // 🆕 ID проектов, где пользователь — участник или владелец
+            var memberProjectIds = await _dbContext.ProjectMembers
+                .Where(pm => pm.UserId == userId)
+                .Select(pm => pm.ProjectId)
+                .ToListAsync();
+
+            var ownedProjectIds = await _dbContext.Projects
+                .Where(p => p.OwnerId == userId)
+                .Select(p => p.Id)
+                .ToListAsync();
+
+            var accessibleIds = memberProjectIds
+                .Union(ownedProjectIds)
+                .ToHashSet();
+
+            // 🆕 ID проектов, которые пользователь добавил в избранное
+            var favoriteProjectIds = await _dbContext.Favorites
                 .Where(f => f.UserId == userId)
-                .Select(f => f.Project)
+                .Select(f => f.ProjectId)
+                .ToListAsync();
+
+            // 🆕 Запрос начинаем с Projects — тогда Include работает корректно.
+            //    Фильтр по избранному — через favoriteProjectIds.Contains(...).
+            var favoriteProjects = await _dbContext.Projects
                 .Include(p => p.Members).ThenInclude(m => m.User)
                 .Include(p => p.Favorites)
                 .Include(p => p.TagLinks).ThenInclude(l => l.Tag)
+                .Where(p => favoriteProjectIds.Contains(p.Id))
                 .Where(p => !p.IsArchived)
+                // 🆕 Приватные проекты показываем ТОЛЬКО их участникам/владельцам.
+                //    Публичные — всем, кто добавил в избранное.
+                .Where(p => p.Visibility == ProjectVisibility.Public
+                            || accessibleIds.Contains(p.Id))
                 .OrderByDescending(p => p.FavoritesCount)
                 .ToListAsync();
 
@@ -261,12 +297,12 @@ namespace ProjectHub.API.Services
             {
                 var response = await MapToResponseAsync(project, userId);
                 response.IsFavorite = true;
+                response.UserStatus = await GetUserProjectStatusAsync(project.Id, userId);
                 responses.Add(response);
             }
 
             return responses;
         }
-
         // ═══════════════════════════════════════════════════════════
         //  СПИСКИ ПРОЕКТОВ
         // ═══════════════════════════════════════════════════════════
@@ -312,7 +348,85 @@ namespace ProjectHub.API.Services
 
             return responses;
         }
+        // ═══════════════════════════════════════════════════════════
+        //  ПОКИНУТЬ ПРОЕКТ (самостоятельный выход)
+        // ═══════════════════════════════════════════════════════════
 
+        public async Task<bool> LeaveProjectAsync(string projectCode, Guid userId)
+        {
+            var project = await _dbContext.Projects
+                .FirstOrDefaultAsync(p => p.PublicCode == projectCode)
+                ?? throw new KeyNotFoundException("Проект с таким кодом не найден");
+
+            // ── Владелец не может покинуть свой проект ──
+            if (project.OwnerId == userId)
+                throw new InvalidOperationException(
+                    "Владелец не может покинуть проект. " +
+                    "Передайте роль владельца другому участнику или удалите проект.");
+
+            // ── Проверяем, что пользователь — участник ──
+            var member = await _dbContext.ProjectMembers
+                .FirstOrDefaultAsync(pm => pm.ProjectId == project.Id && pm.UserId == userId)
+                ?? throw new KeyNotFoundException("Вы не являетесь участником этого проекта");
+
+            var user = await _dbContext.Users.FindAsync(userId)
+                ?? throw new KeyNotFoundException("Пользователь не найден");
+
+            var userName = user.Name;
+            var userEmail = user.Email;
+
+            // ── Удаляем участие ──
+            _dbContext.ProjectMembers.Remove(member);
+
+            // ── История ──
+            var activity = await _activity.LogAsync(
+                project.Id,
+                userId,
+                ActivityType.MemberLeft,
+                summary: $"{userName} покинул проект",
+                link: $"/projects/{project.PublicCode}/dashboard",
+                relatedEntityId: userId
+            );
+
+            await _dbContext.SaveChangesAsync();
+
+            await _activity.EmitActivityAsync(activity, project.PublicCode);
+
+            // ── SignalR: событие в группу проекта ──
+            //    selfLeft: true — фронт отличит «ушёл сам» от «удалили».
+            await _activity.EmitToProjectAsync(
+                project.PublicCode,
+                "MemberRemoved",
+                new
+                {
+                    UserId = userId,
+                    Name = userName,
+                    Email = userEmail,
+                    SelfLeft = true
+                });
+
+            // ── Уведомление владельцу ──
+            try
+            {
+                await _notificationService.CreateNotificationAsync(
+                    project.OwnerId,
+                    "👋 Участник покинул проект",
+                    $"{userName} покинул проект '{project.Name}'",
+                    NotificationType.MemberRemoved,
+                    $"/projects/{project.PublicCode}/dashboard",
+                    project.Id
+                );
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Не удалось уведомить владельца о выходе участника");
+            }
+
+            _logger.LogInformation(
+                $"Пользователь {userEmail} покинул проект {projectCode}");
+
+            return true;
+        }
         public async Task<List<ProjectResponse>> GetProjectsFilteredAsync(
             ProjectCategory? category = null,
             ProjectVisibility? visibility = null,
@@ -330,15 +444,38 @@ namespace ProjectHub.API.Services
 
             if (favoritesOnly && userId.HasValue)
             {
+                // 🆕 Считаем проекты, где пользователь — участник или владелец
+                var memberProjectIds = await _dbContext.ProjectMembers
+                    .Where(pm => pm.UserId == userId.Value)
+                    .Select(pm => pm.ProjectId)
+                    .ToListAsync();
+
+                var ownedProjectIds = await _dbContext.Projects
+                    .Where(p => p.OwnerId == userId.Value)
+                    .Select(p => p.Id)
+                    .ToListAsync();
+
+                var accessibleIds = memberProjectIds
+                    .Union(ownedProjectIds)
+                    .ToHashSet();
+
                 var favoriteIds = await _dbContext.Favorites
                     .Where(f => f.UserId == userId.Value)
                     .Select(f => f.ProjectId)
                     .ToListAsync();
 
                 query = query.Where(p => favoriteIds.Contains(p.Id));
+
+                // 🆕 Приватные проекты показываем только их участникам/владельцам.
+                //    Это ключевое исправление: раньше ветка favoritesOnly вообще
+                //    не проверяла видимость, поэтому в избранном мог оказаться
+                //    приватный проект, к которому у пользователя нет доступа.
+                query = query.Where(p => p.Visibility == ProjectVisibility.Public
+                                         || accessibleIds.Contains(p.Id));
             }
             else
             {
+                // (без изменений — публичные проекты)
                 query = query.Where(p => p.Visibility == ProjectVisibility.Public);
 
                 if (visibility.HasValue)
@@ -354,6 +491,13 @@ namespace ProjectHub.API.Services
             {
                 var response = await MapToResponseAsync(project, userId);
                 if (favoritesOnly) response.IsFavorite = true;
+
+                // 🆕 Проставляем UserStatus — фронт использует его для роутинга
+                if (userId.HasValue)
+                {
+                    response.UserStatus = await GetUserProjectStatusAsync(project.Id, userId.Value);
+                }
+
                 responses.Add(response);
             }
 
