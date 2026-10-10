@@ -1,11 +1,16 @@
 // projecthub.client/src/services/userApi.js
-import { getToken, getUser, setUser } from '../utils/storage';
-const API_BASE_URL = 'https://localhost:7000/api';
+
+import { getToken } from '../utils/storage';
+
+// В Docker при сборке REACT_APP_API_URL=/api (относительный путь).
+// Локально без Docker — fallback на http://localhost:3000/api.
+const API_BASE_URL =
+    process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
 // 📌 Получить данные текущего пользователя
 export const getCurrentUser = async () => {
     try {
-        const token = getToken(); 
+        const token = getToken();
         const response = await fetch(`${API_BASE_URL}/auth/me`, {
             method: 'GET',
             headers: {
@@ -26,6 +31,7 @@ export const getCurrentUser = async () => {
         throw error;
     }
 };
+
 // 📌 Получить профиль пользователя по email
 export const getUserProfileByEmail = async (email) => {
     try {
@@ -58,6 +64,7 @@ export const getUserProfileByEmail = async (email) => {
         throw error;
     }
 };
+
 // 📌 Обновить данные пользователя
 export const updateUser = async (userData) => {
     try {
@@ -73,7 +80,7 @@ export const updateUser = async (userData) => {
                 specialization: userData.specialization,
                 description: userData.description,
                 chatPrivacy: userData.chatPrivacy,
-                onlineVisibility: userData.onlineVisibility,   // 🆕
+                onlineVisibility: userData.onlineVisibility,
             })
         });
 
@@ -99,8 +106,9 @@ export const updateUser = async (userData) => {
         throw error;
     }
 };
+
 // ═══════════════════════════════════════════════════════════
-//  🆕 СМЕНА ПАРОЛЯ
+//  СМЕНА ПАРОЛЯ
 // ═══════════════════════════════════════════════════════════
 
 /**
@@ -126,8 +134,6 @@ export const changePassword = async (dto) => {
             else if (body?.message) message = body.message;
         } catch { /* ignore */ }
 
-        // 401 — обычно «неверный текущий пароль». Прокинем как есть,
-        // чтобы в форме можно было показать понятное сообщение.
         const error = new Error(message);
         error.status = response.status;
         throw error;

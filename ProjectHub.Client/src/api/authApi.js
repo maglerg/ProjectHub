@@ -1,8 +1,12 @@
 // projecthub.client/src/api/authApi.js
+// (или src/services/authApi.js — куда импортирует AuthContext)
 
 import { setToken, getToken, removeToken, setUser, getUser, removeUser } from '../utils/storage';
 
-const API_BASE_URL = 'https://localhost:7000/api';
+// В Docker при сборке REACT_APP_API_URL=/api (относительный путь).
+// Локально без Docker — fallback на http://localhost:3000/api.
+const API_BASE_URL =
+    process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
 // 📌 РЕГИСТРАЦИЯ
 export const register = async (userData) => {
@@ -21,7 +25,6 @@ export const register = async (userData) => {
             throw new Error(data.message || 'Ошибка регистрации');
         }
 
-        // ✅ Сохраняем в localStorage с tabId
         setToken(data.token);
         setUser(data);
 
@@ -49,7 +52,6 @@ export const login = async (email, password) => {
             throw new Error(data.message || 'Ошибка входа');
         }
 
-        // ✅ Сохраняем в localStorage с tabId
         setToken(data.token);
         setUser(data);
 

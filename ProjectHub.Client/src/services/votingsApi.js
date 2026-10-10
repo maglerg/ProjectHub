@@ -2,7 +2,10 @@
 
 import { getToken } from '../utils/storage';
 
-const API_BASE_URL = 'https://localhost:7000/api';
+// В Docker при сборке REACT_APP_API_URL=/api (относительный путь).
+// Локально без Docker — fallback на http://localhost:3000/api.
+const API_BASE_URL =
+    process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
 // 📌 Создать голосование в проекте
 export const createVoting = async (projectCode, votingData) => {

@@ -1,7 +1,12 @@
 // projecthub.client/src/services/projectsApi.js
+
 import { getToken } from '../utils/storage';
 
-const API_BASE_URL = 'https://localhost:7000/api';
+// В Docker при сборке REACT_APP_API_URL=/api (относительный путь).
+// Локально без Docker — fallback на http://localhost:3000/api.
+const API_BASE_URL =
+    process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
+
 // 📌 Добавить/удалить из избранного по публичному коду
 export const toggleFavoriteByCode = async (code) => {
     try {
@@ -26,6 +31,7 @@ export const toggleFavoriteByCode = async (code) => {
         throw error;
     }
 };
+
 // 📌 Изменить роль участника по публичному коду и email
 export const changeMemberRoleByCodeAndEmail = async (projectCode, memberEmail, newRole) => {
     try {
@@ -51,6 +57,7 @@ export const changeMemberRoleByCodeAndEmail = async (projectCode, memberEmail, n
         throw error;
     }
 };
+
 export const getProjectHistory = async (
     projectCode,
     { type, relatedEntityId, skip = 0, take = 50 } = {}
@@ -80,6 +87,7 @@ export const getProjectHistory = async (
 
     return response.json();
 };
+
 // 📌 Получить мои проекты (где пользователь владелец или участник)
 export const fetchMyProjects = async () => {
     try {
@@ -104,6 +112,7 @@ export const fetchMyProjects = async () => {
         throw error;
     }
 };
+
 // 📌 Получить избранные проекты
 export const fetchFavorites = async () => {
     try {
@@ -129,7 +138,6 @@ export const fetchFavorites = async () => {
     }
 };
 
-// 📌 Получить все проекты (с опциональными фильтрами)
 // 📌 Получить все проекты (с опциональными фильтрами)
 export const fetchAllProjects = async (favoritesOnly = false, category = null) => {
     try {
@@ -168,6 +176,7 @@ export const fetchAllProjects = async (favoritesOnly = false, category = null) =
         throw error;
     }
 };
+
 // Архивировать проект (только owner)
 export const archiveProject = async (code) => {
     const token = getToken();
@@ -312,6 +321,7 @@ export const searchMyProjectByCode = async (code) => {
         throw error;
     }
 };
+
 // 📌 Получить участников проекта
 export const fetchProjectMembers = async (projectId) => {
     try {
@@ -335,6 +345,7 @@ export const fetchProjectMembers = async (projectId) => {
         throw error;
     }
 };
+
 // 📌 Создать новый проект
 export const createProject = async (projectData) => {
     try {
@@ -417,6 +428,7 @@ export const updateProject = async (code, projectData) => {
         throw error;
     }
 };
+
 // 📌 Удалить участника из проекта по публичному коду и email
 export const removeMemberFromProject = async (projectCode, memberEmail) => {
     try {
@@ -441,6 +453,7 @@ export const removeMemberFromProject = async (projectCode, memberEmail) => {
         throw error;
     }
 };
+
 // 📌 Удалить проект
 export const deleteProject = async (id) => {
     try {
@@ -463,6 +476,7 @@ export const deleteProject = async (id) => {
         throw error;
     }
 };
+
 // 📌 Покинуть проект (только для участника/админа, не для владельца)
 export const leaveProject = async (code) => {
     try {

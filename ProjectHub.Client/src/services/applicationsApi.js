@@ -1,6 +1,11 @@
 // projecthub.client/src/services/applicationsApi.js
 import { getToken } from '../utils/storage';
-const API_BASE_URL = 'https://localhost:7000/api';
+
+// В Docker при сборке REACT_APP_API_URL=/api (относительный путь).
+// Локально без Docker — fallback на http://localhost:3000/api
+// (или поменяй на http://localhost:8080/api, если фронт запускаешь отдельно).
+const API_BASE_URL =
+    process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
 // 📌 Подать заявку по коду проекта
 export const createApplicationByCode = async (code, message) => {
@@ -81,6 +86,7 @@ export const processApplication = async (applicationId, approve, message) => {
         throw error;
     }
 };
+
 // 📌 Получить заявки проекта по публичному коду
 export const getApplicationsByCode = async (code, status) => {
     try {

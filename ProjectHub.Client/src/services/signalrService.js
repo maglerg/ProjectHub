@@ -3,7 +3,11 @@
 import * as signalR from '@microsoft/signalr';
 import { getToken } from '../utils/storage';
 
-const HUB_URL = 'https://localhost:7000/hubs/chat';
+// В Docker при сборке REACT_APP_HUB_URL=/hubs/chat (относительный путь).
+// Локально без Docker — fallback на /hubs/chat (Nginx/CRA проксирует).
+// SignalR сам подставит ws:// или wss:// в зависимости от протокола страницы.
+const HUB_URL =
+    process.env.REACT_APP_HUB_URL || '/hubs/chat';
 
 /**
  * Singleton-обёртка над SignalR-соединением.
@@ -55,16 +59,12 @@ class SignalRService {
         // ── Реконнект: переподписаться на события ──
         this.connection.onreconnecting((error) => {
             console.warn('🔌 SignalR reconnecting...', error?.message);
-            // Не сбрасываем _registeredHandlers — они остаются в _listeners,
-            // при onreconnected заново зарегистрируем на новом connection.
             this._registeredHandlers.clear();
         });
 
         this.connection.onreconnected((connectionId) => {
             console.log('✅ SignalR reconnected', connectionId);
-            // Перерегистрируем все обработчики
             this._reregisterHandlers();
-            // Уведомляем подписчиков
             this._emitLocal('_reconnected');
         });
 
@@ -86,7 +86,6 @@ class SignalRService {
             return;
         }
 
-        // Если уже идёт старт — ждём его
         if (this._starting) {
             return this._starting;
         }
@@ -130,18 +129,13 @@ class SignalRService {
         }
     }
 
-    /**
-     * Подписаться на серверное событие.
-     * Можно подписываться до connect() — обработчики сохраняются
-     * в _listeners и будут зарегистрированы на connection'е при старте.
-     */
+    /** Подписаться на серверное событие. */
     on(eventName, handler) {
         if (!this._listeners.has(eventName)) {
             this._listeners.set(eventName, new Set());
         }
         this._listeners.get(eventName).add(handler);
 
-        // Если connection уже создан — сразу регистрируем
         const conn = this.connection;
         if (conn && conn.state === signalR.HubConnectionState.Connected) {
             conn.on(eventName, handler);
@@ -162,10 +156,7 @@ class SignalRService {
         }
     }
 
-    /**
-     * Вызвать серверный метод хаба (например, JoinChat).
-     * Безопасно: если не подключены — попробуем подключиться.
-     */
+    /** Вызвать серверный метод хаба (например, JoinChat). */
     async invoke(methodName, ...args) {
         try {
             await this.connect();
@@ -176,15 +167,13 @@ class SignalRService {
         }
     }
 
-    // ── Внутренние хелперы ──
-
     /** Перерегистрирует все накопленные обработчики на текущем connection. */
     _reregisterHandlers() {
         if (!this.connection) return;
 
         for (const [eventName, handlers] of this._listeners) {
             for (const handler of handlers) {
-                this.connection.off(eventName, handler);   // страховка от дублей
+                this.connection.off(eventName, handler);
                 this.connection.on(eventName, handler);
             }
         }

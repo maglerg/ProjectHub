@@ -2,7 +2,10 @@
 
 import { getToken } from '../utils/storage';
 
-const API_BASE_URL = 'https://localhost:7000/api';
+// В Docker при сборке REACT_APP_API_URL=/api (относительный путь).
+// Локально без Docker — fallback на http://localhost:3000/api.
+const API_BASE_URL =
+    process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
 // 📌 Получить статус дружбы/заявки
 export const getFriendStatus = async (email) => {
@@ -34,7 +37,7 @@ export const getFriendStatus = async (email) => {
 export const sendFriendRequest = async (email, message = '') => {
     try {
         const token = getToken();
-        console.log('📤 Отправка заявки:', { email, message });  // ← ДОБАВИТЬ!
+        console.log('📤 Отправка заявки:', { email, message });
 
         const response = await fetch(`${API_BASE_URL}/friendrequests`, {
             method: 'POST',
@@ -45,11 +48,11 @@ export const sendFriendRequest = async (email, message = '') => {
             body: JSON.stringify({ email, message })
         });
 
-        console.log('📥 Статус ответа:', response.status);  // ← ДОБАВИТЬ!
+        console.log('📥 Статус ответа:', response.status);
 
         if (!response.ok) {
             const error = await response.json().catch(() => ({}));
-            console.error('❌ Ошибка ответа:', error);  // ← ДОБАВИТЬ!
+            console.error('❌ Ошибка ответа:', error);
             throw new Error(error.message || 'Ошибка отправки заявки');
         }
 
@@ -110,6 +113,7 @@ export const processFriendRequest = async (requestId, approve) => {
         throw error;
     }
 };
+
 // 📌 Получить входящие заявки в друзья
 export const getIncomingFriendRequests = async () => {
     try {

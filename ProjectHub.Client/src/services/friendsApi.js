@@ -2,7 +2,10 @@
 
 import { getToken } from '../utils/storage';
 
-const API_BASE_URL = 'https://localhost:7000/api';
+// В Docker при сборке REACT_APP_API_URL=/api (относительный путь).
+// Локально без Docker — fallback на http://localhost:3000/api.
+const API_BASE_URL =
+    process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
 // 📌 Получить список друзей
 export const getFriends = async () => {
@@ -29,7 +32,7 @@ export const getFriends = async () => {
     }
 };
 
-// 📌 Добавить друга по email (ТОЛЬКО ОДНА ФУНКЦИЯ!)
+// 📌 Добавить друга по email
 export const addFriend = async (email) => {
     try {
         const token = getToken();
@@ -55,7 +58,7 @@ export const addFriend = async (email) => {
     }
 };
 
-// 📌 Удалить друга (по ID, но ID берется из списка друзей)
+// 📌 Удалить друга
 export const removeFriend = async (friendId) => {
     try {
         const token = getToken();

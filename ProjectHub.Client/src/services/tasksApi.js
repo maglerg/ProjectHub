@@ -1,6 +1,11 @@
+// projecthub.client/src/services/tasksApi.js
+
 import { getToken } from '../utils/storage';
 
-const API_BASE_URL = 'https://localhost:7000/api';
+// В Docker при сборке REACT_APP_API_URL=/api (относительный путь).
+// Локально без Docker — fallback на http://localhost:3000/api.
+const API_BASE_URL =
+    process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
 const authHeaders = () => ({
     'Authorization': `Bearer ${getToken()}`,
@@ -16,6 +21,7 @@ async function handleResponse(resp) {
     if (resp.status === 204) return null;
     return resp.json();
 }
+
 // ═══════════════════════════════════════════════════════════
 //  УПРАВЛЕНИЕ КОЛОНКАМИ
 // ═══════════════════════════════════════════════════════════
@@ -57,6 +63,7 @@ export const reorderColumns = (projectCode, orders) =>
         headers: authHeaders(),
         body: JSON.stringify({ orders })
     }).then(handleResponse);
+
 // ═══════════════════════════════════════════════════════════
 //  ДОСКА И ПРОГРЕСС
 // ═══════════════════════════════════════════════════════════

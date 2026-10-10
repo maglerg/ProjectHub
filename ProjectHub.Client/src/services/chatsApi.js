@@ -2,7 +2,10 @@
 
 import { getToken } from '../utils/storage';
 
-const API_BASE_URL = 'https://localhost:7000/api';
+// В Docker при сборке REACT_APP_API_URL=/api (относительный путь).
+// Локально без Docker — fallback на http://localhost:3000/api.
+const API_BASE_URL =
+    process.env.REACT_APP_API_URL || 'http://localhost:3000/api';
 
 // 📌 Получить список чатов пользователя
 export const getChats = async () => {
@@ -28,6 +31,7 @@ export const getChats = async () => {
         throw error;
     }
 };
+
 // 📌 Получить или создать чат проекта по публичному коду
 export const getProjectChatByCode = async (publicCode) => {
     try {
@@ -53,6 +57,7 @@ export const getProjectChatByCode = async (publicCode) => {
         throw error;
     }
 };
+
 // Отправить файл в чат
 export const sendChatFile = async (chatId, file, caption = null) => {
     try {
@@ -111,6 +116,7 @@ export const downloadChatFile = async (chatId, messageId, fileName) => {
         throw error;
     }
 };
+
 // 📌 Создать или получить личный чат
 export const createPersonalChat = async (email) => {
     try {
