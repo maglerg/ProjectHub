@@ -1,22 +1,23 @@
-// src/utils/urls.js
+// Преобразует относительные адреса загруженных файлов в абсолютные.
+// В Docker клиент и API доступны браузеру через один origin (Nginx: /api и /uploads).
+// Если API размещён на отдельном домене, его origin можно задать через
+// REACT_APP_API_ORIGIN во время сборки frontend.
 
-// В dev фронт на :3000, бэк на :7000.
-// В проде можно переопределить через переменные окружения.
-const API_ORIGIN =
-    (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL)
-        ? import.meta.env.VITE_API_URL
-        : (typeof process !== 'undefined' && process.env?.REACT_APP_API_URL)
-            ? process.env.REACT_APP_API_URL
-            : 'https://localhost:7000';
+const configuredApiUrl = process.env.REACT_APP_API_URL || '/api';
 
-/**
- * Превращает относительный URL из бэкенда в абсолютный.
- *   "/uploads/abc.png"          → "https://localhost:7000/uploads/abc.png"
- *   "https://example.com/x.png" → без изменений
- *   null / "" / undefined       → как есть
- */
+const API_ORIGIN = (
+    process.env.REACT_APP_API_ORIGIN ||
+    (configuredApiUrl.startsWith('http://') || configuredApiUrl.startsWith('https://')
+        ? new URL(configuredApiUrl).origin
+        : window.location.origin)
+).replace(/\/$/, '');
+
 export const toAbsoluteUrl = (url) => {
     if (!url) return url;
-    if (url.startsWith('http://') || url.startsWith('https://')) return url;
+
+    if (/^https?:\/\//i.test(url)) {
+        return url;
+    }
+
     return `${API_ORIGIN}${url.startsWith('/') ? '' : '/'}${url}`;
 };

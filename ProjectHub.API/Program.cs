@@ -1,209 +1,242 @@
 // Program.cs
-using Microsoft.AspNetCore.SignalR;
-using ProjectHub.API.Hubs;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi;
 using ProjectHub.API.Data;
+using ProjectHub.API.Hubs;
 using ProjectHub.API.Models;
 using ProjectHub.API.Services;
 using Serilog;
 using Serilog.Events;
 using System.Text;
 
-var logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "log.txt");
+// В контейнере основной поток логов направляется в stdout (docker logs).
+// Файловый лог оставлен как дополнительный локальный источник.
+var logFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "logs", "log-.txt");
 var logDirectory = Path.GetDirectoryName(logFilePath);
 
-if (!Directory.Exists(logDirectory))
+if (!string.IsNullOrWhiteSpace(logDirectory))
 {
     Directory.CreateDirectory(logDirectory);
 }
 
 Log.Logger = new LoggerConfiguration()
-    .MinimumLevel.Debug()
-    .MinimumLevel.Override("Microsoft", LogEventLevel.Information)
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", LogEventLevel.Warning)
     .Enrich.FromLogContext()
     .WriteTo.Console()
-    .WriteTo.File(logFilePath,
+    .WriteTo.File(
+        logFilePath,
         rollingInterval: RollingInterval.Day,
         retainedFileCountLimit: 7,
-        fileSizeLimitBytes: 10485760,
+        fileSizeLimitBytes: 10 * 1024 * 1024,
         rollOnFileSizeLimit: true)
     .CreateLogger();
 
-Log.Information("=== СЕРВЕР ЗАПУСКАЕТСЯ ===");
-
-var builder = WebApplication.CreateBuilder(args);
-
-// CORS
-builder.Services.AddCors(options =>
+try
 {
-    options.AddPolicy("AllowReactApp",
-        builder => builder
-            .WithOrigins("http://localhost:3000")
+    Log.Information("=== ProjectHub API starting ===");
+
+    var builder = WebApplication.CreateBuilder(args);
+    builder.Host.UseSerilog();
+
+    // В Docker frontend обращается к API через Nginx по тому же origin.
+    // Эти origins нужны для локальной разработки, когда React и API запущены отдельно.
+    var allowedOrigins = builder.Configuration
+        .GetSection("Cors:AllowedOrigins")
+        .Get<string[]>();
+
+    if (allowedOrigins is null || allowedOrigins.Length == 0)
+    {
+        allowedOrigins =
+        [
+            "http://localhost:3000",
+            "https://localhost:3000"
+        ];
+    }
+
+    builder.Services.AddCors(options =>
+    {
+        options.AddPolicy("AllowReactApp", policy => policy
+            .WithOrigins(allowedOrigins)
             .AllowAnyHeader()
             .AllowAnyMethod()
             .AllowCredentials());
-});
-
-// Entity Framework
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
-
-builder.Host.UseSerilog();
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-builder.Logging.AddDebug();
-
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.Converters.Add(
-            new System.Text.Json.Serialization.JsonStringEnumConverter()
-        );
-    });
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen(c =>
-{
-    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
-    {
-        Name = "Authorization",
-        Type = SecuritySchemeType.Http,
-        Scheme = "Bearer",
-        BearerFormat = "JWT",
-        In = ParameterLocation.Header,
-        Description = "Введите JWT токен: Bearer {токен}"
     });
 
-    c.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+    // Database
+    var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+    if (string.IsNullOrWhiteSpace(connectionString))
     {
-        [new OpenApiSecuritySchemeReference("Bearer", document)] = []
-    });
-});
+        throw new InvalidOperationException(
+            "ConnectionStrings:DefaultConnection is not configured.");
+    }
 
-// Регистрируем сервисы
-builder.Services.AddScoped<IAuthService, AuthService>();
-builder.Services.AddScoped<IUserService, UserService>();
-builder.Services.AddScoped<ITokenService, TokenService>();
-builder.Services.AddScoped<CodeGeneratorService>();
-builder.Services.AddScoped<ProjectsService>();
-builder.Services.AddScoped<ApplicationService>();
-builder.Services.AddScoped<NotificationService>();
-builder.Services.AddScoped<FriendService>();
-builder.Services.AddScoped<FriendRequestService>();
-builder.Services.AddScoped<InvitationService>();
-builder.Services.AddScoped<ChatService>();
-builder.Services.AddScoped<VotingsService>();
-builder.Services.AddScoped<TaskService>();
-builder.Services.AddSingleton<FileStorageService>();
-builder.Services.AddScoped<ActivityService>();
-builder.Services.AddScoped<ProjectHistoryService>();
-builder.Services.AddScoped<NoteService>();
-builder.Services.AddScoped<ProjectTagsService>();
-builder.Services.AddScoped<IPresenceService, PresenceService>();
-builder.Services.AddSignalR(options =>
-{
-    options.EnableDetailedErrors = builder.Environment.IsDevelopment();
-    options.KeepAliveInterval = TimeSpan.FromSeconds(15);
-    options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
-});
+    builder.Services.AddDbContext<AppDbContext>(options =>
+        options.UseNpgsql(connectionString));
 
-// Singleton — трекер онлайн-присутствия
-builder.Services.AddSingleton<PresenceTracker>();
-builder.Services.AddHostedService<DeadlineNotificationWorker>();
-// JWT Authentication
-var jwtSecret = builder.Configuration["Jwt:Secret"] ?? "your-super-secret-key-min-32-characters-long!";
-var key = Encoding.ASCII.GetBytes(jwtSecret);
-
-builder.Services.AddAuthentication(x =>
-{
-    x.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
-    x.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
-})
-.AddJwtBearer(x =>
-{
-    x.RequireHttpsMetadata = false;
-    x.SaveToken = true;
-    x.TokenValidationParameters = new TokenValidationParameters
-    {
-        ValidateIssuerSigningKey = true,
-        IssuerSigningKey = new SymmetricSecurityKey(key),
-        ValidateIssuer = false,
-        ValidateAudience = false,
-        ValidateLifetime = true,
-        ClockSkew = TimeSpan.Zero
-    };
-
-    // 🆕 Читаем токен из query string для SignalR-хаба
-    x.Events = new JwtBearerEvents
-    {
-        OnMessageReceived = context =>
+    builder.Services.AddControllers()
+        .AddJsonOptions(options =>
         {
-            var accessToken = context.Request.Query["access_token"];
-            var path = context.HttpContext.Request.Path;
+            options.JsonSerializerOptions.Converters.Add(
+                new System.Text.Json.Serialization.JsonStringEnumConverter());
+        });
 
-            if (!string.IsNullOrEmpty(accessToken)
-                && path.StartsWithSegments("/hubs/chat"))
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddSwaggerGen(options =>
+    {
+        options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        {
+            Name = "Authorization",
+            Type = SecuritySchemeType.Http,
+            Scheme = "Bearer",
+            BearerFormat = "JWT",
+            In = ParameterLocation.Header,
+            Description = "Введите JWT токен: Bearer {токен}"
+        });
+
+        options.AddSecurityRequirement(document => new OpenApiSecurityRequirement
+        {
+            [new OpenApiSecuritySchemeReference("Bearer", document)] = []
+        });
+    });
+
+    // Application services
+    builder.Services.AddScoped<IAuthService, AuthService>();
+    builder.Services.AddScoped<IUserService, UserService>();
+    builder.Services.AddScoped<ITokenService, TokenService>();
+    builder.Services.AddScoped<CodeGeneratorService>();
+    builder.Services.AddScoped<ProjectsService>();
+    builder.Services.AddScoped<ApplicationService>();
+    builder.Services.AddScoped<NotificationService>();
+    builder.Services.AddScoped<FriendService>();
+    builder.Services.AddScoped<FriendRequestService>();
+    builder.Services.AddScoped<InvitationService>();
+    builder.Services.AddScoped<ChatService>();
+    builder.Services.AddScoped<VotingsService>();
+    builder.Services.AddScoped<TaskService>();
+    builder.Services.AddSingleton<FileStorageService>();
+    builder.Services.AddScoped<ActivityService>();
+    builder.Services.AddScoped<ProjectHistoryService>();
+    builder.Services.AddScoped<NoteService>();
+    builder.Services.AddScoped<ProjectTagsService>();
+    builder.Services.AddScoped<IPresenceService, PresenceService>();
+
+    builder.Services.AddSignalR(options =>
+    {
+        options.EnableDetailedErrors = builder.Environment.IsDevelopment();
+        options.KeepAliveInterval = TimeSpan.FromSeconds(15);
+        options.ClientTimeoutInterval = TimeSpan.FromSeconds(30);
+    });
+
+    builder.Services.AddSingleton<PresenceTracker>();
+    builder.Services.AddHostedService<DeadlineNotificationWorker>();
+
+    // JWT secret обязателен: никаких небезопасных значений по умолчанию.
+    var jwtSecret = builder.Configuration["Jwt:Secret"];
+    if (string.IsNullOrWhiteSpace(jwtSecret) || Encoding.UTF8.GetByteCount(jwtSecret) < 32)
+    {
+        throw new InvalidOperationException(
+            "Jwt:Secret must be configured and contain at least 32 bytes.");
+    }
+
+    var jwtKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtSecret));
+
+    builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.RequireHttpsMetadata = true;
+        options.SaveToken = true;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = jwtKey,
+            ValidateIssuer = false,
+            ValidateAudience = false,
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+
+        // SignalR передаёт JWT в query string при WebSocket-подключении.
+        options.Events = new JwtBearerEvents
+        {
+            OnMessageReceived = context =>
             {
-                context.Token = accessToken;
+                var accessToken = context.Request.Query["access_token"];
+                var requestPath = context.HttpContext.Request.Path;
+
+                if (!string.IsNullOrEmpty(accessToken) &&
+                    requestPath.StartsWithSegments("/hubs/chat"))
+                {
+                    context.Token = accessToken;
+                }
+
+                return Task.CompletedTask;
             }
-            return Task.CompletedTask;
+        };
+    });
+
+    builder.Services.AddAuthorization();
+
+    var app = builder.Build();
+
+    // Миграции выполняются при старте. Если БД недоступна или миграция не прошла,
+    // контейнер должен завершиться с ошибкой, а не запускать неработающий API.
+    await using (var scope = app.Services.CreateAsyncScope())
+    {
+        var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await dbContext.Database.MigrateAsync();
+        Log.Information("Database connection and migrations completed successfully.");
+    }
+
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseSwagger();
+        app.UseSwaggerUI();
+    }
+
+    // TLS завершается на внешнем reverse proxy (Caddy/Nginx).
+    // Внутри Docker-сети Nginx обращается к Kestrel по HTTP.
+    app.UseCors("AllowReactApp");
+
+    var uploadsPath = Path.Combine(
+        app.Environment.ContentRootPath,
+        "App_Data",
+        "uploads");
+
+    Directory.CreateDirectory(uploadsPath);
+
+    app.UseStaticFiles(new StaticFileOptions
+    {
+        FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
+        RequestPath = "/uploads",
+        OnPrepareResponse = context =>
+        {
+            context.Context.Response.Headers["Cache-Control"] = "public,max-age=604800";
         }
-    };
-});
+    });
 
-builder.Services.AddAuthorization();
+    app.UseStaticFiles();
+    app.UseAuthentication();
+    app.UseAuthorization();
 
-var app = builder.Build();
+    app.MapControllers();
+    app.MapHub<ChatHub>("/hubs/chat");
 
-// Проверка БД
-using (var scope = app.Services.CreateScope())
-{
-    var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
-    try
-    {
-        dbContext.Database.Migrate();
-        Log.Information("✅ База данных подключена");
-    }
-    catch (Exception ex)
-    {
-        Log.Error($"❌ Ошибка подключения к БД: {ex.Message}");
-    }
+    Log.Information("ProjectHub API started. Environment: {Environment}", app.Environment.EnvironmentName);
+    await app.RunAsync();
 }
-
-if (app.Environment.IsDevelopment())
+catch (Exception exception)
 {
-    app.UseSwagger();
-    app.UseSwaggerUI();
+    Log.Fatal(exception, "ProjectHub API terminated unexpectedly");
+    throw;
 }
-
-app.UseHttpsRedirection();
-app.UseCors("AllowReactApp");
-// 🆕 Раздача /uploads из App_Data/uploads
-var uploadsPath = Path.Combine(
-    app.Environment.ContentRootPath, "App_Data", "uploads");
-Directory.CreateDirectory(uploadsPath);
-
-app.UseStaticFiles(new StaticFileOptions
+finally
 {
-    FileProvider = new Microsoft.Extensions.FileProviders.PhysicalFileProvider(uploadsPath),
-    RequestPath = "/uploads",
-    OnPrepareResponse = ctx =>
-    {
-        // Кэшируем картинки на 7 дней — они редко меняются
-        ctx.Context.Response.Headers["Cache-Control"] = "public,max-age=604800";
-    }
-});
-
-// Существующая раздача wwwroot (оставляем как есть, но без блокировки App_Data —
-// теперь до неё запросы /uploads не доходят вовсе)
-app.UseStaticFiles();
-app.UseAuthentication();
-app.UseAuthorization();
-app.MapControllers();
-app.MapHub<ChatHub>("/hubs/chat");
-
-Log.Information("Сервер запущен на https://localhost:7000");
-Log.Information("Swagger: https://localhost:7000/swagger");
-app.Run();
+    Log.CloseAndFlush();
+}

@@ -1,0 +1,34 @@
+PROJECTHUB — ФАЙЛЫ ДЛЯ ЗАМЕНЫ
+
+Распакуй архив в корень существующего проекта ProjectHub, сохраняя структуру папок,
+и согласись на замену файлов:
+
+- docker-compose.yml
+- .env.example
+- ProjectHub.API/Program.cs
+- ProjectHub.API/Dockerfile
+- ProjectHub.API/.dockerignore
+- ProjectHub.Client/Dockerfile
+- ProjectHub.Client/.dockerignore
+- ProjectHub.Client/nginx.conf
+- ProjectHub.Client/src/utils/urls.js
+
+После замены:
+1. Создай .env на основе .env.example.
+2. В .env задай новый DB_PASSWORD и JWT_SECRET (JWT_SECRET не короче 32 байт).
+3. Не публикуй .env и не отправляй его в Docker Hub.
+4. В PowerShell из корня проекта выполни:
+
+   docker compose config
+   docker compose build
+   docker compose up -d
+   docker compose ps
+   docker compose logs -f api
+
+Frontend будет доступен на http://localhost:3000.
+PostgreSQL и API не публикуют порты на хост: frontend Nginx обращается к ним
+по внутренней Docker-сети. На VPS внешний Caddy/Nginx должен проксировать на
+127.0.0.1:3000.
+
+После успешного запуска можно тегировать и отправлять projecthub-api:1.0.0
+и projecthub-client:1.0.0 в Docker Hub.

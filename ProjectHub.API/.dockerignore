@@ -1,45 +1,20 @@
-# ═══════════════════════════════════════════════════════════
-#  Исключения для Docker build
-#  Всё, что здесь перечислено, НЕ попадает в образ
-# ═══════════════════════════════════════════════════════════
-
-# ─── .NET build artifacts ───
-bin/
-obj/
-*.user
-*.suo
+**/bin/
+**/obj/
 .vs/
-
-# ─── Секреты ───
-appsettings.Development.json
-appsettings.Local.json
-appsettings.Production.json
+.idea/
+.vscode/
+.git/
 .env
 .env.*
 !.env.example
+appsettings.Development.json
+appsettings.Local.json
+appsettings.Production.json
 secrets.json
-
-# ─── Загруженные файлы ───
 App_Data/uploads/
-
-# ─── Git ───
-.git/
-.gitignore
-.gitattributes
-
-# ─── IDE ───
-.idea/
-.vscode/
-
-# ─── Логи ───
 logs/
 *.log
-
-# ─── OS ───
+*.user
+*.suo
 .DS_Store
 Thumbs.db
-
-# ─── Docker ───
-Dockerfile
-.dockerignore
-docker-compose*.yml
